@@ -1,29 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
-
-const LayoutContainer = styled.div`
-  min-height: 100vh;
-  background-color: #f5f5f5;
-`;
-
-const Header = styled.header`
-  background-color: #2c3e50;
-  color: white;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-`;
-
-const Title = styled.h1`
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-`;
-
-const Main = styled.main`
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-`;
+import { Box, Heading, Container } from '@chakra-ui/react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,12 +8,16 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, title = "Laboratorio Celular POS" }) => {
   return (
-    <LayoutContainer>
-      <Header>
-        <Title>{title}</Title>
-      </Header>
-      <Main>{children}</Main>
-    </LayoutContainer>
+    <Box minH="100vh" bg="gray.50">
+      <Box bg="dark.400" color="white" py={4} px={8} shadow="md">
+        <Heading size="lg" fontWeight="semibold" m={0}>
+          {title}
+        </Heading>
+      </Box>
+      <Container maxW="1200px" py={8}>
+        {children}
+      </Container>
+    </Box>
   );
 };
 
