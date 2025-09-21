@@ -92,12 +92,84 @@ A React webapp with Node.js API and MongoDB for cellphone inventory management.
    npm install
    ```
 
-3. Start the development server:
+3. Create `.env` file (copy from `.env.example`):
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Update frontend API URL in `.env` if needed:
+   ```
+   REACT_APP_API_URL=http://localhost:5000/api
+   ```
+
+5. Start the development server:
    ```bash
    npm start
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Environment Configuration
+
+Both backend and frontend applications use environment variables for configuration. This makes it easy to maintain different settings for development, production, and other environments.
+
+### Backend Environment Variables
+
+The backend uses the following environment variables (see `backend/.env.example`):
+
+- `MONGODB_URI` - MongoDB connection string
+- `PORT` - Server port (default: 5000)
+- `NODE_ENV` - Environment mode (development/production)
+- `FRONTEND_URL` - Frontend URL for CORS configuration
+- `JWT_SECRET` - JWT secret key (optional, for future authentication)
+
+### Frontend Environment Variables
+
+The frontend uses the following environment variables (see `frontend/.env.example`):
+
+- `REACT_APP_API_URL` - Backend API base URL
+- `REACT_APP_APP_NAME` - Application name
+- `REACT_APP_ENV` - Environment mode
+- `REACT_APP_API_TIMEOUT` - API request timeout in milliseconds
+
+### Environment Setup Examples
+
+#### Quick Setup (Recommended)
+Use the provided setup script:
+```bash
+# For development (default)
+./setup-env.sh development
+
+# For Docker
+./setup-env.sh docker
+
+# For production
+./setup-env.sh production
+```
+
+#### Manual Setup
+
+#### For Local Development
+Use the default `.env` files provided.
+
+#### For Docker Development
+Use the `.env.docker` files:
+```bash
+# Backend
+cp backend/.env.docker backend/.env
+# Frontend  
+cp frontend/.env.docker frontend/.env
+```
+
+#### For Production
+Use the `.env.production` files as templates:
+```bash
+# Backend
+cp backend/.env.production backend/.env
+# Frontend
+cp frontend/.env.production frontend/.env
+```
+Then update the URLs and credentials as needed.
 
 ## API Endpoints
 
