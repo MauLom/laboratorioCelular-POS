@@ -126,7 +126,6 @@ const InventoryPage: React.FC = () => {
         <Box bg="white" p={4} rounded="lg" shadow="sm">
           <HStack gap={4} wrap="wrap">
             <Select
-              placeholder="Todos los Estados"
               value={filters.state}
               onChange={(e: any) => setFilters({ ...filters, state: e.target.value })}
               maxW="200px"
@@ -146,7 +145,6 @@ const InventoryPage: React.FC = () => {
             </Select>
             
             <Select
-              placeholder="Todas las Sucursales"
               value={filters.branch}
               onChange={(e: any) => setFilters({ ...filters, branch: e.target.value })}
               maxW="200px"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   VStack,
   SimpleGrid,
@@ -132,15 +133,16 @@ const DashboardPage: React.FC = () => {
             <Text color="gray.600" mb={6}>
               Agregar, editar y gestionar su inventario de celulares con diferentes estados y seguimiento.
             </Text>
-            <Button
-              as="a"
-              href="/inventory"
-              colorScheme="blue"
-              size="lg"
-              fontWeight="semibold"
-            >
-              Gestionar Inventario
-            </Button>
+            <RouterLink to="/inventory" style={{ textDecoration: 'none' }}>
+              <Button
+                colorScheme="blue"
+                size="lg"
+                fontWeight="semibold"
+                width="100%"
+              >
+                Gestionar Inventario
+              </Button>
+            </RouterLink>
           </Box>
 
           <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
@@ -150,15 +152,16 @@ const DashboardPage: React.FC = () => {
             <Text color="gray.600" mb={6}>
               Registrar transacciones de venta con información detallada y seguimiento de pagos.
             </Text>
-            <Button
-              as="a"
-              href="/sales"
-              colorScheme="green"
-              size="lg"
-              fontWeight="semibold"
-            >
-              Registrar Ventas
-            </Button>
+            <RouterLink to="/sales" style={{ textDecoration: 'none' }}>
+              <Button
+                colorScheme="green"
+                size="lg"
+                fontWeight="semibold"
+                width="100%"
+              >
+                Registrar Ventas
+              </Button>
+            </RouterLink>
           </Box>
         </SimpleGrid>
 
