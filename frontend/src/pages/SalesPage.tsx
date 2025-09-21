@@ -1,140 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import styled from 'styled-components';
+import {
+  VStack,
+  HStack,
+  Box,
+  Heading,
+  Button,
+  Text,
+  chakra,
+} from '@chakra-ui/react';
 import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import SalesForm from '../components/sales/SalesForm';
 import { salesApi } from '../services/api';
 import { Sale, PaginatedResponse } from '../types';
 
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #2c3e50;
-`;
-
-const Button = styled.button`
-  background-color: #27ae60;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #229954;
-  }
-`;
-
-const Table = styled.table`
-  width: 100%;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  border-collapse: collapse;
-`;
-
-const TableHeader = styled.thead`
-  background-color: #27ae60;
-  color: white;
-`;
-
-const TableRow = styled.tr`
-  &:nth-child(even) {
-    background-color: #f8f9fa;
-  }
-  
-  &:hover {
-    background-color: #e9ecef;
-  }
-`;
-
-const TableHeaderCell = styled.th`
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
-`;
-
-const TableCell = styled.td`
-  padding: 1rem;
-  border-top: 1px solid #dee2e6;
-`;
-
-const Modal = styled.div<{ isOpen: boolean }>`
-  display: ${({ isOpen }) => isOpen ? 'flex' : 'none'};
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-`;
-
-const CloseButton = styled.button`
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #6c757d;
-  
-  &:hover {
-    color: #343a40;
-  }
-`;
-
-const EmptyState = styled.div`
-  padding: 3rem;
-  text-align: center;
-  color: #6c757d;
-  font-size: 1.1rem;
-`;
-
-const FilterContainer = styled.div`
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-`;
-
-const Select = styled.select`
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-`;
+// Use native HTML elements with Chakra styling
+const Select = chakra('select');
+const Table = chakra('table');
+const Thead = chakra('thead');
+const Tbody = chakra('tbody');
+const Tr = chakra('tr');
+const Th = chakra('th');
+const Td = chakra('td');
 
 const SalesPage: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -199,12 +86,16 @@ const SalesPage: React.FC = () => {
     return (
       <Layout title="Gestión de Ventas">
         <Navigation />
-        <Container>
-          <Header>
-            <Title>Registros de Ventas</Title>
-          </Header>
-          <EmptyState>Cargando ventas...</EmptyState>
-        </Container>
+        <VStack gap={6} align="stretch">
+          <Box bg="white" p={6} rounded="lg" shadow="md">
+            <Heading size="lg" color="dark.400">
+              Registros de Ventas
+            </Heading>
+          </Box>
+          <Box bg="white" p={12} rounded="lg" shadow="md" textAlign="center">
+            <Text fontSize="lg" color="gray.500">Cargando ventas...</Text>
+          </Box>
+        </VStack>
       </Layout>
     );
   }
@@ -212,98 +103,159 @@ const SalesPage: React.FC = () => {
   return (
     <Layout title="Gestión de Ventas">
       <Navigation />
-      <Container>
-        <Header>
-          <Title>Registros de Ventas</Title>
-          <Button onClick={() => setShowForm(true)}>Registrar Nueva Venta</Button>
-        </Header>
+      <VStack gap={6} align="stretch">
+        {/* Header */}
+        <Box bg="white" p={6} rounded="lg" shadow="md">
+          <HStack justify="space-between" align="center">
+            <Heading size="lg" color="dark.400">
+              Registros de Ventas
+            </Heading>
+            <Button colorScheme="green" onClick={() => setShowForm(true)}>
+              Registrar Nueva Venta
+            </Button>
+          </HStack>
+        </Box>
 
-        <FilterContainer>
-          <Select
-            value={filters.description}
-            onChange={(e) => setFilters({ ...filters, description: e.target.value })}
+        {/* Filters */}
+        <Box bg="white" p={4} rounded="lg" shadow="sm">
+          <HStack gap={4} wrap="wrap">
+            <Select
+              value={filters.description}
+              onChange={(e: any) => setFilters({ ...filters, description: e.target.value })}
+              maxW="200px"
+              p={2}
+              border="1px solid"
+              borderColor="gray.300"
+              rounded="md"
+              bg="white"
+            >
+              <option value="">Todas las Descripciones</option>
+              <option value="Fair">Justo</option>
+              <option value="Payment">Pago</option>
+              <option value="Sale">Venta</option>
+              <option value="Deposit">Depósito</option>
+            </Select>
+            
+            <Select
+              value={filters.finance}
+              onChange={(e: any) => setFilters({ ...filters, finance: e.target.value })}
+              maxW="250px"
+              p={2}
+              border="1px solid"
+              borderColor="gray.300"
+              rounded="md"
+              bg="white"
+            >
+              <option value="">Todos los Tipos de Financiamiento</option>
+              <option value="Payjoy">Payjoy</option>
+              <option value="Lespago">Lespago</option>
+              <option value="Repair">Reparación</option>
+              <option value="Accessory">Accesorio</option>
+              <option value="Cash">Efectivo</option>
+              <option value="Other">Otro</option>
+            </Select>
+          </HStack>
+        </Box>
+
+        {/* Sales Table */}
+        <Box bg="white" rounded="lg" shadow="md" overflow="hidden">
+          <Table w="100%" borderCollapse="collapse">
+            <Thead bg="green.500">
+              <Tr>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Fecha</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Descripción</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Financiamiento</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Concepto</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">IMEI</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Monto</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Cliente</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Acciones</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {sales.length === 0 ? (
+                <Tr>
+                  <Td colSpan={8}>
+                    <Box py={12} textAlign="center">
+                      <Text fontSize="lg" color="gray.500">
+                        No se encontraron registros de ventas
+                      </Text>
+                    </Box>
+                  </Td>
+                </Tr>
+              ) : (
+                sales.map((sale) => (
+                  <Tr key={sale._id} _hover={{ bg: "gray.50" }} _even={{ bg: "gray.50" }}>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
+                      {sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : '-'}
+                    </Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.description}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.finance}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.concept}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.imei || '-'}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold">${sale.amount.toFixed(2)}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.customerName || '-'}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
+                      <Button
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() => sale._id && handleDeleteSale(sale._id)}
+                      >
+                        Eliminar
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))
+              )}
+            </Tbody>
+          </Table>
+        </Box>
+
+        {/* Simple Modal for Add Form */}
+        {showForm && (
+          <Box
+            position="fixed"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bg="rgba(0, 0, 0, 0.5)"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            zIndex="1000"
           >
-            <option value="">Todas las Descripciones</option>
-            <option value="Fair">Justo</option>
-            <option value="Payment">Pago</option>
-            <option value="Sale">Venta</option>
-            <option value="Deposit">Depósito</option>
-          </Select>
-          
-          <Select
-            value={filters.finance}
-            onChange={(e) => setFilters({ ...filters, finance: e.target.value })}
-          >
-            <option value="">Todos los Tipos de Financiamiento</option>
-            <option value="Payjoy">Payjoy</option>
-            <option value="Lespago">Lespago</option>
-            <option value="Repair">Reparación</option>
-            <option value="Accessory">Accesorio</option>
-            <option value="Cash">Efectivo</option>
-            <option value="Other">Otro</option>
-          </Select>
-        </FilterContainer>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHeaderCell>Fecha</TableHeaderCell>
-              <TableHeaderCell>Descripción</TableHeaderCell>
-              <TableHeaderCell>Financiamiento</TableHeaderCell>
-              <TableHeaderCell>Concepto</TableHeaderCell>
-              <TableHeaderCell>IMEI</TableHeaderCell>
-              <TableHeaderCell>Monto</TableHeaderCell>
-              <TableHeaderCell>Cliente</TableHeaderCell>
-              <TableHeaderCell>Acciones</TableHeaderCell>
-            </TableRow>
-          </TableHeader>
-          <tbody>
-            {sales.length === 0 ? (
-              <tr>
-                <td colSpan={8}>
-                  <EmptyState>No se encontraron registros de ventas</EmptyState>
-                </td>
-              </tr>
-            ) : (
-              sales.map((sale) => (
-                <TableRow key={sale._id}>
-                  <TableCell>
-                    {sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>{sale.description}</TableCell>
-                  <TableCell>{sale.finance}</TableCell>
-                  <TableCell>{sale.concept}</TableCell>
-                  <TableCell>{sale.imei || '-'}</TableCell>
-                  <TableCell>${sale.amount.toFixed(2)}</TableCell>
-                  <TableCell>{sale.customerName || '-'}</TableCell>
-                  <TableCell>
-                    <Button
-                      onClick={() => sale._id && handleDeleteSale(sale._id)}
-                      style={{ 
-                        backgroundColor: '#e74c3c', 
-                        fontSize: '0.875rem',
-                        padding: '0.5rem 1rem'
-                      }}
-                    >
-                      Eliminar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </tbody>
-        </Table>
-
-        <Modal isOpen={showForm}>
-          <ModalContent>
-            <CloseButton onClick={closeForm}>&times;</CloseButton>
-            <SalesForm
-              onSubmit={handleAddSale}
-              isLoading={formLoading}
-            />
-          </ModalContent>
-        </Modal>
-      </Container>
+            <Box
+              bg="white"
+              p={6}
+              rounded="lg"
+              maxW="90vw"
+              maxH="90vh"
+              overflowY="auto"
+              position="relative"
+              shadow="xl"
+            >
+              <Button
+                position="absolute"
+                top={4}
+                right={4}
+                variant="ghost"
+                onClick={closeForm}
+                fontSize="xl"
+                p={1}
+                minW="auto"
+                h="auto"
+              >
+                ×
+              </Button>
+              <SalesForm
+                onSubmit={handleAddSale}
+                isLoading={formLoading}
+              />
+            </Box>
+          </Box>
+        )}
+      </VStack>
     </Layout>
   );
 };
