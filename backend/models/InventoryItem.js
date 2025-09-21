@@ -13,10 +13,10 @@ const inventoryItemSchema = new mongoose.Schema({
     enum: ['New', 'Repair', 'Repaired', 'Sold', 'Lost', 'Clearance'],
     default: 'New'
   },
-  branch: {
-    type: String,
-    required: true,
-    trim: true
+  franchiseLocation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FranchiseLocation',
+    required: true
   },
   hiddenDetails: {
     type: mongoose.Schema.Types.Mixed,
@@ -46,6 +46,18 @@ const inventoryItemSchema = new mongoose.Schema({
 // Indexes for better performance
 inventoryItemSchema.index({ imei: 1 });
 inventoryItemSchema.index({ state: 1 });
-inventoryItemSchema.index({ branch: 1 });
+inventoryItemSchema.index({ franchiseLocation: 1 });
+
+// Virtual field for backward compatibility
+inventoryItemSchema.virtual('branch').get(function() {
+  if (this.franchiseLocation && typeof this.franchiseLocation === 'object' && this.franchiseLocation.name) {
+    return this.franchiseLocation.name;
+  }
+  return null;
+});
+
+// Ensure virtual fields are serialized
+inventoryItemSchema.set('toJSON', { virtuals: true });
+inventoryItemSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('InventoryItem', inventoryItemSchema);
