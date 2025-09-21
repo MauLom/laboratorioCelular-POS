@@ -139,7 +139,7 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <Layout title="Dashboard">
+    <Layout title="Panel de Control">
       <Navigation />
       <Container>
         <StatsGrid>
@@ -147,38 +147,38 @@ const DashboardPage: React.FC = () => {
             <>
               <LoadingCard>
                 <StatValue>-</StatValue>
-                <StatLabel>Loading...</StatLabel>
+                <StatLabel>Cargando...</StatLabel>
               </LoadingCard>
               <LoadingCard>
                 <StatValue>-</StatValue>
-                <StatLabel>Loading...</StatLabel>
+                <StatLabel>Cargando...</StatLabel>
               </LoadingCard>
               <LoadingCard>
                 <StatValue>-</StatValue>
-                <StatLabel>Loading...</StatLabel>
+                <StatLabel>Cargando...</StatLabel>
               </LoadingCard>
               <LoadingCard>
                 <StatValue>-</StatValue>
-                <StatLabel>Loading...</StatLabel>
+                <StatLabel>Cargando...</StatLabel>
               </LoadingCard>
             </>
           ) : (
             <>
               <StatCard>
                 <StatValue>{getTotalInventoryItems()}</StatValue>
-                <StatLabel>Total Items</StatLabel>
+                <StatLabel>Total de Artículos</StatLabel>
               </StatCard>
               <StatCard>
                 <StatValue>{getAvailableItems()}</StatValue>
-                <StatLabel>Available Items</StatLabel>
+                <StatLabel>Artículos Disponibles</StatLabel>
               </StatCard>
               <StatCard>
                 <StatValue>{salesStats?.descriptionStats?.length || 0}</StatValue>
-                <StatLabel>Total Sales</StatLabel>
+                <StatLabel>Total de Ventas</StatLabel>
               </StatCard>
               <StatCard>
                 <StatValue>${getTotalSalesAmount().toFixed(2)}</StatValue>
-                <StatLabel>Sales Revenue</StatLabel>
+                <StatLabel>Ingresos por Ventas</StatLabel>
               </StatCard>
             </>
           )}
@@ -186,21 +186,21 @@ const DashboardPage: React.FC = () => {
 
         <QuickActions>
           <ActionCard>
-            <ActionTitle>Inventory Management</ActionTitle>
-            <p>Add, edit, and manage your cellphone inventory with different states and tracking.</p>
-            <ActionButton to="/inventory">Manage Inventory</ActionButton>
+            <ActionTitle>Gestión de Inventario</ActionTitle>
+            <p>Agregar, editar y gestionar su inventario de celulares con diferentes estados y seguimiento.</p>
+            <ActionButton to="/inventory">Gestionar Inventario</ActionButton>
           </ActionCard>
 
           <ActionCard>
-            <ActionTitle>Sales Management</ActionTitle>
-            <p>Record sales transactions with detailed information and payment tracking.</p>
-            <SalesActionButton to="/sales">Record Sales</SalesActionButton>
+            <ActionTitle>Gestión de Ventas</ActionTitle>
+            <p>Registrar transacciones de venta con información detallada y seguimiento de pagos.</p>
+            <SalesActionButton to="/sales">Registrar Ventas</SalesActionButton>
           </ActionCard>
         </QuickActions>
 
         {inventoryStats && (
           <StatCard>
-            <h3>Inventory by State</h3>
+            <h3>Inventario por Estado</h3>
             <div style={{ textAlign: 'left' }}>
               {inventoryStats.stateStats.map(stat => (
                 <div key={stat._id} style={{ 

@@ -108,12 +108,12 @@ interface InventoryFormData {
 }
 
 const schema = yup.object().shape({
-  imei: yup.string().required('IMEI is required').min(10, 'IMEI must be at least 10 characters'),
-  state: yup.string().required('State is required'),
-  branch: yup.string().required('Branch is required'),
+  imei: yup.string().required('El IMEI es requerido').min(10, 'El IMEI debe tener al menos 10 caracteres'),
+  state: yup.string().required('El estado es requerido'),
+  branch: yup.string().required('La sucursal es requerida'),
   model: yup.string().optional(),
   brand: yup.string().optional(),
-  price: yup.number().optional().min(0, 'Price must be positive'),
+  price: yup.number().optional().min(0, 'El precio debe ser positivo'),
   notes: yup.string().optional(),
 });
 
@@ -161,20 +161,20 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="state">State *</Label>
+        <Label htmlFor="state">Estado *</Label>
         <Select id="state" {...register('state')} disabled={isLoading}>
-          <option value="New">New</option>
-          <option value="Repair">Repair</option>
-          <option value="Repaired">Repaired</option>
-          <option value="Sold">Sold</option>
-          <option value="Lost">Lost</option>
-          <option value="Clearance">Clearance</option>
+          <option value="New">Nuevo</option>
+          <option value="Repair">En Reparación</option>
+          <option value="Repaired">Reparado</option>
+          <option value="Sold">Vendido</option>
+          <option value="Lost">Perdido</option>
+          <option value="Clearance">Liquidación</option>
         </Select>
         {errors.state && <ErrorMessage>{errors.state.message}</ErrorMessage>}
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="branch">Branch *</Label>
+        <Label htmlFor="branch">Sucursal *</Label>
         <Input
           id="branch"
           type="text"
@@ -185,7 +185,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="model">Model</Label>
+        <Label htmlFor="model">Modelo</Label>
         <Input
           id="model"
           type="text"
@@ -195,7 +195,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="brand">Brand</Label>
+        <Label htmlFor="brand">Marca</Label>
         <Input
           id="brand"
           type="text"
@@ -205,7 +205,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="price">Price</Label>
+        <Label htmlFor="price">Precio</Label>
         <Input
           id="price"
           type="number"
@@ -218,7 +218,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes">Notas</Label>
         <TextArea
           id="notes"
           {...register('notes')}
@@ -227,7 +227,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <Button type="submit" disabled={isLoading}>
-        {isLoading ? 'Saving...' : isEditing ? 'Update Item' : 'Add Item'}
+        {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Artículo' : 'Agregar Artículo'}
       </Button>
     </Form>
   );

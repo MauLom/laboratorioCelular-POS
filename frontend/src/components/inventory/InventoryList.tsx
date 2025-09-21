@@ -115,7 +115,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
         <tbody>
           <tr>
             <td colSpan={8}>
-              <EmptyState>Loading inventory items...</EmptyState>
+              <EmptyState>Cargando artículos del inventario...</EmptyState>
             </td>
           </tr>
         </tbody>
@@ -129,7 +129,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
         <tbody>
           <tr>
             <td colSpan={8}>
-              <EmptyState>No inventory items found</EmptyState>
+              <EmptyState>No se encontraron artículos en el inventario</EmptyState>
             </td>
           </tr>
         </tbody>
@@ -142,13 +142,13 @@ const InventoryList: React.FC<InventoryListProps> = ({
       <TableHeader>
         <TableRow>
           <TableHeaderCell>IMEI</TableHeaderCell>
-          <TableHeaderCell>State</TableHeaderCell>
-          <TableHeaderCell>Branch</TableHeaderCell>
-          <TableHeaderCell>Brand</TableHeaderCell>
-          <TableHeaderCell>Model</TableHeaderCell>
-          <TableHeaderCell>Price</TableHeaderCell>
-          <TableHeaderCell>Created</TableHeaderCell>
-          <TableHeaderCell>Actions</TableHeaderCell>
+          <TableHeaderCell>Estado</TableHeaderCell>
+          <TableHeaderCell>Sucursal</TableHeaderCell>
+          <TableHeaderCell>Marca</TableHeaderCell>
+          <TableHeaderCell>Modelo</TableHeaderCell>
+          <TableHeaderCell>Precio</TableHeaderCell>
+          <TableHeaderCell>Creado</TableHeaderCell>
+          <TableHeaderCell>Acciones</TableHeaderCell>
         </TableRow>
       </TableHeader>
       <tbody>
@@ -172,13 +172,13 @@ const InventoryList: React.FC<InventoryListProps> = ({
                 variant="edit"
                 onClick={() => onEdit(item)}
               >
-                Edit
+                Editar
               </ActionButton>
               <ActionButton
                 variant="delete"
                 onClick={() => onDelete(item.imei)}
               >
-                Delete
+                Eliminar
               </ActionButton>
             </TableCell>
           </TableRow>

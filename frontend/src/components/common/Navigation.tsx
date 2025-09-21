@@ -41,13 +41,13 @@ const Navigation: React.FC = () => {
     <Nav>
       <NavList>
         <NavItem>
-          <NavLink to="/">Dashboard</NavLink>
+          <NavLink to="/">Panel de Control</NavLink>
         </NavItem>
         <NavItem>
-          <NavLink to="/inventory">Inventory</NavLink>
+          <NavLink to="/inventory">Inventario</NavLink>
         </NavItem>
         <NavItem>
-          <NavLink to="/sales">Sales</NavLink>
+          <NavLink to="/sales">Ventas</NavLink>
         </NavItem>
       </NavList>
     </Nav>

@@ -153,7 +153,7 @@ const SalesPage: React.FC = () => {
       setSales(response.sales || []);
     } catch (error) {
       console.error('Failed to fetch sales:', error);
-      alert('Failed to fetch sales');
+      alert('Error al cargar las ventas');
     } finally {
       setLoading(false);
     }
@@ -169,25 +169,25 @@ const SalesPage: React.FC = () => {
       await salesApi.create(saleData);
       setShowForm(false);
       fetchSales();
-      alert('Sale recorded successfully!');
+      alert('¡Venta registrada exitosamente!');
     } catch (error) {
       console.error('Failed to record sale:', error);
-      alert('Failed to record sale');
+      alert('Error al registrar la venta');
     } finally {
       setFormLoading(false);
     }
   };
 
   const handleDeleteSale = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this sale?')) return;
+    if (!window.confirm('¿Está seguro de que desea eliminar esta venta?')) return;
     
     try {
       await salesApi.delete(id);
       fetchSales();
-      alert('Sale deleted successfully!');
+      alert('¡Venta eliminada exitosamente!');
     } catch (error) {
       console.error('Failed to delete sale:', error);
-      alert('Failed to delete sale');
+      alert('Error al eliminar la venta');
     }
   };
 
@@ -197,25 +197,25 @@ const SalesPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout title="Sales Management">
+      <Layout title="Gestión de Ventas">
         <Navigation />
         <Container>
           <Header>
-            <Title>Sales Records</Title>
+            <Title>Registros de Ventas</Title>
           </Header>
-          <EmptyState>Loading sales...</EmptyState>
+          <EmptyState>Cargando ventas...</EmptyState>
         </Container>
       </Layout>
     );
   }
 
   return (
-    <Layout title="Sales Management">
+    <Layout title="Gestión de Ventas">
       <Navigation />
       <Container>
         <Header>
-          <Title>Sales Records</Title>
-          <Button onClick={() => setShowForm(true)}>Record New Sale</Button>
+          <Title>Registros de Ventas</Title>
+          <Button onClick={() => setShowForm(true)}>Registrar Nueva Venta</Button>
         </Header>
 
         <FilterContainer>
@@ -223,45 +223,45 @@ const SalesPage: React.FC = () => {
             value={filters.description}
             onChange={(e) => setFilters({ ...filters, description: e.target.value })}
           >
-            <option value="">All Descriptions</option>
-            <option value="Fair">Fair</option>
-            <option value="Payment">Payment</option>
-            <option value="Sale">Sale</option>
-            <option value="Deposit">Deposit</option>
+            <option value="">Todas las Descripciones</option>
+            <option value="Fair">Justo</option>
+            <option value="Payment">Pago</option>
+            <option value="Sale">Venta</option>
+            <option value="Deposit">Depósito</option>
           </Select>
           
           <Select
             value={filters.finance}
             onChange={(e) => setFilters({ ...filters, finance: e.target.value })}
           >
-            <option value="">All Finance Types</option>
+            <option value="">Todos los Tipos de Financiamiento</option>
             <option value="Payjoy">Payjoy</option>
             <option value="Lespago">Lespago</option>
-            <option value="Repair">Repair</option>
-            <option value="Accessory">Accessory</option>
-            <option value="Cash">Cash</option>
-            <option value="Other">Other</option>
+            <option value="Repair">Reparación</option>
+            <option value="Accessory">Accesorio</option>
+            <option value="Cash">Efectivo</option>
+            <option value="Other">Otro</option>
           </Select>
         </FilterContainer>
 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHeaderCell>Date</TableHeaderCell>
-              <TableHeaderCell>Description</TableHeaderCell>
-              <TableHeaderCell>Finance</TableHeaderCell>
-              <TableHeaderCell>Concept</TableHeaderCell>
+              <TableHeaderCell>Fecha</TableHeaderCell>
+              <TableHeaderCell>Descripción</TableHeaderCell>
+              <TableHeaderCell>Financiamiento</TableHeaderCell>
+              <TableHeaderCell>Concepto</TableHeaderCell>
               <TableHeaderCell>IMEI</TableHeaderCell>
-              <TableHeaderCell>Amount</TableHeaderCell>
-              <TableHeaderCell>Customer</TableHeaderCell>
-              <TableHeaderCell>Actions</TableHeaderCell>
+              <TableHeaderCell>Monto</TableHeaderCell>
+              <TableHeaderCell>Cliente</TableHeaderCell>
+              <TableHeaderCell>Acciones</TableHeaderCell>
             </TableRow>
           </TableHeader>
           <tbody>
             {sales.length === 0 ? (
               <tr>
                 <td colSpan={8}>
-                  <EmptyState>No sales records found</EmptyState>
+                  <EmptyState>No se encontraron registros de ventas</EmptyState>
                 </td>
               </tr>
             ) : (
@@ -285,7 +285,7 @@ const SalesPage: React.FC = () => {
                         padding: '0.5rem 1rem'
                       }}
                     >
-                      Delete
+                      Eliminar
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -113,7 +113,7 @@ const InventoryPage: React.FC = () => {
       setItems(response.items || []);
     } catch (error) {
       console.error('Failed to fetch inventory items:', error);
-      alert('Failed to fetch inventory items');
+      alert('Error al cargar los artículos del inventario');
     } finally {
       setLoading(false);
     }
@@ -129,10 +129,10 @@ const InventoryPage: React.FC = () => {
       await inventoryApi.create(itemData);
       setShowForm(false);
       fetchItems();
-      alert('Item added successfully!');
+      alert('¡Artículo agregado exitosamente!');
     } catch (error) {
       console.error('Failed to add item:', error);
-      alert('Failed to add item');
+      alert('Error al agregar el artículo');
     } finally {
       setFormLoading(false);
     }
@@ -147,25 +147,25 @@ const InventoryPage: React.FC = () => {
       setEditingItem(undefined);
       setShowForm(false);
       fetchItems();
-      alert('Item updated successfully!');
+      alert('¡Artículo actualizado exitosamente!');
     } catch (error) {
       console.error('Failed to update item:', error);
-      alert('Failed to update item');
+      alert('Error al actualizar el artículo');
     } finally {
       setFormLoading(false);
     }
   };
 
   const handleDeleteItem = async (imei: string) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    if (!window.confirm('¿Está seguro de que desea eliminar este artículo?')) return;
     
     try {
       await inventoryApi.delete(imei);
       fetchItems();
-      alert('Item deleted successfully!');
+      alert('¡Artículo eliminado exitosamente!');
     } catch (error) {
       console.error('Failed to delete item:', error);
-      alert('Failed to delete item');
+      alert('Error al eliminar el artículo');
     }
   };
 
@@ -180,12 +180,12 @@ const InventoryPage: React.FC = () => {
   };
 
   return (
-    <Layout title="Inventory Management">
+    <Layout title="Gestión de Inventario">
       <Navigation />
       <Container>
         <Header>
-          <Title>Inventory Items</Title>
-          <Button onClick={() => setShowForm(true)}>Add New Item</Button>
+          <Title>Artículos del Inventario</Title>
+          <Button onClick={() => setShowForm(true)}>Agregar Nuevo Artículo</Button>
         </Header>
 
         <FilterContainer>
@@ -193,23 +193,23 @@ const InventoryPage: React.FC = () => {
             value={filters.state}
             onChange={(e) => setFilters({ ...filters, state: e.target.value })}
           >
-            <option value="">All States</option>
-            <option value="New">New</option>
-            <option value="Repair">Repair</option>
-            <option value="Repaired">Repaired</option>
-            <option value="Sold">Sold</option>
-            <option value="Lost">Lost</option>
-            <option value="Clearance">Clearance</option>
+            <option value="">Todos los Estados</option>
+            <option value="New">Nuevo</option>
+            <option value="Repair">En Reparación</option>
+            <option value="Repaired">Reparado</option>
+            <option value="Sold">Vendido</option>
+            <option value="Lost">Perdido</option>
+            <option value="Clearance">Liquidación</option>
           </Select>
           
           <Select
             value={filters.branch}
             onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
           >
-            <option value="">All Branches</option>
-            <option value="Main">Main</option>
-            <option value="Branch 1">Branch 1</option>
-            <option value="Branch 2">Branch 2</option>
+            <option value="">Todas las Sucursales</option>
+            <option value="Main">Principal</option>
+            <option value="Branch 1">Sucursal 1</option>
+            <option value="Branch 2">Sucursal 2</option>
           </Select>
         </FilterContainer>
 

@@ -122,13 +122,13 @@ interface SalesFormData {
 }
 
 const schema = yup.object().shape({
-  description: yup.string().required('Description is required'),
-  finance: yup.string().required('Finance type is required'),
-  concept: yup.string().required('Concept is required'),
+  description: yup.string().required('La descripción es requerida'),
+  finance: yup.string().required('El tipo de financiamiento es requerido'),
+  concept: yup.string().required('El concepto es requerido'),
   imei: yup.string().optional(),
-  paymentType: yup.string().required('Payment type is required'),
-  reference: yup.string().required('Reference is required'),
-  amount: yup.number().required('Amount is required').min(0, 'Amount must be positive'),
+  paymentType: yup.string().required('El tipo de pago es requerido'),
+  reference: yup.string().required('La referencia es requerida'),
+  amount: yup.number().required('El monto es requerido').min(0, 'El monto debe ser positivo'),
   customerName: yup.string().optional(),
   customerPhone: yup.string().optional(),
   branch: yup.string().optional(),
@@ -173,32 +173,32 @@ const SalesForm: React.FC<SalesFormProps> = ({
     <Form onSubmit={handleSubmit(handleFormSubmit)}>
       <FormRow>
         <FormGroup>
-          <Label htmlFor="description">Description *</Label>
+          <Label htmlFor="description">Descripción *</Label>
           <Select id="description" {...register('description')} disabled={isLoading}>
-            <option value="Fair">Fair</option>
-            <option value="Payment">Payment</option>
-            <option value="Sale">Sale</option>
-            <option value="Deposit">Deposit</option>
+            <option value="Fair">Justo</option>
+            <option value="Payment">Pago</option>
+            <option value="Sale">Venta</option>
+            <option value="Deposit">Depósito</option>
           </Select>
           {errors.description && <ErrorMessage>{errors.description.message}</ErrorMessage>}
         </FormGroup>
 
         <FormGroup>
-          <Label htmlFor="finance">Finance *</Label>
+          <Label htmlFor="finance">Financiamiento *</Label>
           <Select id="finance" {...register('finance')} disabled={isLoading}>
             <option value="Payjoy">Payjoy</option>
             <option value="Lespago">Lespago</option>
-            <option value="Repair">Repair</option>
-            <option value="Accessory">Accessory</option>
-            <option value="Cash">Cash</option>
-            <option value="Other">Other</option>
+            <option value="Repair">Reparación</option>
+            <option value="Accessory">Accesorio</option>
+            <option value="Cash">Efectivo</option>
+            <option value="Other">Otro</option>
           </Select>
           {errors.finance && <ErrorMessage>{errors.finance.message}</ErrorMessage>}
         </FormGroup>
       </FormRow>
 
       <FormGroup>
-        <Label htmlFor="concept">Concept *</Label>
+        <Label htmlFor="concept">Concepto *</Label>
         <Input
           id="concept"
           type="text"
@@ -210,7 +210,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
       <FormRow>
         <FormGroup>
-          <Label htmlFor="imei">IMEI (if applicable)</Label>
+          <Label htmlFor="imei">IMEI (si aplica)</Label>
           <Input
             id="imei"
             type="text"
@@ -220,7 +220,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
         </FormGroup>
 
         <FormGroup>
-          <Label htmlFor="paymentType">Payment Type *</Label>
+          <Label htmlFor="paymentType">Tipo de Pago *</Label>
           <Input
             id="paymentType"
             type="text"
@@ -233,7 +233,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
       <FormRow>
         <FormGroup>
-          <Label htmlFor="reference">Reference *</Label>
+          <Label htmlFor="reference">Referencia *</Label>
           <Input
             id="reference"
             type="text"
@@ -244,7 +244,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
         </FormGroup>
 
         <FormGroup>
-          <Label htmlFor="amount">Amount *</Label>
+          <Label htmlFor="amount">Monto *</Label>
           <Input
             id="amount"
             type="number"
@@ -259,7 +259,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
       <FormRow>
         <FormGroup>
-          <Label htmlFor="customerName">Customer Name</Label>
+          <Label htmlFor="customerName">Nombre del Cliente</Label>
           <Input
             id="customerName"
             type="text"
@@ -269,7 +269,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
         </FormGroup>
 
         <FormGroup>
-          <Label htmlFor="customerPhone">Customer Phone</Label>
+          <Label htmlFor="customerPhone">Teléfono del Cliente</Label>
           <Input
             id="customerPhone"
             type="tel"
@@ -280,7 +280,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       </FormRow>
 
       <FormGroup>
-        <Label htmlFor="branch">Branch</Label>
+        <Label htmlFor="branch">Sucursal</Label>
         <Input
           id="branch"
           type="text"
@@ -290,7 +290,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes">Notas</Label>
         <TextArea
           id="notes"
           {...register('notes')}
@@ -299,7 +299,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       </FormGroup>
 
       <Button type="submit" disabled={isLoading}>
-        {isLoading ? 'Saving...' : isEditing ? 'Update Sale' : 'Record Sale'}
+        {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Venta' : 'Registrar Venta'}
       </Button>
     </Form>
   );
