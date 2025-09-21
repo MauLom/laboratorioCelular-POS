@@ -1,89 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import { Link as RouterLink } from 'react-router-dom';
+import {
+  VStack,
+  SimpleGrid,
+  Text,
+  Heading,
+  Button,
+  Flex,
+  Skeleton,
+  SkeletonText,
+  Box,
+} from '@chakra-ui/react';
 import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import { inventoryApi, salesApi } from '../services/api';
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-`;
-
-const StatCard = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  text-align: center;
-`;
-
-const StatValue = styled.div`
-  font-size: 2.5rem;
-  font-weight: bold;
-  color: #2c3e50;
-  margin-bottom: 0.5rem;
-`;
-
-const StatLabel = styled.div`
-  font-size: 1rem;
-  color: #7f8c8d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const QuickActions = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-`;
-
-const ActionCard = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  text-align: center;
-`;
-
-const ActionTitle = styled.h3`
-  margin: 0 0 1rem 0;
-  color: #2c3e50;
-`;
-
-const ActionButton = styled(Link)`
-  display: inline-block;
-  background-color: #3498db;
-  color: white;
-  text-decoration: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  font-weight: 600;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #2980b9;
-  }
-`;
-
-const SalesActionButton = styled(ActionButton)`
-  background-color: #27ae60;
-  
-  &:hover {
-    background-color: #229954;
-  }
-`;
-
-const LoadingCard = styled(StatCard)`
-  color: #7f8c8d;
-`;
 
 interface InventoryStats {
   stateStats: Array<{ _id: string; count: number }>;
@@ -141,81 +71,117 @@ const DashboardPage: React.FC = () => {
   return (
     <Layout title="Panel de Control">
       <Navigation />
-      <Container>
-        <StatsGrid>
+      <VStack gap={8} align="stretch">
+        {/* Stats Grid */}
+        <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap={6}>
           {loading ? (
             <>
-              <LoadingCard>
-                <StatValue>-</StatValue>
-                <StatLabel>Cargando...</StatLabel>
-              </LoadingCard>
-              <LoadingCard>
-                <StatValue>-</StatValue>
-                <StatLabel>Cargando...</StatLabel>
-              </LoadingCard>
-              <LoadingCard>
-                <StatValue>-</StatValue>
-                <StatLabel>Cargando...</StatLabel>
-              </LoadingCard>
-              <LoadingCard>
-                <StatValue>-</StatValue>
-                <StatLabel>Cargando...</StatLabel>
-              </LoadingCard>
+              {[...Array(4)].map((_, index) => (
+                <Box key={index} bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+                  <Skeleton height="3rem" mb={3} />
+                  <SkeletonText noOfLines={1} />
+                </Box>
+              ))}
             </>
           ) : (
             <>
-              <StatCard>
-                <StatValue>{getTotalInventoryItems()}</StatValue>
-                <StatLabel>Total de Artículos</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue>{getAvailableItems()}</StatValue>
-                <StatLabel>Artículos Disponibles</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue>{salesStats?.descriptionStats?.length || 0}</StatValue>
-                <StatLabel>Total de Ventas</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue>${getTotalSalesAmount().toFixed(2)}</StatValue>
-                <StatLabel>Ingresos por Ventas</StatLabel>
-              </StatCard>
+              <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+                <Text fontSize="3xl" color="dark.400" fontWeight="bold" mb={2}>
+                  {getTotalInventoryItems()}
+                </Text>
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
+                  Total de Artículos
+                </Text>
+              </Box>
+
+              <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+                <Text fontSize="3xl" color="dark.400" fontWeight="bold" mb={2}>
+                  {getAvailableItems()}
+                </Text>
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
+                  Artículos Disponibles
+                </Text>
+              </Box>
+
+              <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+                <Text fontSize="3xl" color="dark.400" fontWeight="bold" mb={2}>
+                  {salesStats?.descriptionStats?.length || 0}
+                </Text>
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
+                  Total de Ventas
+                </Text>
+              </Box>
+
+              <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+                <Text fontSize="3xl" color="dark.400" fontWeight="bold" mb={2}>
+                  ${getTotalSalesAmount().toFixed(2)}
+                </Text>
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
+                  Ingresos por Ventas
+                </Text>
+              </Box>
             </>
           )}
-        </StatsGrid>
+        </SimpleGrid>
 
-        <QuickActions>
-          <ActionCard>
-            <ActionTitle>Gestión de Inventario</ActionTitle>
-            <p>Agregar, editar y gestionar su inventario de celulares con diferentes estados y seguimiento.</p>
-            <ActionButton to="/inventory">Gestionar Inventario</ActionButton>
-          </ActionCard>
+        {/* Quick Actions */}
+        <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6}>
+          <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+            <Heading size="md" color="dark.400" mb={4}>
+              Gestión de Inventario
+            </Heading>
+            <Text color="gray.600" mb={6}>
+              Agregar, editar y gestionar su inventario de celulares con diferentes estados y seguimiento.
+            </Text>
+            <RouterLink to="/inventory" style={{ textDecoration: 'none' }}>
+              <Button
+                colorScheme="blue"
+                size="lg"
+                fontWeight="semibold"
+                width="100%"
+              >
+                Gestionar Inventario
+              </Button>
+            </RouterLink>
+          </Box>
 
-          <ActionCard>
-            <ActionTitle>Gestión de Ventas</ActionTitle>
-            <p>Registrar transacciones de venta con información detallada y seguimiento de pagos.</p>
-            <SalesActionButton to="/sales">Registrar Ventas</SalesActionButton>
-          </ActionCard>
-        </QuickActions>
+          <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
+            <Heading size="md" color="dark.400" mb={4}>
+              Gestión de Ventas
+            </Heading>
+            <Text color="gray.600" mb={6}>
+              Registrar transacciones de venta con información detallada y seguimiento de pagos.
+            </Text>
+            <RouterLink to="/sales" style={{ textDecoration: 'none' }}>
+              <Button
+                colorScheme="green"
+                size="lg"
+                fontWeight="semibold"
+                width="100%"
+              >
+                Registrar Ventas
+              </Button>
+            </RouterLink>
+          </Box>
+        </SimpleGrid>
 
+        {/* Inventory by State */}
         {inventoryStats && (
-          <StatCard>
-            <h3>Inventario por Estado</h3>
-            <div style={{ textAlign: 'left' }}>
+          <Box bg="white" p={6} rounded="lg" shadow="md">
+            <Heading size="md" color="dark.400" mb={4}>
+              Inventario por Estado
+            </Heading>
+            <VStack gap={3} align="stretch">
               {inventoryStats.stateStats.map(stat => (
-                <div key={stat._id} style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  margin: '0.5rem 0' 
-                }}>
-                  <span>{stat._id}:</span>
-                  <strong>{stat.count}</strong>
-                </div>
+                <Flex key={stat._id} justify="space-between" align="center" py={2}>
+                  <Text color="gray.700">{stat._id}:</Text>
+                  <Text fontWeight="bold" color="dark.400">{stat.count}</Text>
+                </Flex>
               ))}
-            </div>
-          </StatCard>
+            </VStack>
+          </Box>
         )}
-      </Container>
+      </VStack>
     </Layout>
   );
 };
