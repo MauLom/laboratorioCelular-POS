@@ -1,11 +1,27 @@
 import axios from 'axios';
 import { InventoryItem, Sale, PaginatedResponse } from '../types';
 
+// Environment validation
+const validateEnv = () => {
+  const env = process.env.REACT_APP_ENV || 'development';
+  console.log(`🚀 Frontend Environment: ${env}`);
+  console.log(`📡 API Base URL: ${API_BASE_URL}`);
+  console.log(`⏱️ API Timeout: ${API_TIMEOUT}ms`);
+  
+  if (env === 'production' && API_BASE_URL.includes('localhost')) {
+    console.warn('⚠️ Warning: Using localhost API URL in production environment');
+  }
+};
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT || '10000', 10);
+
+// Validate environment on load
+validateEnv();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: API_TIMEOUT,
 });
 
 // Inventory API
