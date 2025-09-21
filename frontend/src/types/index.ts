@@ -2,7 +2,8 @@ export interface InventoryItem {
   _id?: string;
   imei: string;
   state: 'New' | 'Repair' | 'Repaired' | 'Sold' | 'Lost' | 'Clearance';
-  branch: string;
+  branch?: string; // Virtual field for backward compatibility
+  franchiseLocation?: string | FranchiseLocation; // New field
   hiddenDetails?: any;
   model?: string;
   brand?: string;
@@ -23,7 +24,8 @@ export interface Sale {
   amount: number;
   customerName?: string;
   customerPhone?: string;
-  branch?: string;
+  branch?: string; // Virtual field for backward compatibility
+  franchiseLocation?: string | FranchiseLocation; // New field
   notes?: string;
   createdAt?: string;
   updatedAt?: string;

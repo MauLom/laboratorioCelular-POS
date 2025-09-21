@@ -48,4 +48,16 @@ inventoryItemSchema.index({ imei: 1 });
 inventoryItemSchema.index({ state: 1 });
 inventoryItemSchema.index({ franchiseLocation: 1 });
 
+// Virtual field for backward compatibility
+inventoryItemSchema.virtual('branch').get(function() {
+  if (this.franchiseLocation && typeof this.franchiseLocation === 'object' && this.franchiseLocation.name) {
+    return this.franchiseLocation.name;
+  }
+  return null;
+});
+
+// Ensure virtual fields are serialized
+inventoryItemSchema.set('toJSON', { virtuals: true });
+inventoryItemSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('InventoryItem', inventoryItemSchema);

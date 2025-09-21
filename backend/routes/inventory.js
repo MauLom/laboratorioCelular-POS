@@ -3,6 +3,7 @@ const router = express.Router();
 const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { authenticate, applyFranchiseFilter } = require('../middleware/auth');
+const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
 
 // Helper function to get accessible franchise locations for a user
 const getAccessibleLocations = async (user) => {
@@ -98,7 +99,7 @@ router.get('/:imei', authenticate, applyFranchiseFilter, async (req, res) => {
 });
 
 // Create new inventory item (with franchise validation)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
   try {
     const itemData = { ...req.body };
     
@@ -129,7 +130,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // Update inventory item (with franchise validation)
-router.put('/:imei', authenticate, async (req, res) => {
+router.put('/:imei', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
   try {
     const query = { imei: req.params.imei };
     

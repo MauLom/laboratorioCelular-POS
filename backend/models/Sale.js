@@ -65,4 +65,16 @@ salesSchema.index({ finance: 1 });
 salesSchema.index({ franchiseLocation: 1 });
 salesSchema.index({ createdAt: -1 });
 
+// Virtual field for backward compatibility
+salesSchema.virtual('branch').get(function() {
+  if (this.franchiseLocation && typeof this.franchiseLocation === 'object' && this.franchiseLocation.name) {
+    return this.franchiseLocation.name;
+  }
+  return null;
+});
+
+// Ensure virtual fields are serialized
+salesSchema.set('toJSON', { virtuals: true });
+salesSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('Sale', salesSchema);

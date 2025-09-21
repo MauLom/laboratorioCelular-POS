@@ -4,6 +4,7 @@ const Sale = require('../models/Sale');
 const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { authenticate, applyFranchiseFilter } = require('../middleware/auth');
+const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
 
 // Helper function to get accessible franchise locations for a user
 const getAccessibleLocations = async (user) => {
@@ -107,7 +108,7 @@ router.get('/:id', authenticate, applyFranchiseFilter, async (req, res) => {
 });
 
 // Create new sale (with franchise validation)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
   try {
     const saleData = { ...req.body };
     
@@ -153,7 +154,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // Update sale (with franchise validation)
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
   try {
     const query = { _id: req.params.id };
     
