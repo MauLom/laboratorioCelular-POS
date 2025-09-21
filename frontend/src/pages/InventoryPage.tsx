@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import styled from 'styled-components';
+import {
+  VStack,
+  HStack,
+  Box,
+  Heading,
+  Button,
+  chakra,
+} from '@chakra-ui/react';
 import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import InventoryForm from '../components/inventory/InventoryForm';
@@ -7,93 +14,8 @@ import InventoryList from '../components/inventory/InventoryList';
 import { inventoryApi } from '../services/api';
 import { InventoryItem, PaginatedResponse } from '../types';
 
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-`;
-
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #2c3e50;
-`;
-
-const Button = styled.button`
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #2980b9;
-  }
-`;
-
-const Modal = styled.div<{ isOpen: boolean }>`
-  display: ${({ isOpen }) => isOpen ? 'flex' : 'none'};
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-`;
-
-const CloseButton = styled.button`
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #6c757d;
-  
-  &:hover {
-    color: #343a40;
-  }
-`;
-
-const FilterContainer = styled.div`
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-`;
-
-const Select = styled.select`
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-`;
+// Use native HTML select with Chakra styling
+const Select = chakra('select');
 
 const InventoryPage: React.FC = () => {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -174,6 +96,11 @@ const InventoryPage: React.FC = () => {
     setShowForm(true);
   };
 
+  const openAddForm = () => {
+    setEditingItem(undefined);
+    setShowForm(true);
+  };
+
   const closeForm = () => {
     setShowForm(false);
     setEditingItem(undefined);
@@ -182,37 +109,62 @@ const InventoryPage: React.FC = () => {
   return (
     <Layout title="Gestión de Inventario">
       <Navigation />
-      <Container>
-        <Header>
-          <Title>Artículos del Inventario</Title>
-          <Button onClick={() => setShowForm(true)}>Agregar Nuevo Artículo</Button>
-        </Header>
+      <VStack gap={6} align="stretch">
+        {/* Header */}
+        <Box bg="white" p={6} rounded="lg" shadow="md">
+          <HStack justify="space-between" align="center">
+            <Heading size="lg" color="dark.400">
+              Artículos del Inventario
+            </Heading>
+            <Button colorScheme="blue" onClick={openAddForm}>
+              Agregar Nuevo Artículo
+            </Button>
+          </HStack>
+        </Box>
 
-        <FilterContainer>
-          <Select
-            value={filters.state}
-            onChange={(e) => setFilters({ ...filters, state: e.target.value })}
-          >
-            <option value="">Todos los Estados</option>
-            <option value="New">Nuevo</option>
-            <option value="Repair">En Reparación</option>
-            <option value="Repaired">Reparado</option>
-            <option value="Sold">Vendido</option>
-            <option value="Lost">Perdido</option>
-            <option value="Clearance">Liquidación</option>
-          </Select>
-          
-          <Select
-            value={filters.branch}
-            onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
-          >
-            <option value="">Todas las Sucursales</option>
-            <option value="Main">Principal</option>
-            <option value="Branch 1">Sucursal 1</option>
-            <option value="Branch 2">Sucursal 2</option>
-          </Select>
-        </FilterContainer>
+        {/* Filters */}
+        <Box bg="white" p={4} rounded="lg" shadow="sm">
+          <HStack gap={4} wrap="wrap">
+            <Select
+              placeholder="Todos los Estados"
+              value={filters.state}
+              onChange={(e: any) => setFilters({ ...filters, state: e.target.value })}
+              maxW="200px"
+              p={2}
+              border="1px solid"
+              borderColor="gray.300"
+              rounded="md"
+              bg="white"
+            >
+              <option value="">Todos los Estados</option>
+              <option value="New">Nuevo</option>
+              <option value="Repair">En Reparación</option>
+              <option value="Repaired">Reparado</option>
+              <option value="Sold">Vendido</option>
+              <option value="Lost">Perdido</option>
+              <option value="Clearance">Liquidación</option>
+            </Select>
+            
+            <Select
+              placeholder="Todas las Sucursales"
+              value={filters.branch}
+              onChange={(e: any) => setFilters({ ...filters, branch: e.target.value })}
+              maxW="200px"
+              p={2}
+              border="1px solid"
+              borderColor="gray.300"
+              rounded="md"
+              bg="white"
+            >
+              <option value="">Todas las Sucursales</option>
+              <option value="Main">Principal</option>
+              <option value="Branch 1">Sucursal 1</option>
+              <option value="Branch 2">Sucursal 2</option>
+            </Select>
+          </HStack>
+        </Box>
 
+        {/* Inventory List */}
         <InventoryList
           items={items}
           onEdit={openEditForm}
@@ -220,18 +172,53 @@ const InventoryPage: React.FC = () => {
           loading={loading}
         />
 
-        <Modal isOpen={showForm}>
-          <ModalContent>
-            <CloseButton onClick={closeForm}>&times;</CloseButton>
-            <InventoryForm
-              onSubmit={editingItem ? handleEditItem : handleAddItem}
-              initialData={editingItem}
-              isEditing={!!editingItem}
-              isLoading={formLoading}
-            />
-          </ModalContent>
-        </Modal>
-      </Container>
+        {/* Simple Modal for Add/Edit Form */}
+        {showForm && (
+          <Box
+            position="fixed"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bg="rgba(0, 0, 0, 0.5)"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            zIndex="1000"
+          >
+            <Box
+              bg="white"
+              p={6}
+              rounded="lg"
+              maxW="90vw"
+              maxH="90vh"
+              overflowY="auto"
+              position="relative"
+              shadow="xl"
+            >
+              <Button
+                position="absolute"
+                top={4}
+                right={4}
+                variant="ghost"
+                onClick={closeForm}
+                fontSize="xl"
+                p={1}
+                minW="auto"
+                h="auto"
+              >
+                ×
+              </Button>
+              <InventoryForm
+                onSubmit={editingItem ? handleEditItem : handleAddItem}
+                initialData={editingItem}
+                isEditing={!!editingItem}
+                isLoading={formLoading}
+              />
+            </Box>
+          </Box>
+        )}
+      </VStack>
     </Layout>
   );
 };
