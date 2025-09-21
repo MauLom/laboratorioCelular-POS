@@ -1,6 +1,6 @@
 // Environment variable validation
 const validateEnv = () => {
-  const requiredVars = ['MONGODB_URI', 'PORT', 'FRONTEND_URL'];
+  const requiredVars = ['MONGODB_URI', 'PORT', 'FRONTEND_URL', 'JWT_SECRET'];
   const missingVars = [];
 
   for (const varName of requiredVars) {
@@ -24,6 +24,7 @@ const validateEnv = () => {
   console.log(`🚀 Server port: ${process.env.PORT}`);
   console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
   console.log(`📁 Node environment: ${process.env.NODE_ENV}`);
+  console.log(`🔐 JWT Secret: ${process.env.JWT_SECRET ? 'Set' : 'Not set'}`);
 };
 
 module.exports = validateEnv;
