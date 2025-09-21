@@ -1,15 +1,54 @@
 const express = require('express');
 const router = express.Router();
 const InventoryItem = require('../models/InventoryItem');
+const FranchiseLocation = require('../models/FranchiseLocation');
+const { authenticate, applyFranchiseFilter } = require('../middleware/auth');
 
-// Get all inventory items
-router.get('/', async (req, res) => {
+// Helper function to get accessible franchise locations for a user
+const getAccessibleLocations = async (user) => {
+  if (user.role === 'Master admin') {
+    return await FranchiseLocation.find({ isActive: true });
+  }
+  
+  if (user.role === 'Supervisor de sucursales') {
+    return await FranchiseLocation.find({ type: 'Sucursal', isActive: true });
+  }
+  
+  if (user.role === 'Supervisor de oficina') {
+    return await FranchiseLocation.find({ type: 'Oficina', isActive: true });
+  }
+  
+  // Other roles can only access their specific location
+  if (user.franchiseLocation) {
+    return [user.franchiseLocation];
+  }
+  
+  return [];
+};
+
+// Get all inventory items (with franchise filtering)
+router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
   try {
-    const { state, branch, page = 1, limit = 10 } = req.query;
+    const { state, franchiseLocation, page = 1, limit = 10 } = req.query;
     const query = {};
     
     if (state) query.state = state;
-    if (branch) query.branch = branch;
+    
+    // Apply franchise location filtering
+    if (req.user.role === 'Master admin') {
+      // Master admin can filter by any location or see all
+      if (franchiseLocation) query.franchiseLocation = franchiseLocation;
+    } else {
+      // Other users are restricted to their accessible locations
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id);
+      
+      if (franchiseLocation && locationIds.some(id => id.toString() === franchiseLocation)) {
+        query.franchiseLocation = franchiseLocation;
+      } else {
+        query.franchiseLocation = { $in: locationIds };
+      }
+    }
     
     const options = {
       page: parseInt(page),
@@ -18,6 +57,7 @@ router.get('/', async (req, res) => {
     };
     
     const items = await InventoryItem.find(query)
+      .populate('franchiseLocation', 'name code type')
       .limit(options.limit * 1)
       .skip((options.page - 1) * options.limit)
       .sort(options.sort);
@@ -35,12 +75,21 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single inventory item by IMEI
-router.get('/:imei', async (req, res) => {
+// Get single inventory item by IMEI (with franchise filtering)
+router.get('/:imei', authenticate, applyFranchiseFilter, async (req, res) => {
   try {
-    const item = await InventoryItem.findOne({ imei: req.params.imei });
+    const query = { imei: req.params.imei };
+    
+    // Apply franchise location filtering
+    if (req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id);
+      query.franchiseLocation = { $in: locationIds };
+    }
+    
+    const item = await InventoryItem.findOne(query).populate('franchiseLocation', 'name code type');
     if (!item) {
-      return res.status(404).json({ error: 'Item not found' });
+      return res.status(404).json({ error: 'Item not found or access denied' });
     }
     res.json(item);
   } catch (error) {
@@ -48,11 +97,27 @@ router.get('/:imei', async (req, res) => {
   }
 });
 
-// Create new inventory item
-router.post('/', async (req, res) => {
+// Create new inventory item (with franchise validation)
+router.post('/', authenticate, async (req, res) => {
   try {
-    const item = new InventoryItem(req.body);
+    const itemData = { ...req.body };
+    
+    // Validate franchise location access
+    if (req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id.toString());
+      
+      if (!itemData.franchiseLocation || !locationIds.includes(itemData.franchiseLocation)) {
+        return res.status(403).json({ error: 'Access denied. Cannot create item for this franchise location.' });
+      }
+    }
+    
+    const item = new InventoryItem(itemData);
     await item.save();
+    
+    // Populate franchise location for response
+    await item.populate('franchiseLocation', 'name code type');
+    
     res.status(201).json(item);
   } catch (error) {
     if (error.code === 11000) {
@@ -63,16 +128,36 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update inventory item
-router.put('/:imei', async (req, res) => {
+// Update inventory item (with franchise validation)
+router.put('/:imei', authenticate, async (req, res) => {
   try {
+    const query = { imei: req.params.imei };
+    
+    // Apply franchise location filtering for finding the item
+    if (req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id);
+      query.franchiseLocation = { $in: locationIds };
+    }
+    
+    // Validate franchise location access if being changed
+    if (req.body.franchiseLocation && req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id.toString());
+      
+      if (!locationIds.includes(req.body.franchiseLocation)) {
+        return res.status(403).json({ error: 'Access denied. Cannot move item to this franchise location.' });
+      }
+    }
+    
     const item = await InventoryItem.findOneAndUpdate(
-      { imei: req.params.imei },
+      query,
       req.body,
       { new: true, runValidators: true }
-    );
+    ).populate('franchiseLocation', 'name code type');
+    
     if (!item) {
-      return res.status(404).json({ error: 'Item not found' });
+      return res.status(404).json({ error: 'Item not found or access denied' });
     }
     res.json(item);
   } catch (error) {
@@ -80,12 +165,21 @@ router.put('/:imei', async (req, res) => {
   }
 });
 
-// Delete inventory item
-router.delete('/:imei', async (req, res) => {
+// Delete inventory item (with franchise validation)
+router.delete('/:imei', authenticate, async (req, res) => {
   try {
-    const item = await InventoryItem.findOneAndDelete({ imei: req.params.imei });
+    const query = { imei: req.params.imei };
+    
+    // Apply franchise location filtering
+    if (req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id);
+      query.franchiseLocation = { $in: locationIds };
+    }
+    
+    const item = await InventoryItem.findOneAndDelete(query);
     if (!item) {
-      return res.status(404).json({ error: 'Item not found' });
+      return res.status(404).json({ error: 'Item not found or access denied' });
     }
     res.json({ message: 'Item deleted successfully' });
   } catch (error) {
@@ -93,10 +187,20 @@ router.delete('/:imei', async (req, res) => {
   }
 });
 
-// Get inventory statistics
-router.get('/stats/summary', async (req, res) => {
+// Get inventory statistics (with franchise filtering)
+router.get('/stats/summary', authenticate, applyFranchiseFilter, async (req, res) => {
   try {
+    let matchQuery = {};
+    
+    // Apply franchise location filtering
+    if (req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id);
+      matchQuery.franchiseLocation = { $in: locationIds };
+    }
+    
     const stats = await InventoryItem.aggregate([
+      { $match: matchQuery },
       {
         $group: {
           _id: '$state',
@@ -105,16 +209,34 @@ router.get('/stats/summary', async (req, res) => {
       }
     ]);
     
-    const branchStats = await InventoryItem.aggregate([
+    const locationStats = await InventoryItem.aggregate([
+      { $match: matchQuery },
       {
         $group: {
-          _id: '$branch',
+          _id: '$franchiseLocation',
           count: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'franchiselocations',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'location'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          count: 1,
+          name: { $arrayElemAt: ['$location.name', 0] },
+          code: { $arrayElemAt: ['$location.code', 0] },
+          type: { $arrayElemAt: ['$location.type', 0] }
         }
       }
     ]);
     
-    res.json({ stateStats: stats, branchStats });
+    res.json({ stateStats: stats, locationStats });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

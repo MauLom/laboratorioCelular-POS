@@ -45,9 +45,10 @@ const salesSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  branch: {
-    type: String,
-    trim: true
+  franchiseLocation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FranchiseLocation',
+    required: true
   },
   notes: {
     type: String,
@@ -61,6 +62,7 @@ const salesSchema = new mongoose.Schema({
 salesSchema.index({ imei: 1 });
 salesSchema.index({ description: 1 });
 salesSchema.index({ finance: 1 });
+salesSchema.index({ franchiseLocation: 1 });
 salesSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Sale', salesSchema);

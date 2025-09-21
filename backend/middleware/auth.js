@@ -81,9 +81,43 @@ const canManageLocation = (req, res, next) => {
   return res.status(403).json({ error: 'Access denied. Cannot manage this location.' });
 };
 
+// Middleware to filter data by franchise location
+const applyFranchiseFilter = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  // Master admin can see all data
+  if (req.user.role === 'Master admin') {
+    return next();
+  }
+
+  // Supervisor de sucursales can see all branch data
+  if (req.user.role === 'Supervisor de sucursales') {
+    // This middleware will be applied at the route level
+    req.franchiseFilter = { type: 'Sucursal' };
+    return next();
+  }
+
+  // Supervisor de oficina can see all office data
+  if (req.user.role === 'Supervisor de oficina') {
+    req.franchiseFilter = { type: 'Oficina' };
+    return next();
+  }
+
+  // Other roles can only see their specific location data
+  if (req.user.franchiseLocation) {
+    req.franchiseFilter = { _id: req.user.franchiseLocation._id };
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Access denied. No franchise location assigned.' });
+};
+
 module.exports = {
   authenticate,
   authorize,
   requireMasterAdmin,
-  canManageLocation
+  canManageLocation,
+  applyFranchiseFilter
 };
