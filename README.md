@@ -219,6 +219,78 @@ The application is built with modern web technologies and follows best practices
 - Express.js for REST API
 - Comprehensive error handling and validation
 
+## Docker Deployment
+
+The application includes Docker configuration for easy deployment:
+
+### Quick Start with Docker
+
+```bash
+# Clone the repository
+git clone https://github.com/MauLom/laboratorioCelular-POS.git
+cd laboratorioCelular-POS
+
+# Deploy in development mode
+./deploy.sh development
+
+# Or deploy in production mode
+./deploy.sh production
+```
+
+### Docker Commands
+
+```bash
+# Development deployment (with hot reload)
+./deploy.sh dev
+
+# Production deployment
+./deploy.sh prod
+
+# Stop all services
+./deploy.sh stop
+
+# Remove all services and data
+./deploy.sh down
+
+# Show logs
+./deploy.sh logs
+
+# Show service status
+./deploy.sh status
+```
+
+### Services
+
+The Docker setup includes:
+
+- **Frontend**: React app served with nginx (port 3000)
+- **Backend**: Node.js API (port 5000) 
+- **MongoDB**: Database with authentication (port 27017)
+- **Nginx**: Reverse proxy for production (ports 80/443)
+
+### Production Deployment
+
+For production deployment on DigitalOcean VPS with Cloudflare:
+
+1. See detailed instructions in [DEPLOYMENT.md](./DEPLOYMENT.md)
+2. Configure your domain and SSL certificates
+3. Set production environment variables
+4. Run `./deploy.sh production`
+
+### Environment Configuration
+
+The application supports multiple environment configurations:
+
+- `development` - Local development with hot reload
+- `docker` - Docker development environment
+- `production` - Production deployment with nginx
+
+Use the setup script to configure environments:
+```bash
+./setup-env.sh docker     # For Docker development
+./setup-env.sh production # For production deployment
+```
+
 ## License
 
 MIT

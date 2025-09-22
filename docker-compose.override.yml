@@ -1,0 +1,9 @@
+# Development override for docker-compose.yml
+# This file provides development-specific configurations
+
+services:
+  backend:
+    command: npm run dev
+    
+  frontend:
+    command: npm start
