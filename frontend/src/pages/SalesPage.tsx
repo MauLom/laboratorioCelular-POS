@@ -7,12 +7,14 @@ import {
   Button,
   Text,
   chakra,
+  Input,
 } from '@chakra-ui/react';
 import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import SalesForm from '../components/sales/SalesForm';
-import { salesApi } from '../services/api';
-import { Sale, PaginatedResponse } from '../types';
+import { salesApi, franchiseLocationsApi } from '../services/api';
+import { Sale, PaginatedResponse, FranchiseLocation } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 // Use native HTML elements with Chakra styling
 const Select = chakra('select');
@@ -24,19 +26,40 @@ const Th = chakra('th');
 const Td = chakra('td');
 
 const SalesPage: React.FC = () => {
+  const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [filters, setFilters] = useState({
     description: '',
     finance: '',
+    franchiseLocation: '',
+    startDate: '',
+    endDate: '',
   });
+
+  // Fetch franchise locations for Master admin
+  const fetchFranchiseLocations = useCallback(async () => {
+    if (user?.role === 'Master admin') {
+      try {
+        const locations = await franchiseLocationsApi.getActive();
+        setFranchiseLocations(locations);
+      } catch (error) {
+        console.error('Failed to fetch franchise locations:', error);
+      }
+    }
+  }, [user]);
 
   const fetchSales = useCallback(async () => {
     setLoading(true);
     try {
-      const response: PaginatedResponse<Sale> = await salesApi.getAll(filters);
+      const cleanFilters = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== '')
+      );
+      const response: PaginatedResponse<Sale> = await salesApi.getAll(cleanFilters);
       setSales(response.sales || []);
     } catch (error) {
       console.error('Failed to fetch sales:', error);
@@ -47,8 +70,57 @@ const SalesPage: React.FC = () => {
   }, [filters]);
 
   useEffect(() => {
+    fetchFranchiseLocations();
+  }, [fetchFranchiseLocations]);
+
+  useEffect(() => {
     fetchSales();
   }, [fetchSales]);
+
+  const handleExportToExcel = async () => {
+    setExportLoading(true);
+    try {
+      const cleanFilters = Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== '')
+      );
+      
+      const blob = await salesApi.exportToExcel(cleanFilters);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      
+      // Generate filename based on current date and filters
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      let filename = `ventas_${dateStr}`;
+      
+      if (filters.description) filename += `_${filters.description.toLowerCase()}`;
+      if (filters.finance) filename += `_${filters.finance.toLowerCase()}`;
+      if (filters.startDate || filters.endDate) {
+        const dateRange = `${filters.startDate || 'inicio'}_${filters.endDate || 'fin'}`;
+        filename += `_${dateRange}`;
+      }
+      filename += '.xlsx';
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      alert('Archivo Excel generado exitosamente');
+    } catch (error) {
+      console.error('Failed to export sales:', error);
+      alert('Error al exportar las ventas a Excel');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const handleAddSale = async (saleData: Omit<Sale, '_id' | 'createdAt' | 'updatedAt'>) => {
     setFormLoading(true);
@@ -110,51 +182,133 @@ const SalesPage: React.FC = () => {
             <Heading size="lg" color="dark.400">
               Registros de Ventas
             </Heading>
-            <Button colorScheme="green" onClick={() => setShowForm(true)}>
-              Registrar Nueva Venta
-            </Button>
+            <HStack gap={3}>
+              <Button
+                colorScheme="blue"
+                onClick={handleExportToExcel}
+                disabled={exportLoading}
+              >
+                📊 {exportLoading ? 'Exportando...' : 'Exportar a Excel'}
+              </Button>
+              <Button colorScheme="green" onClick={() => setShowForm(true)}>
+                Registrar Nueva Venta
+              </Button>
+            </HStack>
           </HStack>
         </Box>
 
         {/* Filters */}
         <Box bg="white" p={4} rounded="lg" shadow="sm">
-          <HStack gap={4} wrap="wrap">
-            <Select
-              value={filters.description}
-              onChange={(e: any) => setFilters({ ...filters, description: e.target.value })}
-              maxW="200px"
-              p={2}
-              border="1px solid"
-              borderColor="gray.300"
-              rounded="md"
-              bg="white"
-            >
-              <option value="">Todas las Descripciones</option>
-              <option value="Fair">Justo</option>
-              <option value="Payment">Pago</option>
-              <option value="Sale">Venta</option>
-              <option value="Deposit">Depósito</option>
-            </Select>
+          <VStack gap={4} align="stretch">
+            <Text fontSize="md" fontWeight="semibold" color="gray.700">
+              Filtros de Búsqueda
+            </Text>
             
-            <Select
-              value={filters.finance}
-              onChange={(e: any) => setFilters({ ...filters, finance: e.target.value })}
-              maxW="250px"
-              p={2}
-              border="1px solid"
-              borderColor="gray.300"
-              rounded="md"
-              bg="white"
-            >
-              <option value="">Todos los Tipos de Financiamiento</option>
-              <option value="Payjoy">Payjoy</option>
-              <option value="Lespago">Lespago</option>
-              <option value="Repair">Reparación</option>
-              <option value="Accessory">Accesorio</option>
-              <option value="Cash">Efectivo</option>
-              <option value="Other">Otro</option>
-            </Select>
-          </HStack>
+            {/* First Row - Description and Finance */}
+            <HStack gap={4} wrap="wrap">
+              <Select
+                value={filters.description}
+                onChange={(e: any) => setFilters({ ...filters, description: e.target.value })}
+                maxW="200px"
+                p={2}
+                border="1px solid"
+                borderColor="gray.300"
+                rounded="md"
+                bg="white"
+              >
+                <option value="">Todas las Descripciones</option>
+                <option value="Fair">Justo</option>
+                <option value="Payment">Pago</option>
+                <option value="Sale">Venta</option>
+                <option value="Deposit">Depósito</option>
+              </Select>
+              
+              <Select
+                value={filters.finance}
+                onChange={(e: any) => setFilters({ ...filters, finance: e.target.value })}
+                maxW="250px"
+                p={2}
+                border="1px solid"
+                borderColor="gray.300"
+                rounded="md"
+                bg="white"
+              >
+                <option value="">Todos los Tipos de Financiamiento</option>
+                <option value="Payjoy">Payjoy</option>
+                <option value="Lespago">Lespago</option>
+                <option value="Repair">Reparación</option>
+                <option value="Accessory">Accesorio</option>
+                <option value="Cash">Efectivo</option>
+                <option value="Other">Otro</option>
+              </Select>
+
+              {/* Franchise Location Filter - Only for Master admin */}
+              {user?.role === 'Master admin' && franchiseLocations.length > 0 && (
+                <Select
+                  value={filters.franchiseLocation}
+                  onChange={(e: any) => setFilters({ ...filters, franchiseLocation: e.target.value })}
+                  maxW="250px"
+                  p={2}
+                  border="1px solid"
+                  borderColor="gray.300"
+                  rounded="md"
+                  bg="white"
+                >
+                  <option value="">Todas las Sucursales</option>
+                  {franchiseLocations.map((location) => (
+                    <option key={location._id} value={location._id}>
+                      {location.name} ({location.code})
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </HStack>
+
+            {/* Second Row - Date Filters */}
+            <HStack gap={4} wrap="wrap" align="center">
+              <Text fontSize="sm" color="gray.600" minW="fit-content">
+                Rango de Fechas:
+              </Text>
+              <HStack gap={2} align="center">
+                <Text fontSize="sm" color="gray.600">
+                  Desde:
+                </Text>
+                <Input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                  maxW="150px"
+                  size="sm"
+                />
+              </HStack>
+              <HStack gap={2} align="center">
+                <Text fontSize="sm" color="gray.600">
+                  Hasta:
+                </Text>
+                <Input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                  maxW="150px"
+                  size="sm"
+                />
+              </HStack>
+              <Button
+                size="sm"
+                variant="outline"
+                colorScheme="gray"
+                onClick={() => setFilters({
+                  description: '',
+                  finance: '',
+                  franchiseLocation: '',
+                  startDate: '',
+                  endDate: '',
+                })}
+              >
+                Limpiar Filtros
+              </Button>
+            </HStack>
+          </VStack>
         </Box>
 
         {/* Sales Table */}
@@ -169,13 +323,16 @@ const SalesPage: React.FC = () => {
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">IMEI</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Monto</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Cliente</Th>
+                {user?.role === 'Master admin' && (
+                  <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Sucursal</Th>
+                )}
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Acciones</Th>
               </Tr>
             </Thead>
             <Tbody>
               {sales.length === 0 ? (
                 <Tr>
-                  <Td colSpan={8}>
+                  <Td colSpan={user?.role === 'Master admin' ? 9 : 8}>
                     <Box py={12} textAlign="center">
                       <Text fontSize="lg" color="gray.500">
                         No se encontraron registros de ventas
@@ -195,6 +352,13 @@ const SalesPage: React.FC = () => {
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.imei || '-'}</Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold">${sale.amount.toFixed(2)}</Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.customerName || '-'}</Td>
+                    {user?.role === 'Master admin' && (
+                      <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
+                        {typeof sale.franchiseLocation === 'object' && sale.franchiseLocation?.name 
+                          ? `${sale.franchiseLocation.name} (${sale.franchiseLocation.code})` 
+                          : '-'}
+                      </Td>
+                    )}
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
                       <Button
                         size="sm"

@@ -148,6 +148,21 @@ export const salesApi = {
     const response = await api.get('/sales/stats/summary');
     return response.data;
   },
+
+  // Export sales to Excel
+  exportToExcel: async (params?: {
+    description?: string;
+    finance?: string;
+    franchiseLocation?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Blob> => {
+    const response = await api.get('/sales/export', { 
+      params,
+      responseType: 'blob' 
+    });
+    return response.data;
+  },
 };
 
 // Health check
