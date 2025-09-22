@@ -11,6 +11,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.prod
 
 # Build outputs
 build/
@@ -55,3 +56,10 @@ coverage/
 
 # nyc test coverage
 .nyc_output
+
+# Docker
+# Keep Docker files but ignore secrets
+ssl/
+backups/
+**/ssl/
+**/backups/
