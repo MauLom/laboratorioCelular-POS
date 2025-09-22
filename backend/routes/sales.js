@@ -5,6 +5,7 @@ const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { authenticate, applyFranchiseFilter } = require('../middleware/auth');
 const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
+const ExcelJS = require('exceljs');
 
 // Helper function to get accessible franchise locations for a user
 const getAccessibleLocations = async (user) => {
@@ -81,6 +82,144 @@ router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
       total
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Export sales to Excel (with same filtering as GET /)
+router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
+  try {
+    const { description, finance, franchiseLocation, startDate, endDate } = req.query;
+    const query = {};
+    
+    if (description) query.description = description;
+    if (finance) query.finance = finance;
+    
+    // Date filtering
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    
+    // Apply franchise location filtering
+    if (req.user.role === 'Master admin') {
+      // Master admin can filter by any location or see all
+      if (franchiseLocation) query.franchiseLocation = franchiseLocation;
+    } else {
+      // Other users are restricted to their accessible locations
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id);
+      
+      if (franchiseLocation && locationIds.some(id => id.toString() === franchiseLocation)) {
+        query.franchiseLocation = franchiseLocation;
+      } else {
+        query.franchiseLocation = { $in: locationIds };
+      }
+    }
+    
+    // Get all sales without pagination for export
+    const sales = await Sale.find(query)
+      .populate('franchiseLocation', 'name code type')
+      .sort({ createdAt: -1 });
+
+    // Create Excel workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Ventas', {
+      properties: { tabColor: { argb: 'FF00B050' } }
+    });
+
+    // Define columns
+    worksheet.columns = [
+      { header: 'Fecha', key: 'fecha', width: 12 },
+      { header: 'Descripción', key: 'descripcion', width: 15 },
+      { header: 'Financiamiento', key: 'financiamiento', width: 15 },
+      { header: 'Concepto', key: 'concepto', width: 25 },
+      { header: 'IMEI', key: 'imei', width: 18 },
+      { header: 'Tipo de Pago', key: 'tipoPago', width: 15 },
+      { header: 'Referencia', key: 'referencia', width: 15 },
+      { header: 'Monto', key: 'monto', width: 12 },
+      { header: 'Cliente', key: 'cliente', width: 20 },
+      { header: 'Teléfono', key: 'telefono', width: 15 },
+      { header: 'Sucursal', key: 'sucursal', width: 20 },
+      { header: 'Código Sucursal', key: 'codigoSucursal', width: 15 },
+      { header: 'Tipo Sucursal', key: 'tipoSucursal', width: 15 },
+      { header: 'Notas', key: 'notas', width: 30 }
+    ];
+
+    // Style header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF00B050' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add data rows
+    sales.forEach(sale => {
+      worksheet.addRow({
+        fecha: sale.createdAt ? sale.createdAt.toLocaleDateString('es-ES') : '',
+        descripcion: sale.description,
+        financiamiento: sale.finance,
+        concepto: sale.concept,
+        imei: sale.imei || '',
+        tipoPago: sale.paymentType,
+        referencia: sale.reference,
+        monto: sale.amount,
+        cliente: sale.customerName || '',
+        telefono: sale.customerPhone || '',
+        sucursal: sale.franchiseLocation?.name || '',
+        codigoSucursal: sale.franchiseLocation?.code || '',
+        tipoSucursal: sale.franchiseLocation?.type || '',
+        notas: sale.notes || ''
+      });
+    });
+
+    // Format amount column as currency
+    const montoColumn = worksheet.getColumn('monto');
+    montoColumn.numFmt = '$#,##0.00';
+    montoColumn.alignment = { horizontal: 'right' };
+
+    // Add borders to all cells
+    const borderStyle = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    worksheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = borderStyle;
+      });
+    });
+
+    // Prepare filename with current date and applied filters
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    let filename = `ventas_${dateStr}`;
+    
+    if (description) filename += `_${description.toLowerCase()}`;
+    if (finance) filename += `_${finance.toLowerCase()}`;
+    if (startDate || endDate) {
+      const dateRange = `${startDate || 'inicio'}_${endDate || 'fin'}`;
+      filename += `_${dateRange}`;
+    }
+    filename += '.xlsx';
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Write the workbook to response
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Excel export error:', error);
     res.status(500).json({ error: error.message });
   }
 });
