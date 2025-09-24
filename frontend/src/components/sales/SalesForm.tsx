@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
-import { Sale } from '../../types';
+import { Sale, FranchiseLocation } from '../../types';
+import { franchiseLocationsApi } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfiguration } from '../../hooks/useConfigurations';
 
 const Form = styled.form`
   background: white;
@@ -148,6 +151,34 @@ const SalesForm: React.FC<SalesFormProps> = ({
   isEditing = false,
   isLoading = false,
 }) => {
+  const { user } = useAuth();
+  const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
+  
+  // Load configurations for descriptions and finance types
+  const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
+  const { getLabels: getFinanceLabels, loading: financeLoading } = useConfiguration('finance_types');
+
+  // Determine if user can select from multiple locations
+  const canSelectLocation = user?.role === 'Master admin' || 
+                           user?.role === 'Supervisor de sucursales' || 
+                           user?.role === 'Supervisor de oficina';
+
+  // Fetch franchise locations if user can select
+  useEffect(() => {
+    const fetchLocations = async () => {
+      if (canSelectLocation) {
+        try {
+          const locations = await franchiseLocationsApi.getActive();
+          setFranchiseLocations(locations);
+        } catch (error) {
+          console.error('Failed to fetch franchise locations:', error);
+        }
+      }
+    };
+
+    fetchLocations();
+  }, [canSelectLocation]);
+
   const { register, handleSubmit, formState: { errors } } = useForm<SalesFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: initialData || {
@@ -160,12 +191,16 @@ const SalesForm: React.FC<SalesFormProps> = ({
       amount: 0,
       customerName: '',
       customerPhone: '',
-      branch: '',
+      branch: canSelectLocation ? '' : (user?.franchiseLocation as FranchiseLocation)?._id || '',
       notes: '',
     },
   });
 
   const handleFormSubmit = async (data: SalesFormData) => {
+    // If user cannot select location, use their assigned franchise location ID
+    if (!canSelectLocation && user?.franchiseLocation) {
+      data.branch = (user.franchiseLocation as FranchiseLocation)._id || '';
+    }
     await onSubmit(data);
   };
 
@@ -174,24 +209,32 @@ const SalesForm: React.FC<SalesFormProps> = ({
       <FormRow>
         <FormGroup>
           <Label htmlFor="description">Descripción *</Label>
-          <Select id="description" {...register('description')} disabled={isLoading}>
-            <option value="Fair">Justo</option>
-            <option value="Payment">Pago</option>
-            <option value="Sale">Venta</option>
-            <option value="Deposit">Depósito</option>
+          <Select id="description" {...register('description')} disabled={isLoading || descriptionsLoading}>
+            {descriptionsLoading ? (
+              <option value="">Cargando...</option>
+            ) : (
+              getDescriptionLabels().map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))
+            )}
           </Select>
           {errors.description && <ErrorMessage>{errors.description.message}</ErrorMessage>}
         </FormGroup>
 
         <FormGroup>
           <Label htmlFor="finance">Financiamiento *</Label>
-          <Select id="finance" {...register('finance')} disabled={isLoading}>
-            <option value="Payjoy">Payjoy</option>
-            <option value="Lespago">Lespago</option>
-            <option value="Repair">Reparación</option>
-            <option value="Accessory">Accesorio</option>
-            <option value="Cash">Efectivo</option>
-            <option value="Other">Otro</option>
+          <Select id="finance" {...register('finance')} disabled={isLoading || financeLoading}>
+            {financeLoading ? (
+              <option value="">Cargando...</option>
+            ) : (
+              getFinanceLabels().map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))
+            )}
           </Select>
           {errors.finance && <ErrorMessage>{errors.finance.message}</ErrorMessage>}
         </FormGroup>
@@ -281,12 +324,31 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
       <FormGroup>
         <Label htmlFor="branch">Sucursal</Label>
-        <Input
-          id="branch"
-          type="text"
-          {...register('branch')}
-          disabled={isLoading}
-        />
+        {canSelectLocation ? (
+          <Select
+            id="branch"
+            {...register('branch')}
+            disabled={isLoading}
+          >
+            <option value="">Seleccionar sucursal...</option>
+            {franchiseLocations.map((location) => (
+              <option key={location._id} value={location._id}>
+                {location.name} ({location.code})
+              </option>
+            ))}
+          </Select>
+        ) : (
+          <Input
+            id="branch"
+            type="text"
+            value={user?.franchiseLocation ? 
+              `${(user.franchiseLocation as FranchiseLocation).name} (${(user.franchiseLocation as FranchiseLocation).code})` : 
+              'No asignada'
+            }
+            disabled={true}
+            style={{ background: '#f8f9fa', color: '#6c757d' }}
+          />
+        )}
       </FormGroup>
 
       <FormGroup>

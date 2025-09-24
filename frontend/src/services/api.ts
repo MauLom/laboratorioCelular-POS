@@ -311,4 +311,42 @@ export const franchiseLocationsApi = {
   }
 };
 
+// Configuration API
+export const configurationsApi = {
+  // Get all configurations or specific by key
+  getAll: async (key?: string): Promise<any> => {
+    const response = await api.get('/configurations', { params: key ? { key } : {} });
+    return response.data;
+  },
+
+  // Get configuration by key
+  getByKey: async (key: string): Promise<any> => {
+    const response = await api.get('/configurations', { params: { key } });
+    return response.data;
+  },
+
+  // Create or update configuration (Master admin only)
+  createOrUpdate: async (config: {
+    key: string;
+    name: string;
+    description?: string;
+    values: Array<{ value: string; label: string; isActive?: boolean }>;
+  }): Promise<any> => {
+    const response = await api.post('/configurations', config);
+    return response.data;
+  },
+
+  // Update configuration values (Master admin only)
+  updateValues: async (key: string, values: Array<{ value: string; label: string; isActive?: boolean }>): Promise<any> => {
+    const response = await api.put(`/configurations/${key}`, { values });
+    return response.data;
+  },
+
+  // Delete configuration (Master admin only)
+  delete: async (key: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/configurations/${key}`);
+    return response.data;
+  }
+};
+
 export default api;
