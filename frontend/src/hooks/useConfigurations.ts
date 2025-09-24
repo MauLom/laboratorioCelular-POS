@@ -2,6 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { configurationsApi } from '../services/api';
 import { Configuration, ConfigurationValue } from '../types';
 
+// Fallback configurations for when API is not available
+const FALLBACK_CONFIGURATIONS = {
+  sales_descriptions: [
+    { value: 'Fair', label: 'Justo' },
+    { value: 'Payment', label: 'Pago' },
+    { value: 'Sale', label: 'Venta' },
+    { value: 'Deposit', label: 'Depósito' }
+  ],
+  finance_types: [
+    { value: 'Payjoy', label: 'Payjoy' },
+    { value: 'Lespago', label: 'Lespago' },
+    { value: 'Repair', label: 'Reparación' },
+    { value: 'Accessory', label: 'Accesorio' },
+    { value: 'Cash', label: 'Efectivo' },
+    { value: 'Other', label: 'Otro' }
+  ]
+};
+
 export const useConfigurations = () => {
   const [configurations, setConfigurations] = useState<Record<string, Configuration>>({});
   const [loading, setLoading] = useState(false);
@@ -21,7 +39,18 @@ export const useConfigurations = () => {
       setConfigurations(configMap);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load configurations');
-      console.error('Failed to load configurations:', err);
+      console.warn('Failed to load configurations, using fallback values:', err);
+      // Use fallback configurations when API fails
+      const fallbackConfigs: Record<string, Configuration> = {};
+      Object.entries(FALLBACK_CONFIGURATIONS).forEach(([key, values]) => {
+        fallbackConfigs[key] = {
+          key,
+          name: key,
+          values: values.map(v => ({ ...v, isActive: true })),
+          isActive: true
+        };
+      });
+      setConfigurations(fallbackConfigs);
     } finally {
       setLoading(false);
     }
@@ -63,7 +92,17 @@ export const useConfiguration = (key: string) => {
       setConfiguration(config);
     } catch (err: any) {
       setError(err.response?.data?.error || `Failed to load configuration: ${key}`);
-      console.error(`Failed to load configuration ${key}:`, err);
+      console.warn(`Failed to load configuration ${key}, using fallback values:`, err);
+      // Use fallback configuration when API fails
+      const fallbackValues = FALLBACK_CONFIGURATIONS[key as keyof typeof FALLBACK_CONFIGURATIONS];
+      if (fallbackValues) {
+        setConfiguration({
+          key,
+          name: key,
+          values: fallbackValues.map(v => ({ ...v, isActive: true })),
+          isActive: true
+        });
+      }
     } finally {
       setLoading(false);
     }
