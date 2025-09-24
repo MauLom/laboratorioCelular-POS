@@ -2,9 +2,17 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { User, FranchiseLocation, UserRole } from '../types';
 import { usersApi, franchiseLocationsApi } from '../services/api';
+import Navigation from '../components/common/Navigation';
 
 const Container = styled.div`
+  min-height: 100vh;
+  background-color: #f8f9fa;
+`;
+
+const Content = styled.div`
   padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 `;
 
 const Header = styled.div`
@@ -359,10 +367,12 @@ const UserManagement: React.FC = () => {
 
   return (
     <Container>
-      <Header>
-        <Title>Gestión de Usuarios</Title>
-        <Button onClick={openCreateModal}>Crear Usuario</Button>
-      </Header>
+      <Navigation />
+      <Content>
+        <Header>
+          <Title>Gestión de Usuarios</Title>
+          <Button onClick={openCreateModal}>Crear Usuario</Button>
+        </Header>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
 
@@ -510,6 +520,7 @@ const UserManagement: React.FC = () => {
           </Form>
         </ModalContent>
       </Modal>
+      </Content>
     </Container>
   );
 };

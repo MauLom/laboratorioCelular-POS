@@ -15,6 +15,7 @@ import SalesForm from '../components/sales/SalesForm';
 import { salesApi, franchiseLocationsApi } from '../services/api';
 import { Sale, PaginatedResponse, FranchiseLocation } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfiguration } from '../hooks/useConfigurations';
 
 // Use native HTML elements with Chakra styling
 const Select = chakra('select');
@@ -33,6 +34,11 @@ const SalesPage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
+  
+  // Load configurations for filters
+  const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
+  const { getLabels: getFinanceLabels, loading: financeLoading } = useConfiguration('finance_types');
+  
   const [filters, setFilters] = useState({
     description: '',
     finance: '',
@@ -217,10 +223,15 @@ const SalesPage: React.FC = () => {
                 bg="white"
               >
                 <option value="">Todas las Descripciones</option>
-                <option value="Fair">Justo</option>
-                <option value="Payment">Pago</option>
-                <option value="Sale">Venta</option>
-                <option value="Deposit">Depósito</option>
+                {descriptionsLoading ? (
+                  <option value="">Cargando...</option>
+                ) : (
+                  getDescriptionLabels().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))
+                )}
               </Select>
               
               <Select
@@ -234,12 +245,15 @@ const SalesPage: React.FC = () => {
                 bg="white"
               >
                 <option value="">Todos los Tipos de Financiamiento</option>
-                <option value="Payjoy">Payjoy</option>
-                <option value="Lespago">Lespago</option>
-                <option value="Repair">Reparación</option>
-                <option value="Accessory">Accesorio</option>
-                <option value="Cash">Efectivo</option>
-                <option value="Other">Otro</option>
+                {financeLoading ? (
+                  <option value="">Cargando...</option>
+                ) : (
+                  getFinanceLabels().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))
+                )}
               </Select>
 
               {/* Franchise Location Filter - Only for Master admin */}

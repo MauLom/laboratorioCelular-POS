@@ -128,3 +128,21 @@ export interface LocationPaginatedResponse {
   currentPage: number;
   total: number;
 }
+
+// Configuration Types
+export interface ConfigurationValue {
+  value: string;
+  label: string;
+  isActive: boolean;
+}
+
+export interface Configuration {
+  _id?: string;
+  key: string;
+  name: string;
+  description?: string;
+  values: ConfigurationValue[];
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
