@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import SalesPage from './pages/SalesPage';
 import UserManagement from './pages/UserManagement';
+import FranchiseConfiguration from './pages/FranchiseConfiguration';
 import './App.css';
 
 function App() {
@@ -45,6 +46,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={['Master admin']}>
                   <UserManagement />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/configuration" 
+              element={
+                <ProtectedRoute requiredRoles={['Master admin']}>
+                  <FranchiseConfiguration />
                 </ProtectedRoute>
               } 
             />

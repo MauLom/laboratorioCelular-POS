@@ -77,6 +77,22 @@ const Navigation: React.FC = () => {
               Usuarios
             </ChakraLink>
           )}
+          {canManageUsers() && (
+            <ChakraLink
+              to="/configuration"
+              color="gray.100"
+              px={4}
+              py={2}
+              rounded="md"
+              transition="all 0.2s"
+              bg={isActive('/configuration') ? 'brand.400' : 'transparent'}
+              _hover={{ bg: isActive('/configuration') ? 'brand.500' : 'dark.400' }}
+              fontWeight="medium"
+              textDecoration="none"
+            >
+              Configuración
+            </ChakraLink>
+          )}
         </HStack>
         
         <HStack gap={4}>
