@@ -11,6 +11,7 @@ import {
 } from '@chakra-ui/react';
 import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
+import MultiSelect from '../components/common/MultiSelect';
 import SalesForm from '../components/sales/SalesForm';
 import { salesApi, franchiseLocationsApi } from '../services/api';
 import { Sale, PaginatedResponse, FranchiseLocation } from '../types';
@@ -40,8 +41,8 @@ const SalesPage: React.FC = () => {
   const { getLabels: getFinanceLabels, loading: financeLoading } = useConfiguration('finance_types');
   
   const [filters, setFilters] = useState({
-    description: '',
-    finance: '',
+    description: [] as string[],
+    finance: [] as string[],
     franchiseLocation: '',
     startDate: '',
     endDate: '',
@@ -63,7 +64,12 @@ const SalesPage: React.FC = () => {
     setLoading(true);
     try {
       const cleanFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== '')
+        Object.entries(filters).filter(([_, value]) => {
+          if (Array.isArray(value)) {
+            return value.length > 0;
+          }
+          return value !== '';
+        })
       );
       const response: PaginatedResponse<Sale> = await salesApi.getAll(cleanFilters);
       setSales(response.sales || []);
@@ -87,7 +93,12 @@ const SalesPage: React.FC = () => {
     setExportLoading(true);
     try {
       const cleanFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== '')
+        Object.entries(filters).filter(([_, value]) => {
+          if (Array.isArray(value)) {
+            return value.length > 0;
+          }
+          return value !== '';
+        })
       );
       
       const blob = await salesApi.exportToExcel(cleanFilters);
@@ -103,8 +114,8 @@ const SalesPage: React.FC = () => {
       const dateStr = now.toISOString().split('T')[0];
       let filename = `ventas_${dateStr}`;
       
-      if (filters.description) filename += `_${filters.description.toLowerCase()}`;
-      if (filters.finance) filename += `_${filters.finance.toLowerCase()}`;
+      if (filters.description.length > 0) filename += `_desc-${filters.description.length}`;
+      if (filters.finance.length > 0) filename += `_fin-${filters.finance.length}`;
       if (filters.startDate || filters.endDate) {
         const dateRange = `${filters.startDate || 'inicio'}_${filters.endDate || 'fin'}`;
         filename += `_${dateRange}`;
@@ -212,49 +223,25 @@ const SalesPage: React.FC = () => {
             
             {/* First Row - Description and Finance */}
             <HStack gap={4} wrap="wrap">
-              <Select
-                value={filters.description}
-                onChange={(e: any) => setFilters({ ...filters, description: e.target.value })}
+              <MultiSelect
+                options={getDescriptionLabels()}
+                selectedValues={filters.description}
+                onChange={(values) => setFilters({ ...filters, description: values })}
+                placeholder="Todas las Descripciones"
                 maxW="200px"
-                p={2}
-                border="1px solid"
-                borderColor="gray.300"
-                rounded="md"
-                bg="white"
-              >
-                <option value="">Todas las Descripciones</option>
-                {descriptionsLoading ? (
-                  <option value="">Cargando...</option>
-                ) : (
-                  getDescriptionLabels().map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))
-                )}
-              </Select>
+                isLoading={descriptionsLoading}
+                loadingText="Cargando..."
+              />
               
-              <Select
-                value={filters.finance}
-                onChange={(e: any) => setFilters({ ...filters, finance: e.target.value })}
+              <MultiSelect
+                options={getFinanceLabels()}
+                selectedValues={filters.finance}
+                onChange={(values) => setFilters({ ...filters, finance: values })}
+                placeholder="Todos los Tipos de Financiamiento"
                 maxW="250px"
-                p={2}
-                border="1px solid"
-                borderColor="gray.300"
-                rounded="md"
-                bg="white"
-              >
-                <option value="">Todos los Tipos de Financiamiento</option>
-                {financeLoading ? (
-                  <option value="">Cargando...</option>
-                ) : (
-                  getFinanceLabels().map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))
-                )}
-              </Select>
+                isLoading={financeLoading}
+                loadingText="Cargando..."
+              />
 
               {/* Franchise Location Filter - Only for Master admin */}
               {user?.role === 'Master admin' && franchiseLocations.length > 0 && (
@@ -312,8 +299,8 @@ const SalesPage: React.FC = () => {
                 variant="outline"
                 colorScheme="gray"
                 onClick={() => setFilters({
-                  description: '',
-                  finance: '',
+                  description: [],
+                  finance: [],
                   franchiseLocation: '',
                   startDate: '',
                   endDate: '',

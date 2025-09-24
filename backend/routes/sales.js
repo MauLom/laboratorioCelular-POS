@@ -35,8 +35,24 @@ router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
     const { description, finance, franchiseLocation, page = 1, limit = 10, startDate, endDate } = req.query;
     const query = {};
     
-    if (description) query.description = description;
-    if (finance) query.finance = finance;
+    // Handle array-based filters for multi-select support
+    if (description) {
+      if (Array.isArray(description)) {
+        query.description = { $in: description };
+      } else {
+        // Handle single value (backward compatibility)
+        query.description = description;
+      }
+    }
+    
+    if (finance) {
+      if (Array.isArray(finance)) {
+        query.finance = { $in: finance };
+      } else {
+        // Handle single value (backward compatibility)
+        query.finance = finance;
+      }
+    }
     
     // Date filtering
     if (startDate || endDate) {
@@ -92,8 +108,24 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
     const { description, finance, franchiseLocation, startDate, endDate } = req.query;
     const query = {};
     
-    if (description) query.description = description;
-    if (finance) query.finance = finance;
+    // Handle array-based filters for multi-select support
+    if (description) {
+      if (Array.isArray(description)) {
+        query.description = { $in: description };
+      } else {
+        // Handle single value (backward compatibility)
+        query.description = description;
+      }
+    }
+    
+    if (finance) {
+      if (Array.isArray(finance)) {
+        query.finance = { $in: finance };
+      } else {
+        // Handle single value (backward compatibility)
+        query.finance = finance;
+      }
+    }
     
     // Date filtering
     if (startDate || endDate) {
