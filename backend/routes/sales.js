@@ -37,18 +37,18 @@ router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
     
     // Handle array-based filters for multi-select support
     if (description) {
-      if (Array.isArray(description)) {
+      if (Array.isArray(description) && description.length > 0) {
         query.description = { $in: description };
-      } else {
+      } else if (!Array.isArray(description)) {
         // Handle single value (backward compatibility)
         query.description = description;
       }
     }
     
     if (finance) {
-      if (Array.isArray(finance)) {
+      if (Array.isArray(finance) && finance.length > 0) {
         query.finance = { $in: finance };
-      } else {
+      } else if (!Array.isArray(finance)) {
         // Handle single value (backward compatibility)
         query.finance = finance;
       }
@@ -110,18 +110,18 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
     
     // Handle array-based filters for multi-select support
     if (description) {
-      if (Array.isArray(description)) {
+      if (Array.isArray(description) && description.length > 0) {
         query.description = { $in: description };
-      } else {
+      } else if (!Array.isArray(description)) {
         // Handle single value (backward compatibility)
         query.description = description;
       }
     }
     
     if (finance) {
-      if (Array.isArray(finance)) {
+      if (Array.isArray(finance) && finance.length > 0) {
         query.finance = { $in: finance };
-      } else {
+      } else if (!Array.isArray(finance)) {
         // Handle single value (backward compatibility)
         query.finance = finance;
       }
