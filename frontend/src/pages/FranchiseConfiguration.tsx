@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { FranchiseLocation, User } from '../types';
 import { franchiseLocationsApi, usersApi } from '../services/api';
 import Navigation from '../components/common/Navigation';
+import { catalogsApi } from '../services/api';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -396,6 +397,11 @@ const FranchiseConfiguration: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [viewingUsers, setViewingUsers] = useState<FranchiseLocation | null>(null);
   const [locationUsers, setLocationUsers] = useState<User[]>([]);
+  const [catalogsOpen, setCatalogsOpen] = useState(false);
+  const [brandsList, setBrandsList] = useState<any[]>([]);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newBrandDescription, setNewBrandDescription] = useState('');
+  const [selectedTab, setSelectedTab] = useState<'locations' | 'catalogs'>('locations');
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -609,6 +615,42 @@ const FranchiseConfiguration: React.FC = () => {
     setModalOpen(true);
   };
 
+  const openCatalogs = async () => {
+    setSelectedTab('catalogs');
+    try {
+      const b = await catalogsApi.getBrands();
+      setBrandsList(b || []);
+    } catch (err) {
+      console.error('Failed to load brands', err);
+    }
+  };
+
+  const createBrand = async () => {
+    if (!newBrandName.trim()) return;
+    try {
+      await catalogsApi.createBrand({ name: newBrandName.trim(), description: newBrandDescription.trim() });
+      const b = await catalogsApi.getBrands();
+      setBrandsList(b || []);
+      setNewBrandName('');
+      setNewBrandDescription('');
+    } catch (err: any) {
+      console.error('Create brand failed', err);
+      alert(err.response?.data?.error || 'Error creating brand');
+    }
+  };
+
+  const handleDeleteBrand = async (id: string) => {
+    try {
+      if (!window.confirm('Eliminar marca?')) return;
+      await catalogsApi.deleteBrand(id);
+      const b = await catalogsApi.getBrands();
+      setBrandsList(b || []);
+    } catch (err: any) {
+      console.error('Delete brand failed', err);
+      alert(err.response?.data?.error || 'Error deleting brand');
+    }
+  };
+
   const openEditModal = (location: FranchiseLocation) => {
     setEditingLocation(location);
     setFormData({
@@ -729,9 +771,15 @@ const FranchiseConfiguration: React.FC = () => {
       <Content>
         <Header>
           <Title>Configuración de Franquicias</Title>
-          <Button onClick={openCreateModal}>
-            Crear Nueva Ubicación
-          </Button>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant={selectedTab === 'locations' ? undefined : 'secondary'} onClick={() => setSelectedTab('locations')}>Ubicaciones</Button>
+              <Button variant={selectedTab === 'catalogs' ? undefined : 'secondary'} onClick={openCatalogs}>Catálogos</Button>
+            </div>
+            <div style={{ marginLeft: 12 }}>
+              <Button onClick={openCreateModal}>Crear Nueva Ubicación</Button>
+            </div>
+          </div>
         </Header>
 
         {error && <ErrorMessage>{error}</ErrorMessage>}
@@ -975,6 +1023,41 @@ const FranchiseConfiguration: React.FC = () => {
             </Form>
           </ModalContent>
         </Modal>
+
+        {/* Catalogs Section (inline when selected) */}
+        {selectedTab === 'catalogs' && (
+          <Card>
+            <Header style={{ marginBottom: 12 }}>
+              <Title>Catálogos</Title>
+            </Header>
+            <Form onSubmit={(e) => { e.preventDefault(); createBrand(); }}>
+              <InputGroup>
+                <Label>Crear Marca</Label>
+                <Input value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} placeholder="Nombre de la marca" />
+                <Input value={newBrandDescription} onChange={(e) => setNewBrandDescription(e.target.value)} placeholder="Descripción (opcional)" />
+                <Button type="button" onClick={createBrand}>Crear Marca</Button>
+              </InputGroup>
+
+              <InputGroup>
+                <Label>Marcas Existentes</Label>
+                <UsersList>
+                  {brandsList.map(b => (
+                    <UserItem key={b._id}>
+                      <UserInfo>
+                        <UserName>{b.name}</UserName>
+                        <UserRole>{b.description || '—'}</UserRole>
+                      </UserInfo>
+                      <div>
+                        <Button variant="secondary" onClick={() => {}}>Editar</Button>
+                        <Button variant="danger" onClick={async () => { await handleDeleteBrand(b._id); }}>Eliminar</Button>
+                      </div>
+                    </UserItem>
+                  ))}
+                </UsersList>
+              </InputGroup>
+            </Form>
+          </Card>
+        )}
 
         {/* Users Modal */}
         <Modal isOpen={!!viewingUsers}>

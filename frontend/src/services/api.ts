@@ -349,4 +349,58 @@ export const configurationsApi = {
   }
 };
 
+// Brands & Characteristics API
+export const catalogsApi = {
+  // Get all brands
+  getBrands: async (): Promise<any[]> => {
+    const response = await api.get('/brands');
+    return response.data;
+  },
+
+  // Get characteristics
+  getCharacteristics: async (): Promise<any[]> => {
+    const response = await api.get('/characteristics');
+    return response.data;
+  },
+
+  // Get values for a specific characteristic, optionally filtered by brand
+  getCharacteristicValues: async (characteristicId: string, brandId?: string): Promise<any[]> => {
+    const params: any = {};
+    if (brandId) params.brandId = brandId;
+    const response = await api.get(`/characteristics/${characteristicId}/values`, { params });
+    return response.data;
+  }
+  ,
+  // Brand management
+  createBrand: async (payload: { name: string; description?: string }) => {
+    const response = await api.post('/brands', payload);
+    return response.data;
+  },
+  updateBrand: async (id: string, payload: { name: string; description?: string }) => {
+    const response = await api.put(`/brands/${id}`, payload);
+    return response.data;
+  },
+  deleteBrand: async (id: string) => {
+    const response = await api.delete(`/brands/${id}`);
+    return response.data;
+  },
+  // Characteristic management
+  createCharacteristic: async (payload: { name: string; description?: string; type?: string }) => {
+    const response = await api.post('/characteristics', payload);
+    return response.data;
+  },
+  updateCharacteristic: async (id: string, payload: { name: string; description?: string; type?: string }) => {
+    const response = await api.put(`/characteristics/${id}`, payload);
+    return response.data;
+  },
+  deleteCharacteristic: async (id: string) => {
+    const response = await api.delete(`/characteristics/${id}`);
+    return response.data;
+  },
+  createCharacteristicValue: async (characteristicId: string, payload: { brandId: string; value: string; displayName: string; hexColor?: string }) => {
+    const response = await api.post(`/characteristics/${characteristicId}/values`, payload);
+    return response.data;
+  }
+};
+
 export default api;
