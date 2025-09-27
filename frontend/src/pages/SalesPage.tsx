@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   VStack,
   HStack,
@@ -11,15 +11,12 @@ import {
 } from '@chakra-ui/react';
 import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
-import MultiSelect from '../components/common/MultiSelect';
 import SalesForm from '../components/sales/SalesForm';
-import { salesApi, franchiseLocationsApi } from '../services/api';
-import { Sale, PaginatedResponse, FranchiseLocation } from '../types';
+import { salesApi } from '../services/api';
+import { Sale, PaginatedResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { useConfiguration } from '../hooks/useConfigurations';
 
 // Use native HTML elements with Chakra styling
-const Select = chakra('select');
 const Table = chakra('table');
 const Thead = chakra('thead');
 const Tbody = chakra('tbody');
@@ -30,30 +27,59 @@ const Td = chakra('td');
 const SalesPage: React.FC = () => {
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
+  const [allSales, setAllSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
+  // const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  // Load configurations for filters
-  const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
-  const { getLabels: getFinanceLabels, loading: financeLoading } = useConfiguration('finance_types');
-  
-  const [filters, setFilters] = useState({
-    description: [] as string[],
-    finance: [] as string[],
-    franchiseLocation: '',
+  // Date range filters (keeping these as they're commonly needed)
+  const [dateFilters, setDateFilters] = useState({
     startDate: '',
     endDate: '',
   });
+
+  // Filter sales based on search term
+  const filteredSales = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return allSales;
+    }
+
+    const term = searchTerm.toLowerCase();
+    return allSales.filter(sale => {
+      // Search across all relevant fields
+      const searchableFields = [
+        sale.description?.toLowerCase() || '',
+        sale.finance?.toLowerCase() || '',
+        sale.concept?.toLowerCase() || '',
+        sale.imei?.toLowerCase() || '',
+        sale.customerName?.toLowerCase() || '',
+        sale.amount?.toString() || '',
+        // Include franchise location if it's an object
+        typeof sale.franchiseLocation === 'object' && sale.franchiseLocation?.name 
+          ? `${sale.franchiseLocation.name} ${sale.franchiseLocation.code}`.toLowerCase()
+          : '',
+        // Include date
+        sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : ''
+      ];
+
+      return searchableFields.some(field => field.includes(term));
+    });
+  }, [allSales, searchTerm]);
+
+  // Update sales display when filtered results change
+  useEffect(() => {
+    setSales(filteredSales);
+  }, [filteredSales]);
 
   // Fetch franchise locations for Master admin
   const fetchFranchiseLocations = useCallback(async () => {
     if (user?.role === 'Master admin') {
       try {
-        const locations = await franchiseLocationsApi.getActive();
-        setFranchiseLocations(locations);
+        // const locations = await franchiseLocationsApi.getActive();
+        // setFranchiseLocations(locations);
       } catch (error) {
         console.error('Failed to fetch franchise locations:', error);
       }
@@ -63,23 +89,21 @@ const SalesPage: React.FC = () => {
   const fetchSales = useCallback(async () => {
     setLoading(true);
     try {
-      const cleanFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => {
-          if (Array.isArray(value)) {
-            return value.length > 0;
-          }
-          return value !== '';
-        })
+      // Only apply date filters on server-side for better performance
+      const serverFilters = Object.fromEntries(
+        Object.entries(dateFilters).filter(([_, value]) => value !== '')
       );
-      const response: PaginatedResponse<Sale> = await salesApi.getAll(cleanFilters);
-      setSales(response.sales || []);
+      const response: PaginatedResponse<Sale> = await salesApi.getAll(serverFilters);
+      const salesData = response.sales || [];
+      setAllSales(salesData);
+      setSales(salesData);
     } catch (error) {
       console.error('Failed to fetch sales:', error);
       alert('Error al cargar las ventas');
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [dateFilters]);
 
   useEffect(() => {
     fetchFranchiseLocations();
@@ -93,12 +117,7 @@ const SalesPage: React.FC = () => {
     setExportLoading(true);
     try {
       const cleanFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => {
-          if (Array.isArray(value)) {
-            return value.length > 0;
-          }
-          return value !== '';
-        })
+        Object.entries(dateFilters).filter(([_, value]) => value !== '')
       );
       
       const blob = await salesApi.exportToExcel(cleanFilters);
@@ -114,10 +133,9 @@ const SalesPage: React.FC = () => {
       const dateStr = now.toISOString().split('T')[0];
       let filename = `ventas_${dateStr}`;
       
-      if (filters.description.length > 0) filename += `_desc-${filters.description.length}`;
-      if (filters.finance.length > 0) filename += `_fin-${filters.finance.length}`;
-      if (filters.startDate || filters.endDate) {
-        const dateRange = `${filters.startDate || 'inicio'}_${filters.endDate || 'fin'}`;
+      if (searchTerm) filename += `_busqueda-${searchTerm.substring(0, 10)}`;
+      if (dateFilters.startDate || dateFilters.endDate) {
+        const dateRange = `${dateFilters.startDate || 'inicio'}_${dateFilters.endDate || 'fin'}`;
         filename += `_${dateRange}`;
       }
       filename += '.xlsx';
@@ -214,58 +232,46 @@ const SalesPage: React.FC = () => {
           </HStack>
         </Box>
 
-        {/* Filters */}
+        {/* Search and Filters */}
         <Box bg="white" p={4} rounded="lg" shadow="sm">
           <VStack gap={4} align="stretch">
             <Text fontSize="md" fontWeight="semibold" color="gray.700">
-              Filtros de Búsqueda
+              Búsqueda y Filtros
             </Text>
             
-            {/* First Row - Description and Finance */}
-            <HStack gap={4} wrap="wrap">
-              <MultiSelect
-                options={getDescriptionLabels()}
-                selectedValues={filters.description}
-                onChange={(values) => setFilters({ ...filters, description: values })}
-                placeholder="Todas las Descripciones"
-                maxW="200px"
-                isLoading={descriptionsLoading}
-                loadingText="Cargando..."
-              />
-              
-              <MultiSelect
-                options={getFinanceLabels()}
-                selectedValues={filters.finance}
-                onChange={(values) => setFilters({ ...filters, finance: values })}
-                placeholder="Todos los Tipos de Financiamiento"
-                maxW="250px"
-                isLoading={financeLoading}
-                loadingText="Cargando..."
-              />
-
-              {/* Franchise Location Filter - Only for Master admin */}
-              {user?.role === 'Master admin' && franchiseLocations.length > 0 && (
-                <Select
-                  value={filters.franchiseLocation}
-                  onChange={(e: any) => setFilters({ ...filters, franchiseLocation: e.target.value })}
-                  maxW="250px"
-                  p={2}
-                  border="1px solid"
-                  borderColor="gray.300"
-                  rounded="md"
+            {/* Search Bar */}
+            <HStack gap={4} wrap="wrap" align="center">
+              <Box maxW="400px" position="relative">
+                <Input
+                  placeholder="🔍 Buscar en todas las columnas..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   bg="white"
+                  borderColor="gray.300"
+                  _focus={{
+                    borderColor: "blue.500",
+                    boxShadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                  }}
+                />
+              </Box>
+              
+              {searchTerm && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="gray"
+                  onClick={() => setSearchTerm('')}
                 >
-                  <option value="">Todas las Sucursales</option>
-                  {franchiseLocations.map((location) => (
-                    <option key={location._id} value={location._id}>
-                      {location.name} ({location.code})
-                    </option>
-                  ))}
-                </Select>
+                  Limpiar Búsqueda
+                </Button>
               )}
+              
+              <Text fontSize="sm" color="gray.500">
+                {sales.length} de {allSales.length} registros
+              </Text>
             </HStack>
 
-            {/* Second Row - Date Filters */}
+            {/* Date Filters Row */}
             <HStack gap={4} wrap="wrap" align="center">
               <Text fontSize="sm" color="gray.600" minW="fit-content">
                 Rango de Fechas:
@@ -276,8 +282,8 @@ const SalesPage: React.FC = () => {
                 </Text>
                 <Input
                   type="date"
-                  value={filters.startDate}
-                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                  value={dateFilters.startDate}
+                  onChange={(e) => setDateFilters({ ...dateFilters, startDate: e.target.value })}
                   maxW="150px"
                   size="sm"
                 />
@@ -288,8 +294,8 @@ const SalesPage: React.FC = () => {
                 </Text>
                 <Input
                   type="date"
-                  value={filters.endDate}
-                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                  value={dateFilters.endDate}
+                  onChange={(e) => setDateFilters({ ...dateFilters, endDate: e.target.value })}
                   maxW="150px"
                   size="sm"
                 />
@@ -298,15 +304,12 @@ const SalesPage: React.FC = () => {
                 size="sm"
                 variant="outline"
                 colorScheme="gray"
-                onClick={() => setFilters({
-                  description: [],
-                  finance: [],
-                  franchiseLocation: '',
-                  startDate: '',
-                  endDate: '',
-                })}
+                onClick={() => {
+                  setDateFilters({ startDate: '', endDate: '' });
+                  setSearchTerm('');
+                }}
               >
-                Limpiar Filtros
+                Limpiar Todo
               </Button>
             </HStack>
           </VStack>
