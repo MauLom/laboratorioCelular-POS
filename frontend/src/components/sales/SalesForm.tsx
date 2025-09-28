@@ -62,21 +62,22 @@ const Select = styled.select`
   }
 `;
 
-const TextArea = styled.textarea`
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  min-height: 100px;
-  resize: vertical;
-  
-  &:focus {
-    outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-  }
-`;
+// Unused component - remove or implement later
+// const TextArea = styled.textarea`
+//   width: 100%;
+//   padding: 0.75rem;
+//   border: 1px solid #ddd;
+//   border-radius: 4px;
+//   font-size: 1rem;
+//   min-height: 100px;
+//   resize: vertical;
+//   
+//   &:focus {
+//     outline: none;
+//     border-color: #3498db;
+//     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+//   }
+// `;
 
 const Button = styled.button`
   background-color: #27ae60;
@@ -157,7 +158,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
   isLoading = false,
 }) => {
   const { user } = useAuth();
-  const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
+  // TODO: Implement franchise location loading
+  // const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   
   // Load configurations for descriptions and finance types
   const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
@@ -174,7 +176,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
       if (canSelectLocation) {
         try {
           const locations = await franchiseLocationsApi.getActive();
-          setFranchiseLocations(locations);
+          // TODO: Implement franchise location selection
+          console.log('Fetched locations:', locations);
         } catch (error) {
           console.error('Failed to fetch franchise locations:', error);
         }

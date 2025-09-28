@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import Navigation from '../components/common/Navigation';
-import { franchiseLocationsApi, catalogsApi, configurationsApi } from '../services/api';
-import { FranchiseLocation } from '../types';
+import { catalogsApi } from '../services/api';
+// import { franchiseLocationsApi } from '../services/api'; // TODO: Re-enable when implementing locations
+// import { FranchiseLocation } from '../types'; // TODO: Re-enable when implementing locations
 import FranchiseManager from '../components/configuration/FranchiseManager';
 
 const Page = styled.div`
@@ -122,8 +123,8 @@ const ConfigurationPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // franchises
-  const [locations, setLocations] = useState<FranchiseLocation[]>([]);
+  // TODO: Implement locations loading from API
+  // const [locations, setLocations] = useState<FranchiseLocation[]>([]);
 
   // brands
   const [brands, setBrands] = useState<any[]>([]);
@@ -143,8 +144,9 @@ const ConfigurationPage: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const locs = await franchiseLocationsApi.getActive();
-        setLocations(locs || []);
+        // TODO: Implement locations loading
+        // const locs = await franchiseLocationsApi.getActive();
+        // console.log('Loading locations:', locs);
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
         const chars = await catalogsApi.getCharacteristics();
