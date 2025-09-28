@@ -12,18 +12,45 @@ validateEnv();
 
 const app = express();
 
+console.log('🌐 CORS Configuration:');
+console.log('- Environment:', process.env.NODE_ENV || 'development');
+console.log('- Allowed Frontend URL:', process.env.FRONTEND_URL || 'not set');
+if (process.env.NODE_ENV === 'development') {
+  console.log('- Development mode: Also allowing localhost and Vercel deployments');
+}
+
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigin = process.env.FRONTEND_URL;
+    
+    if (origin === allowedOrigin) {
+      return callback(null, true);
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.vercel.app')) {
+        return callback(null, true);
+      }
+    }
+    
+    const msg = `CORS policy violation: Origin ${origin} not allowed. Expected: ${allowedOrigin}`;
+    console.warn(msg);
+    return callback(new Error(msg), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(morgan('combined'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/laboratorioCelular';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
@@ -39,6 +66,8 @@ app.use('/api/franchise-locations', require('./routes/franchiseLocations'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/sales', require('./routes/sales'));
 app.use('/api/configurations', require('./routes/configurations'));
+app.use('/api/brands', require('./routes/brands'));
+app.use('/api/characteristics', require('./routes/characteristics'));
 
 // Health check
 app.get('/api/health', (req, res) => {

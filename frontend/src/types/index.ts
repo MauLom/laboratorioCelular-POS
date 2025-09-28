@@ -7,6 +7,8 @@ export interface InventoryItem {
   hiddenDetails?: any;
   model?: string;
   brand?: string;
+  color?: string;
+  storage?: string;
   price?: number;
   notes?: string;
   createdAt?: string;

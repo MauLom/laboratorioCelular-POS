@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
 import { InventoryItem } from '../../types';
+import { catalogsApi } from '../../services/api';
+
+interface Brand { _id: string; name: string }
+interface CharValue { _id: string; value: string; displayName: string }
 
 const Form = styled.form`
   background: white;
@@ -103,6 +107,8 @@ interface InventoryFormData {
   branch: string;
   model?: string;
   brand?: string;
+  color?: string;
+  storage?: string;
   price?: number;
   notes?: string;
 }
@@ -130,6 +136,50 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
   isEditing = false,
   isLoading = false,
 }) => {
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [colorValues, setColorValues] = useState<CharValue[]>([]);
+  const [storageValues, setStorageValues] = useState<CharValue[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string | undefined>(initialData?.brand);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const b = await catalogsApi.getBrands();
+        setBrands(b || []);
+      } catch (err) {
+        console.error('Failed to load brands', err);
+      }
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    const loadValues = async () => {
+      try {
+        // find characteristic IDs by name through getCharacteristics could be implemented on server
+        const chars = await catalogsApi.getCharacteristics();
+        const colorChar = chars.find((c: any) => c.name.toLowerCase() === 'color');
+        const storageChar = chars.find((c: any) => c.name.toLowerCase() === 'almacenamiento' || c.name.toLowerCase() === 'storage');
+
+        if (colorChar) {
+          const vals = await catalogsApi.getCharacteristicValues(colorChar._id, selectedBrand);
+          setColorValues(vals || []);
+        } else {
+          setColorValues([]);
+        }
+
+        if (storageChar) {
+          const vals = await catalogsApi.getCharacteristicValues(storageChar._id, selectedBrand);
+          setStorageValues(vals || []);
+        } else {
+          setStorageValues([]);
+        }
+      } catch (err) {
+        console.error('Failed to load characteristic values', err);
+      }
+    };
+    loadValues();
+  }, [selectedBrand]);
   const { register, handleSubmit, formState: { errors } } = useForm<InventoryFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: initialData || {
@@ -138,6 +188,8 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       branch: '',
       model: '',
       brand: '',
+      color: '',
+      storage: '',
       price: 0,
       notes: '',
     },
@@ -196,12 +248,32 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
 
       <FormGroup>
         <Label htmlFor="brand">Marca</Label>
-        <Input
-          id="brand"
-          type="text"
-          {...register('brand')}
-          disabled={isLoading}
-        />
+        <Select id="brand" {...register('brand')} disabled={isLoading} onChange={(e) => setSelectedBrand(e.target.value || undefined)}>
+          <option value="">Seleccione una marca</option>
+          {brands.map(b => (
+            <option key={b._id} value={b._id}>{b.name}</option>
+          ))}
+        </Select>
+      </FormGroup>
+
+      <FormGroup>
+        <Label htmlFor="color">Color</Label>
+        <Select id="color" {...register('color')} disabled={isLoading || colorValues.length === 0}>
+          <option value="">Seleccione un color</option>
+          {colorValues.map(c => (
+            <option key={c._id} value={c.value}>{c.displayName}</option>
+          ))}
+        </Select>
+      </FormGroup>
+
+      <FormGroup>
+        <Label htmlFor="storage">Almacenamiento</Label>
+        <Select id="storage" {...register('storage')} disabled={isLoading || storageValues.length === 0}>
+          <option value="">Seleccione almacenamiento</option>
+          {storageValues.map(s => (
+            <option key={s._id} value={s.value}>{s.displayName}</option>
+          ))}
+        </Select>
       </FormGroup>
 
       <FormGroup>
