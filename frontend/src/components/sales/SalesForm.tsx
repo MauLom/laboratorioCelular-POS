@@ -3,8 +3,8 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
-import { Sale, FranchiseLocation } from '../../types';
-import { franchiseLocationsApi } from '../../services/api';
+import { Sale, FranchiseLocation, InventoryItem } from '../../types';
+import { franchiseLocationsApi, inventoryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfiguration } from '../../hooks/useConfigurations';
 
@@ -13,7 +13,12 @@ const Form = styled.form`
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  max-width: 600px;
+  width: 800px;
+  max-width: 800px;
+  min-width: 800px;
+  height: 700px;
+  max-height: 700px;
+  min-height: 700px;
   margin: 0 auto;
 `;
 
@@ -179,6 +184,60 @@ const SalesForm: React.FC<SalesFormProps> = ({
     fetchLocations();
   }, [canSelectLocation]);
 
+  // Estado para búsqueda de IMEI
+  const [imeiInput, setImeiInput] = useState('');
+  const [imeiMatches, setImeiMatches] = useState<InventoryItem[]>([]);
+  const [imeiLoading, setImeiLoading] = useState(false);
+  const [imeiError, setImeiError] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+
+  // Buscar coincidencias de IMEI
+  useEffect(() => {
+    if (imeiInput.length < 4) {
+      setImeiMatches([]);
+      setImeiError('');
+      setSelectedIndex(-1);
+      setSelectedProduct(null);
+      return;
+    }
+    setImeiLoading(true);
+    inventoryApi.searchByImei(imeiInput)
+      .then(items => {
+        setImeiMatches(items);
+        setImeiError(items.length === 0 ? 'No se encontraron coincidencias' : '');
+        setSelectedIndex(items.length > 0 ? 0 : -1);
+        setSelectedProduct(null);
+      })
+      .catch(() => {
+        setImeiMatches([]);
+        setImeiError('Error al buscar IMEI');
+        setSelectedIndex(-1);
+        setSelectedProduct(null);
+      })
+      .finally(() => setImeiLoading(false));
+  }, [imeiInput]);
+
+  // Manejo de teclado para selección
+  const handleImeiKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (imeiMatches.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(idx => Math.min(idx + 1, imeiMatches.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(idx => Math.max(idx - 1, 0));
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault();
+      const item = imeiMatches[selectedIndex];
+      setImeiInput(item.imei);
+      (document.getElementById('imei') as HTMLInputElement).value = item.imei;
+      setImeiMatches([]);
+      setSelectedIndex(-1);
+      setSelectedProduct(item);
+    }
+  };
+
   const { register, handleSubmit, formState: { errors } } = useForm<SalesFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: initialData || {
@@ -197,15 +256,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
   });
 
   const handleFormSubmit = async (data: SalesFormData) => {
-    // If user cannot select location, use their assigned franchise location ID
-    if (!canSelectLocation && user?.franchiseLocation) {
-      data.branch = (user.franchiseLocation as FranchiseLocation)._id || '';
-    }
+    // Forzar sucursal fija para todas las ventas
+    data.branch = '68d3416323e9c62541497403';
     await onSubmit(data);
   };
 
   return (
     <Form onSubmit={handleSubmit(handleFormSubmit)}>
+      <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '2rem', fontWeight: 700, fontSize: '2rem' }}>Generar nueva venta</h2>
       <FormRow>
         <FormGroup>
           <Label htmlFor="description">Descripción *</Label>
@@ -253,23 +311,75 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
       <FormRow>
         <FormGroup>
-          <Label htmlFor="imei">IMEI (si aplica)</Label>
+          <Label htmlFor="imei">IMEI</Label>
+          <Input
+            id="imei-input"
+            type="text"
+            placeholder="Escribe el IMEI..."
+            value={imeiInput}
+            onChange={e => setImeiInput(e.target.value)}
+            disabled={isLoading}
+            autoComplete="off"
+            onKeyDown={handleImeiKeyDown}
+          />
+          {imeiLoading && imeiInput.length >= 2 && (
+            <span style={{ color: '#888', fontSize: '0.9rem' }}>Buscando...</span>
+          )}
+          {imeiMatches.length > 0 && imeiInput.length >= 4 && (
+            <ul style={{ background: '#f8f9fa', border: '1px solid #ddd', borderRadius: 4, padding: '0.5rem', marginTop: 4, listStyle: 'none' }}>
+              {imeiMatches.map((item, idx) => (
+                <li key={item._id}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '0.25rem 0',
+                    transition: 'background 0.2s',
+                    background: selectedIndex === idx ? '#eafaf1' : undefined
+                  }}
+                  onClick={() => {
+                    setImeiInput(item.imei);
+                    (document.getElementById('imei') as HTMLInputElement).value = item.imei;
+                    setImeiMatches([]);
+                    setSelectedIndex(-1);
+                    setSelectedProduct(item);
+                  }}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                  onMouseLeave={() => setSelectedIndex(-1)}
+                >
+                  <strong>{item.model || ''} {item.brand ? `- ${item.brand}` : ''}</strong> | IMEI: {item.imei} | Estado: {item.state} {item.price !== undefined ? `| Precio: $${item.price}` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+          {imeiError && imeiInput.length >= 2 && (
+            <span style={{ color: '#e74c3c', fontSize: '0.9rem' }}>{imeiError}</span>
+          )}
           <Input
             id="imei"
             type="text"
+            style={{ display: 'none' }}
             {...register('imei')}
-            disabled={isLoading}
           />
+        {/* Mostrar el nombre del producto seleccionado debajo del input */}
+        {selectedProduct && (
+          <div style={{ color: '#229954', fontWeight: 400, fontSize: '0.95rem', fontStyle: 'italic' }}>
+            Producto: {selectedProduct.model || ''} {selectedProduct.brand ? `- ${selectedProduct.brand}` : ''}
+          </div>
+        )}
         </FormGroup>
 
         <FormGroup>
           <Label htmlFor="paymentType">Tipo de Pago *</Label>
-          <Input
+          <Select
             id="paymentType"
-            type="text"
             {...register('paymentType')}
             disabled={isLoading}
-          />
+          >
+            <option value="">Selecciona tipo de pago...</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="dolar">Dólar</option>
+            <option value="mixto">Mixto</option>
+          </Select>
           {errors.paymentType && <ErrorMessage>{errors.paymentType.message}</ErrorMessage>}
         </FormGroup>
       </FormRow>
@@ -299,70 +409,11 @@ const SalesForm: React.FC<SalesFormProps> = ({
           {errors.amount && <ErrorMessage>{errors.amount.message}</ErrorMessage>}
         </FormGroup>
       </FormRow>
-
-      <FormRow>
-        <FormGroup>
-          <Label htmlFor="customerName">Nombre del Cliente</Label>
-          <Input
-            id="customerName"
-            type="text"
-            {...register('customerName')}
-            disabled={isLoading}
-          />
-        </FormGroup>
-
-        <FormGroup>
-          <Label htmlFor="customerPhone">Teléfono del Cliente</Label>
-          <Input
-            id="customerPhone"
-            type="tel"
-            {...register('customerPhone')}
-            disabled={isLoading}
-          />
-        </FormGroup>
-      </FormRow>
-
-      <FormGroup>
-        <Label htmlFor="branch">Sucursal</Label>
-        {canSelectLocation ? (
-          <Select
-            id="branch"
-            {...register('branch')}
-            disabled={isLoading}
-          >
-            <option value="">Seleccionar sucursal...</option>
-            {franchiseLocations.map((location) => (
-              <option key={location._id} value={location._id}>
-                {location.name} ({location.code})
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <Input
-            id="branch"
-            type="text"
-            value={user?.franchiseLocation ? 
-              `${(user.franchiseLocation as FranchiseLocation).name} (${(user.franchiseLocation as FranchiseLocation).code})` : 
-              'No asignada'
-            }
-            disabled={true}
-            style={{ background: '#f8f9fa', color: '#6c757d' }}
-          />
-        )}
-      </FormGroup>
-
-      <FormGroup>
-        <Label htmlFor="notes">Notas</Label>
-        <TextArea
-          id="notes"
-          {...register('notes')}
-          disabled={isLoading}
-        />
-      </FormGroup>
-
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Venta' : 'Registrar Venta'}
-      </Button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', height: '100px'}}>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Venta' : 'Registrar Venta'}
+        </Button>
+      </div>
     </Form>
   );
 };

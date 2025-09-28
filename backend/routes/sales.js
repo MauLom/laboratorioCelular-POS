@@ -279,20 +279,23 @@ router.get('/:id', authenticate, applyFranchiseFilter, async (req, res) => {
 });
 
 // Create new sale (with franchise validation)
-router.post('/', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
+    // Log sucursal recibida desde el cliente
     const saleData = { ...req.body };
-    
+    // Si se recibe branch, usarlo como franchiseLocation
+    if (saleData.branch) {
+      saleData.franchiseLocation = saleData.branch;
+      delete saleData.branch;
+    }
     // Validate franchise location access
     if (req.user.role !== 'Master admin') {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id.toString());
-      
       if (!saleData.franchiseLocation || !locationIds.includes(saleData.franchiseLocation)) {
         return res.status(403).json({ error: 'Access denied. Cannot create sale for this franchise location.' });
       }
     }
-    
     const sale = new Sale(saleData);
     
     // If IMEI is provided, check if it exists in accessible locations and update inventory status if it's a sale

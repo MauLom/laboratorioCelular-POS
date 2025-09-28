@@ -76,6 +76,25 @@ router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
   }
 });
 
+// Buscar por IMEI (parcial, con autenticación y filtro de franquicia)
+router.get('/search', authenticate, applyFranchiseFilter, async (req, res) => {
+  const { imei } = req.query;
+  if (!imei || imei.length < 4) {
+    return res.status(400).json({ error: 'IMEI requerido (mínimo 4 caracteres)' });
+  }
+  try {
+    // Construir query con filtro de franquicia
+    const query = { imei: { $regex: imei, $options: 'i' } };
+    if (req.franchiseFilter) {
+      query.franchiseLocation = req.franchiseFilter;
+    }
+    const items = await InventoryItem.find(query).limit(10);
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al buscar IMEI' });
+  }
+});
+
 // Get single inventory item by IMEI (with franchise filtering)
 router.get('/:imei', authenticate, applyFranchiseFilter, async (req, res) => {
   try {

@@ -103,6 +103,12 @@ export const inventoryApi = {
     const response = await api.get('/inventory/stats/summary');
     return response.data;
   },
+
+  // Buscar por IMEI (parcial)
+  searchByImei: async (imei: string): Promise<InventoryItem[]> => {
+    const response = await api.get('/inventory/search', { params: { imei } });
+    return response.data;
+  },
 };
 
 // Sales API
