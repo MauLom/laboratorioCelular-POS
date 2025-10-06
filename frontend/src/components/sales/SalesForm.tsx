@@ -296,8 +296,10 @@ const SalesForm: React.FC<SalesFormProps> = ({
   });
 
   const handleFormSubmit = async (data: SalesFormData) => {
-      data.branch = selectedLocation._id;
-
+      if (selectedLocation) {
+        data.branch = selectedLocation._id;
+      }
+      
     await onSubmit(data);
   };
 
