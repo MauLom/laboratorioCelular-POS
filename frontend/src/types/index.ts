@@ -17,6 +17,7 @@ export interface InventoryItem {
 
 export interface Sale {
   _id?: string;
+  folio?: number;
   description: 'Fair' | 'Payment' | 'Sale' | 'Deposit';
   finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
   concept: string;
@@ -24,6 +25,7 @@ export interface Sale {
   paymentType: string;
   reference: string;
   amount: number;
+  paymentAmount?: number;
   customerName?: string;
   customerPhone?: string;
   branch?: string; // Virtual field for backward compatibility

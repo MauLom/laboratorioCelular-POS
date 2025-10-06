@@ -84,7 +84,7 @@ router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
     };
     
     const sales = await Sale.find(query)
-      .populate('franchiseLocation', 'name code type')
+      .populate('franchiseLocation', 'name code type address contact')
       .limit(options.limit * 1)
       .skip((options.page - 1) * options.limit)
       .sort(options.sort);
@@ -152,7 +152,7 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
     
     // Get all sales without pagination for export
     const sales = await Sale.find(query)
-      .populate('franchiseLocation', 'name code type')
+      .populate('franchiseLocation', 'name code type address contact')
       .sort({ createdAt: -1 });
 
     // Create Excel workbook and worksheet
@@ -268,7 +268,7 @@ router.get('/:id', authenticate, applyFranchiseFilter, async (req, res) => {
       query.franchiseLocation = { $in: locationIds };
     }
     
-    const sale = await Sale.findOne(query).populate('franchiseLocation', 'name code type');
+    const sale = await Sale.findOne(query).populate('franchiseLocation', 'name code type address contact');
     if (!sale) {
       return res.status(404).json({ error: 'Sale not found or access denied' });
     }
@@ -319,7 +319,7 @@ router.post('/', authenticate, async (req, res) => {
     await sale.save();
     
     // Populate franchise location for response
-    await sale.populate('franchiseLocation', 'name code type');
+    await sale.populate('franchiseLocation', 'name code type address contact');
     
     res.status(201).json(sale);
   } catch (error) {
@@ -353,7 +353,7 @@ router.put('/:id', authenticate, handleBranchToFranchiseLocationConversion, asyn
       query,
       req.body,
       { new: true, runValidators: true }
-    ).populate('franchiseLocation', 'name code type');
+    ).populate('franchiseLocation', 'name code type address contact');
     
     if (!sale) {
       return res.status(404).json({ error: 'Sale not found or access denied' });

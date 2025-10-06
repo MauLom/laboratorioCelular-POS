@@ -4,7 +4,7 @@ import Navigation from '../components/common/Navigation';
 import { franchiseLocationsApi, catalogsApi, configurationsApi } from '../services/api';
 import { FranchiseLocation } from '../types';
 import FranchiseManager from '../components/configuration/FranchiseManager';
-import { useAlert } from '../hooks/useAlert';
+import { useNotification } from '../contexts/NotificationContext';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -119,8 +119,8 @@ const SuccessMessage = styled.div`
 `;
 
 const ConfigurationPage: React.FC = () => {
-  const { success: showSuccess, error: showError } = useAlert();
-  const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics'>('franchises');
+  const { notifySuccess, notifyError } = useNotification();
+  const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics' | 'equipment'>('franchises');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -142,6 +142,11 @@ const ConfigurationPage: React.FC = () => {
   const [valueDisplay, setValueDisplay] = useState('');
   const [valueHex, setValueHex] = useState('');
 
+  // Equipment states
+  const [printers, setPrinters] = useState<any[]>([]);
+  const [currentPrinter, setCurrentPrinter] = useState<string>('');
+  const [loadingPrinters, setLoadingPrinters] = useState<boolean>(false);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -157,9 +162,78 @@ const ConfigurationPage: React.FC = () => {
       }
     };
     load();
+    loadEquipmentData();
   }, []);
 
+  const loadEquipmentData = async () => {
+    setLoadingPrinters(true);
+    try {
+      // Load current printer from localStorage
+      const saved = localStorage.getItem('selectedPrinter');
+      if (saved) {
+        setCurrentPrinter(saved);
+      }
+      
+      // Load available printers
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      const response = await fetch(`${winServiceUrl}/api/printer/list`);
+      if (response.ok) {
+        const data = await response.json();
+        // Manejar diferentes estructuras de respuesta
+        const printersList = data.printers || data || [];
+        // Asegurar que es un array
+        const printersArray = Array.isArray(printersList) ? printersList : [];
+        setPrinters(printersArray);
+        console.log('Printers loaded:', printersArray);
+      }
+    } catch (err) {
+      console.error('Error loading equipment data:', err);
+      setPrinters([]); // Asegurar que siempre sea un array
+      notifyError('Error al cargar las impresoras disponibles');
+    } finally {
+      setLoadingPrinters(false);
+    }
+  };
 
+  const changePrinter = async (printerName: string) => {
+    try {
+      localStorage.setItem('selectedPrinter', printerName);
+      setCurrentPrinter(printerName);
+      notifySuccess('Impresora predeterminada actualizada');
+    } catch (err) {
+      notifyError('Error al cambiar impresora');
+    }
+  };
+
+  const testPrinter = async () => {
+    try {
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(`${winServiceUrl}/api/printer/test?printerName=${encodeURIComponent(currentPrinter)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        notifySuccess('Test de impresora ejecutado correctamente');
+      } else {
+        notifyError('Error en el test de impresora');
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        // notifyError('Timeout: el test de impresora tardó demasiado');
+      } else {
+        notifyError('Error al ejecutar test de impresora');
+      }
+    }
+  };
 
   const createBrand = async () => {
     if (!brandName.trim()) return;
@@ -168,9 +242,9 @@ const ConfigurationPage: React.FC = () => {
       const b = await catalogsApi.getBrands();
       setBrands(b || []);
       setBrandName(''); setBrandDesc('');
-      showSuccess('Marca creada exitosamente');
+      notifySuccess('Marca creada exitosamente');
     } catch (err: any) {
-      showError(err.response?.data?.error || 'Error al crear la marca');
+      notifyError(err.response?.data?.error || 'Error al crear la marca');
     }
   };
 
@@ -188,23 +262,23 @@ const ConfigurationPage: React.FC = () => {
       const chars = await catalogsApi.getCharacteristics();
       setCharacteristics(chars || []);
       setCharName('');
-      showSuccess('Característica creada exitosamente');
+      notifySuccess('Característica creada exitosamente');
     } catch (err: any) {
-      showError(err.response?.data?.error || 'Error al crear la característica');
+      notifyError(err.response?.data?.error || 'Error al crear la característica');
     }
   };
 
   const createCharacteristicValue = async () => {
     if (!selectedChar || !valueBrand || !valueVal || !valueDisplay) {
-      showError('Complete todos los campos requeridos');
+      notifyError('Complete todos los campos requeridos');
       return;
     }
     try {
       await catalogsApi.createCharacteristicValue(selectedChar, { brandId: valueBrand, value: valueVal.trim(), displayName: valueDisplay.trim(), hexColor: valueHex.trim() });
-      showSuccess('Valor creado exitosamente');
+      notifySuccess('Valor creado exitosamente');
       setValueVal(''); setValueDisplay(''); setValueHex('');
     } catch (err: any) {
-      showError(err.response?.data?.error || 'Error al crear el valor');
+      notifyError(err.response?.data?.error || 'Error al crear el valor');
     }
   };
 
@@ -228,6 +302,7 @@ const ConfigurationPage: React.FC = () => {
             <TabButton active={tab === 'franchises'} onClick={() => setTab('franchises')}>Franquicias</TabButton>
             <TabButton active={tab === 'brands'} onClick={() => setTab('brands')}>Marcas</TabButton>
             <TabButton active={tab === 'characteristics'} onClick={() => setTab('characteristics')}>Características</TabButton>
+            <TabButton active={tab === 'equipment'} onClick={() => setTab('equipment')}>Configuración del equipo</TabButton>
           </Tabs>
         </Header>
 
@@ -311,6 +386,63 @@ const ConfigurationPage: React.FC = () => {
                 </ListItem>
               ))}
             </List>
+          </Card>
+        )}
+
+        {tab === 'equipment' && (
+          <Card>
+            <h3 style={{ marginBottom: '20px', color: '#2c3e50' }}>Configuración del equipo</h3>
+            
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ marginBottom: '8px', fontWeight: '500', color: '#2c3e50' }}>Impresora predeterminada</div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                <select 
+                  value={currentPrinter} 
+                  onChange={(e) => changePrinter(e.target.value)}
+                  disabled={loadingPrinters}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    backgroundColor: loadingPrinters ? '#f3f4f6' : 'white',
+                    fontSize: '14px',
+                    minWidth: '200px'
+                  }}
+                >
+                  <option value="">
+                    {loadingPrinters ? 'Cargando impresoras...' : 'Seleccionar impresora...'}
+                  </option>
+                  {Array.isArray(printers) && printers.map((printer) => (
+                    <option key={printer.name || printer} value={printer.name || printer}>
+                      {printer.name || printer} {printer.isDefault ? '(Por defecto del sistema)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button 
+                  onClick={testPrinter}
+                  disabled={!currentPrinter || loadingPrinters}
+                  variant="secondary"
+                >
+                  {loadingPrinters ? 'Cargando...' : 'Probar impresora'}
+                </Button>
+              </div>
+              {currentPrinter && (
+                <Small style={{ marginTop: '8px', color: '#6b7280' }}>
+                  Impresora actual: {currentPrinter}
+                </Small>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <Button 
+                onClick={loadEquipmentData}
+                disabled={loadingPrinters}
+                variant="secondary"
+                style={{ marginRight: '12px' }}
+              >
+                {loadingPrinters ? 'Actualizando...' : 'Actualizar lista de impresoras'}
+              </Button>
+            </div>
           </Card>
         )}
       </Container>

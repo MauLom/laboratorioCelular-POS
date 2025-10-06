@@ -16,10 +16,12 @@ const Form = styled.form`
   width: 800px;
   max-width: 800px;
   min-width: 800px;
-  height: 700px;
-  max-height: 700px;
-  min-height: 700px;
+  height: 750px;
+  max-height: 750px;
+  min-height: 750px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 `;
 
 const FormGroup = styled.div`
@@ -105,6 +107,16 @@ const ErrorMessage = styled.span`
   display: block;
 `;
 
+const InfoMessage = styled.div`
+  background: #e8f4fd;
+  color: #0066cc;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  border: 1px solid #b3d9ff;
+`;
+
 const FormRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -123,6 +135,7 @@ interface SalesFormData {
   paymentType: string;
   reference: string;
   amount: number;
+  paymentAmount?: number;
   customerName?: string;
   customerPhone?: string;
   branch?: string;
@@ -137,6 +150,7 @@ const schema = yup.object().shape({
   paymentType: yup.string().required('El tipo de pago es requerido'),
   reference: yup.string().required('La referencia es requerida'),
   amount: yup.number().required('El monto es requerido').min(0, 'El monto debe ser positivo'),
+  paymentAmount: yup.number().optional().min(0, 'El monto de pago debe ser positivo'),
   customerName: yup.string().optional(),
   customerPhone: yup.string().optional(),
   branch: yup.string().optional(),
@@ -158,6 +172,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
 }) => {
   const { user } = useAuth();
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
+  const [systemGuid, setSystemGuid] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<FranchiseLocation | null>(null);
   
   // Load configurations for descriptions and finance types
   const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
@@ -168,21 +184,44 @@ const SalesForm: React.FC<SalesFormProps> = ({
                            user?.role === 'Supervisor de sucursales' || 
                            user?.role === 'Supervisor de oficina';
 
-  // Fetch franchise locations if user can select
+  // Fetch system GUID and franchise locations
   useEffect(() => {
-    const fetchLocations = async () => {
-      if (canSelectLocation) {
-        try {
-          const locations = await franchiseLocationsApi.getActive();
-          setFranchiseLocations(locations);
-        } catch (error) {
-          console.error('Failed to fetch franchise locations:', error);
+    const initializeData = async () => {
+      try {
+        // Obtener el GUID del sistema local
+        const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+        const guidResponse = await fetch(`${winServiceUrl}/api/system/guid`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        let currentGuid = '';
+        if (guidResponse.ok) {
+          const guidData = await guidResponse.json();
+          currentGuid = guidData.guid || guidData.systemGuid || '';
+          setSystemGuid(currentGuid);
         }
+
+        // Obtener todas las sucursales
+        const locations = await franchiseLocationsApi.getActive();
+        setFranchiseLocations(locations);
+
+        // Buscar la sucursal que coincida con el GUID del sistema
+        if (currentGuid) {
+          const matchingLocation = locations.find(location => location.guid === currentGuid);
+          if (matchingLocation) {
+            setSelectedLocation(matchingLocation);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize form data:', error);
       }
     };
 
-    fetchLocations();
-  }, [canSelectLocation]);
+    initializeData();
+  }, []);
 
   // Estado para búsqueda de IMEI
   const [imeiInput, setImeiInput] = useState('');
@@ -248,6 +287,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       paymentType: '',
       reference: '',
       amount: 0,
+      paymentAmount: 0,
       customerName: '',
       customerPhone: '',
       branch: canSelectLocation ? '' : (user?.franchiseLocation as FranchiseLocation)?._id || '',
@@ -256,14 +296,20 @@ const SalesForm: React.FC<SalesFormProps> = ({
   });
 
   const handleFormSubmit = async (data: SalesFormData) => {
-    // Forzar sucursal fija para todas las ventas
-    data.branch = '68d3416323e9c62541497403';
+    // Usar la sucursal seleccionada automáticamente basándose en el GUID
+    if (selectedLocation) {
+      data.branch = selectedLocation._id;
+    } else {
+      // Fallback a sucursal fija si no se encuentra coincidencia
+      data.branch = '68d3416323e9c62541497403';
+    }
     await onSubmit(data);
   };
 
   return (
     <Form onSubmit={handleSubmit(handleFormSubmit)}>
-      <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '2rem', fontWeight: 700, fontSize: '2rem' }}>Generar nueva venta</h2>
+      <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
+        <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '1.5rem', fontWeight: 700, fontSize: '2rem' }}>Generar nueva venta</h2>
       <FormRow>
         <FormGroup>
           <Label htmlFor="description">Descripción *</Label>
@@ -409,10 +455,85 @@ const SalesForm: React.FC<SalesFormProps> = ({
           {errors.amount && <ErrorMessage>{errors.amount.message}</ErrorMessage>}
         </FormGroup>
       </FormRow>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', height: '100px'}}>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Venta' : 'Registrar Venta'}
-        </Button>
+
+      {/* Pago con - nuevo campo */}
+      <FormRow>
+        <FormGroup>
+          <Label htmlFor="paymentAmount">Pago con</Label>
+          <Input
+            id="paymentAmount"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Monto con el que se realiza el pago"
+            {...register('paymentAmount')}
+            disabled={isLoading}
+          />
+          {errors.paymentAmount && <ErrorMessage>{errors.paymentAmount.message}</ErrorMessage>}
+        </FormGroup>
+
+        <FormGroup>
+          {/* Espacio vacío para mantener la alineación */}
+        </FormGroup>
+      </FormRow>
+
+      {/* Sucursal seleccionada automáticamente */}
+      <FormGroup>
+        <Label htmlFor="selectedBranch">Sucursal *</Label>
+        <Select
+          id="selectedBranch"
+          value={selectedLocation?._id || ''}
+          disabled={true}
+          style={{ 
+            backgroundColor: '#f8f9fa',
+            color: '#495057',
+            cursor: 'not-allowed',
+            opacity: 0.9,
+            fontWeight: '500'
+          }}
+        >
+          {selectedLocation ? (
+            <option value={selectedLocation._id}>
+              {selectedLocation.name} ({selectedLocation.code}) - {selectedLocation.type}
+            </option>
+          ) : (
+            <option value="">
+              {systemGuid ? `Buscando sucursal para GUID: ${systemGuid.substring(0, 8)}...` : 'Obteniendo información del sistema...'}
+            </option>
+          )}
+        </Select>
+        
+        {selectedLocation && (
+          <InfoMessage>
+            ✓ Sucursal identificada automáticamente mediante GUID del sistema: {systemGuid ? systemGuid.substring(0, 8) + '...' : 'N/A'}
+          </InfoMessage>
+        )}
+        
+        {!selectedLocation && systemGuid && (
+          <ErrorMessage>
+            ⚠ No se encontró una sucursal registrada con el GUID de este sistema. Contacte al administrador para registrar esta sucursal.
+          </ErrorMessage>
+        )}
+        
+        {!systemGuid && (
+          <ErrorMessage>
+            ⚠ No se pudo obtener el GUID del sistema. Verifique que el servicio Windows esté ejecutándose.
+          </ErrorMessage>
+        )}
+      </FormGroup>
+
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          alignItems: 'center', 
+          marginTop: 'auto',
+          paddingTop: '1rem',
+          borderTop: '1px solid #ecf0f1'
+        }}>
+          <Button type="submit" disabled={isLoading || !selectedLocation}>
+            {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Venta' : 'Registrar Venta'}
+          </Button>
+        </div>
       </div>
     </Form>
   );

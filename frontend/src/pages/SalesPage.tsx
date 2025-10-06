@@ -17,6 +17,12 @@ import { Sale, PaginatedResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../hooks/useAlert';
 
+// Type for printer from Windows service
+interface Printer {
+  name: string;
+  isDefault: boolean;
+}
+
 // Use native HTML elements with Chakra styling
 const Table = chakra('table');
 const Thead = chakra('thead');
@@ -42,6 +48,14 @@ const SalesPage: React.FC = () => {
     startDate: '',
     endDate: '',
   });
+
+  // Printer selection states
+  const [showPrinterModal, setShowPrinterModal] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<Printer[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [defaultPrinter, setDefaultPrinter] = useState<string>('');
+  const [pendingSale, setPendingSale] = useState<Sale | null>(null);
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
 
   // Filter sales based on search term
   const filteredSales = useMemo(() => {
@@ -115,6 +129,52 @@ const SalesPage: React.FC = () => {
     fetchSales();
   }, [fetchSales]);
 
+  // Load default printer from localStorage
+  useEffect(() => {
+    const savedPrinter = localStorage.getItem('defaultPrinter');
+    if (savedPrinter) {
+      setDefaultPrinter(savedPrinter);
+    }
+  }, []);
+
+  // Fetch available printers
+  const fetchAvailablePrinters = async () => {
+    setLoadingPrinters(true);
+    try {
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      const response = await fetch(`${winServiceUrl}/api/printer/list`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const printers = data.printers || [];
+        setAvailablePrinters(printers);
+        
+        // Si hay una impresora marcada como default y no tenemos una predeterminada, usarla
+        const defaultPrinterFromAPI = printers.find((p: Printer) => p.isDefault);
+        if (defaultPrinterFromAPI && !defaultPrinter) {
+          setDefaultPrinter(defaultPrinterFromAPI.name);
+        }
+        
+        return printers;
+      } else {
+        throw new Error('Failed to fetch printers');
+      }
+    } catch (err) {
+      console.error('Failed to fetch printers:', err);
+      error('No se pudieron cargar las impresoras disponibles');
+      return [];
+    } finally {
+      setLoadingPrinters(false);
+    }
+  };
+
+  // Save selected printer as default
+  const saveDefaultPrinter = (printerName: string) => {
+    setDefaultPrinter(printerName);
+    localStorage.setItem('defaultPrinter', printerName);
+    success(`Impresora "${printerName}" establecida como predeterminada`);
+  };
+
   const handleExportToExcel = async () => {
     setExportLoading(true);
     try {
@@ -162,16 +222,173 @@ const SalesPage: React.FC = () => {
   const handleAddSale = async (saleData: Omit<Sale, '_id' | 'createdAt' | 'updatedAt'>) => {
     setFormLoading(true);
     try {
-      await salesApi.create(saleData);
+      const newSale = await salesApi.create(saleData);
       setShowForm(false);
       fetchSales();
       success('¡Venta registrada exitosamente!');
+
+      // Imprimir ticket con selección de impresora
+      await handlePrintWithPrinterSelection(newSale);
     } catch (err) {
       console.error('Failed to record sale:', err);
       error('Error al registrar la venta');
     } finally {
       setFormLoading(false);
     }
+  };
+
+  const printTicket = async (sale: Sale, printerName?: string) => {
+    try {
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      
+      // Preparar datos para el ticket con la nueva estructura
+      const saleDate = sale.createdAt ? new Date(sale.createdAt) : new Date();
+      
+      // Obtener información de la sucursal (franchiseLocation)
+      const franchiseLocation = typeof sale.franchiseLocation === 'object' && sale.franchiseLocation 
+        ? sale.franchiseLocation 
+        : null;
+      
+      // Construir la dirección completa
+      let address = "Dirección no disponible";
+      if (franchiseLocation?.address) {
+        const streetPart = franchiseLocation.address.street || '';
+        const cityPart = franchiseLocation.address.city || '';
+        const combinedAddress = `${streetPart} ${cityPart}`.trim();
+        if (combinedAddress) {
+          address = combinedAddress;
+        }
+      }
+      
+      // Obtener teléfono de la sucursal
+      const phone = franchiseLocation?.contact?.phone || "(000) 000-0000";
+      
+      // Crear el producto principal basado en la venta
+      const productName = `${sale.concept}${sale.imei ? ` - IMEI: ${sale.imei}` : ''}`;
+      
+      const ticketData = {
+        address: address,
+        phone: phone,
+        seller: user?.firstName && user?.lastName 
+          ? `${user.firstName} ${user.lastName}` 
+          : user?.username || "Vendedor",
+        folio: (sale.folio?.toString()) || "N/A",
+        products: [
+          {
+            name: productName,
+            quantity: 1,
+            price: sale.amount || 0
+          }
+        ],
+        paymentAmount: sale.paymentAmount || sale.amount || 0,
+        // Incluir impresora si se especificó
+        ...(printerName && { printerName: printerName })
+      };
+
+      // Crear controlador para timeout personalizado
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`${winServiceUrl}/api/printer/ticket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ticketData),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Error en impresión: ${response.status}`);
+      }
+
+      success('¡Ticket enviado a impresora!');
+    } catch (err: any) {
+      console.error('Failed to print ticket:', err);
+      if (err.name === 'AbortError') {
+        //error('Timeout al enviar ticket a impresora, pero la venta se registró correctamente');
+      } else {
+        error('No se pudo imprimir el ticket, pero la venta se registró correctamente');
+      }
+    }
+  };
+
+  // Handle printer selection and printing
+  const handlePrintWithPrinterSelection = async (sale: Sale) => {
+    // Si ya hay una impresora por defecto, úsala directamente
+    if (defaultPrinter) {
+      try {
+        await printTicket(sale, defaultPrinter);
+        return;
+      } catch (err) {
+        console.error('Failed to print with default printer:', err);
+        // Si falla, mostrar selección de impresora
+      }
+    }
+
+    // Cargar impresoras disponibles y mostrar modal
+    const printers = await fetchAvailablePrinters();
+    if (printers.length === 0) {
+      error('No se encontraron impresoras disponibles');
+      return;
+    }
+
+    // Si solo hay una impresora, úsala directamente
+    if (printers.length === 1) {
+      const printerName = printers[0].name;
+      saveDefaultPrinter(printerName);
+      await printTicket(sale, printerName);
+      return;
+    }
+
+    // Mostrar modal de selección
+    setPendingSale(sale);
+    
+    // Pre-seleccionar la impresora predeterminada de la aplicación, 
+    // o la predeterminada del sistema si no hay ninguna configurada
+    let preSelected = defaultPrinter;
+    if (!preSelected) {
+      const systemDefault = printers.find((p: Printer) => p.isDefault);
+      if (systemDefault) {
+        preSelected = systemDefault.name;
+      }
+    }
+    
+    setSelectedPrinter(preSelected || '');
+    setShowPrinterModal(true);
+  };
+
+  const handleReprintTicket = async (sale: Sale) => {
+    await handlePrintWithPrinterSelection(sale);
+  };
+
+  // Handle printer selection from modal
+  const handlePrinterSelection = async () => {
+    if (!selectedPrinter) return;
+
+    try {
+      saveDefaultPrinter(selectedPrinter);
+      
+      // Si hay una venta pendiente, imprimirla
+      if (pendingSale) {
+        await printTicket(pendingSale, selectedPrinter);
+      }
+      
+      setShowPrinterModal(false);
+      setPendingSale(null);
+      setSelectedPrinter('');
+    } catch (err) {
+      console.error('Failed to print ticket:', err);
+      error('Error al imprimir el ticket');
+    }
+  };
+
+  const closePrinterModal = () => {
+    setShowPrinterModal(false);
+    setPendingSale(null);
+    setSelectedPrinter('');
   };
 
   const handleDeleteSale = async (id: string) => {
@@ -220,6 +437,18 @@ const SalesPage: React.FC = () => {
               Registros de Ventas
             </Heading>
             <HStack gap={3}>
+              <Button
+                colorScheme="gray"
+                variant="outline"
+                onClick={async () => {
+                  await fetchAvailablePrinters();
+                  setShowPrinterModal(true);
+                  setPendingSale(null); // No hay venta pendiente, solo cambio de impresora
+                }}
+                size="sm"
+              >
+                🖨️ {defaultPrinter ? `Impresora: ${defaultPrinter.substring(0, 15)}${defaultPrinter.length > 15 ? '...' : ''}` : 'Configurar Impresora'}
+              </Button>
               <Button
                 colorScheme="blue"
                 onClick={handleExportToExcel}
@@ -322,6 +551,7 @@ const SalesPage: React.FC = () => {
           <Table w="100%" borderCollapse="collapse">
             <Thead bg="green.500">
               <Tr>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Folio</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Fecha</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Descripción</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Financiamiento</Th>
@@ -338,7 +568,7 @@ const SalesPage: React.FC = () => {
             <Tbody>
               {sales.length === 0 ? (
                 <Tr>
-                  <Td colSpan={user?.role === 'Master admin' ? 9 : 8}>
+                  <Td colSpan={user?.role === 'Master admin' ? 10 : 9}>
                     <Box py={12} textAlign="center">
                       <Text fontSize="lg" color="gray.500">
                         No se encontraron registros de ventas
@@ -349,6 +579,9 @@ const SalesPage: React.FC = () => {
               ) : (
                 sales.map((sale) => (
                   <Tr key={sale._id} _hover={{ bg: "gray.50" }} _even={{ bg: "gray.50" }}>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold" color="blue.600">
+                      #{sale.folio || 'N/A'}
+                    </Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
                       {sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : '-'}
                     </Td>
@@ -366,13 +599,22 @@ const SalesPage: React.FC = () => {
                       </Td>
                     )}
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
-                      <Button
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => sale._id && handleDeleteSale(sale._id)}
-                      >
-                        Eliminar
-                      </Button>
+                      <Box display="flex" gap={2}>
+                        <Button
+                          size="sm"
+                          colorScheme="blue"
+                          onClick={() => handleReprintTicket(sale)}
+                        >
+                          Reimprimir
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() => sale._id && handleDeleteSale(sale._id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </Box>
                     </Td>
                   </Tr>
                 ))
@@ -399,6 +641,7 @@ const SalesPage: React.FC = () => {
               bg="white"
               p={6}
               rounded="lg"
+              w="max-content"
               maxW="90vw"
               maxH="90vh"
               overflowY="auto"
@@ -422,6 +665,133 @@ const SalesPage: React.FC = () => {
                 onSubmit={handleAddSale}
                 isLoading={formLoading}
               />
+            </Box>
+          </Box>
+        )}
+
+        {/* Printer Selection Modal */}
+        {showPrinterModal && (
+          <Box
+            position="fixed"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bg="rgba(0, 0, 0, 0.5)"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            zIndex="1100"
+          >
+            <Box
+              bg="white"
+              p={6}
+              rounded="lg"
+              w="500px"
+              maxW="90vw"
+              position="relative"
+              shadow="xl"
+            >
+              <Button
+                position="absolute"
+                top={4}
+                right={4}
+                variant="ghost"
+                onClick={closePrinterModal}
+                fontSize="xl"
+                p={1}
+                minW="auto"
+                h="auto"
+              >
+                ×
+              </Button>
+              
+              <VStack gap={4} align="stretch">
+                <Box>
+                  <Heading size="md" color="blue.600" mb={2}>
+                    🖨️ Seleccionar Impresora
+                  </Heading>
+                  <Text fontSize="sm" color="gray.600">
+                    La impresora seleccionada se establecerá como predeterminada para futuras impresiones.
+                  </Text>
+                </Box>
+
+                {loadingPrinters ? (
+                  <Box py={8} textAlign="center">
+                    <Text color="gray.500">Cargando impresoras...</Text>
+                  </Box>
+                ) : (
+                  <VStack gap={3} align="stretch">
+                    {availablePrinters.map((printer, index) => {
+                      const printerName = printer.name;
+                      return (
+                        <Box
+                          key={index}
+                          p={3}
+                          border="2px solid"
+                          borderColor={selectedPrinter === printerName ? "blue.500" : "gray.200"}
+                          rounded="md"
+                          cursor="pointer"
+                          bg={selectedPrinter === printerName ? "blue.50" : "white"}
+                          onClick={() => setSelectedPrinter(printerName)}
+                          _hover={{
+                            borderColor: "blue.300",
+                            bg: "blue.25"
+                          }}
+                        >
+                          <HStack>
+                            <Box
+                              w="20px"
+                              h="20px"
+                              rounded="full"
+                              border="2px solid"
+                              borderColor={selectedPrinter === printerName ? "blue.500" : "gray.300"}
+                              bg={selectedPrinter === printerName ? "blue.500" : "white"}
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="center"
+                            >
+                              {selectedPrinter === printerName && (
+                                <Box w="8px" h="8px" bg="white" rounded="full" />
+                              )}
+                            </Box>
+                            <VStack align="start" gap={1}>
+                              <HStack>
+                                <Text fontWeight="semibold" fontSize="md">
+                                  {printerName}
+                                </Text>
+                                {printer.isDefault && (
+                                  <Text fontSize="xs" color="green.500" fontWeight="semibold" bg="green.50" px={2} py={1} rounded="md">
+                                    Default del Sistema
+                                  </Text>
+                                )}
+                              </HStack>
+                              {defaultPrinter === printerName && (
+                                <Text fontSize="xs" color="blue.500" fontWeight="semibold">
+                                  ✓ Impresora predeterminada de la aplicación
+                                </Text>
+                              )}
+                            </VStack>
+                          </HStack>
+                        </Box>
+                      );
+                    })}
+                  </VStack>
+                )}
+
+                <HStack justify="flex-end" pt={4}>
+                  <Button variant="outline" onClick={closePrinterModal}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    colorScheme="blue" 
+                    onClick={handlePrinterSelection}
+                    disabled={!selectedPrinter || loadingPrinters}
+                  >
+                    {pendingSale ? 'Imprimir y Establecer como Predeterminada' : 'Establecer como Predeterminada'}
+                  </Button>
+                </HStack>
+              </VStack>
             </Box>
           </Box>
         )}

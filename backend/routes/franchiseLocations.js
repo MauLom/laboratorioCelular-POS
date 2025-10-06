@@ -41,7 +41,7 @@ router.get('/', authenticate, requireMasterAdmin, async (req, res) => {
 router.get('/active', authenticate, async (req, res) => {
   try {
     const locations = await FranchiseLocation.find({ isActive: true })
-      .select('_id name code type')
+      .select('_id name code type guid')
       .sort({ name: 1 });
     
     res.json(locations);

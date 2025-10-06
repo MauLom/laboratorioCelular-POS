@@ -36,6 +36,10 @@ const salesSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  paymentAmount: {
+    type: Number,
+    min: 0
+  },
   // Additional fields for better sales tracking
   customerName: {
     type: String,
@@ -53,9 +57,26 @@ const salesSchema = new mongoose.Schema({
   notes: {
     type: String,
     trim: true
+  },
+  folio: {
+    type: Number,
+    unique: true
   }
 }, {
   timestamps: true
+});
+
+// Auto-increment folio before saving
+salesSchema.pre('save', async function(next) {
+  if (this.isNew && !this.folio) {
+    try {
+      const lastSale = await this.constructor.findOne({}, {}, { sort: { folio: -1 } });
+      this.folio = lastSale ? lastSale.folio + 1 : 1;
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
 });
 
 // Indexes for better performance
