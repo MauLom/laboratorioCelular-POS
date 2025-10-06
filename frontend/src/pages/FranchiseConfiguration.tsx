@@ -4,6 +4,7 @@ import { FranchiseLocation, User } from '../types';
 import { franchiseLocationsApi, usersApi } from '../services/api';
 import Navigation from '../components/common/Navigation';
 import { catalogsApi } from '../services/api';
+import { useAlert } from '../hooks/useAlert';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -387,6 +388,7 @@ const PageButton = styled.button.withConfig({
 `;
 
 const FranchiseConfiguration: React.FC = () => {
+  const { success: showSuccess, error: showError } = useAlert();
   const [locations, setLocations] = useState<FranchiseLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -633,9 +635,10 @@ const FranchiseConfiguration: React.FC = () => {
       setBrandsList(b || []);
       setNewBrandName('');
       setNewBrandDescription('');
+      showSuccess('Marca creada exitosamente');
     } catch (err: any) {
       console.error('Create brand failed', err);
-      alert(err.response?.data?.error || 'Error creating brand');
+      showError(err.response?.data?.error || 'Error al crear la marca');
     }
   };
 
@@ -645,9 +648,10 @@ const FranchiseConfiguration: React.FC = () => {
       await catalogsApi.deleteBrand(id);
       const b = await catalogsApi.getBrands();
       setBrandsList(b || []);
+      showSuccess('Marca eliminada exitosamente');
     } catch (err: any) {
       console.error('Delete brand failed', err);
-      alert(err.response?.data?.error || 'Error deleting brand');
+      showError(err.response?.data?.error || 'Error al eliminar la marca');
     }
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { FranchiseLocation, User } from '../../types';
 import { franchiseLocationsApi, usersApi } from '../../services/api';
+import { useAlert } from '../../hooks/useAlert';
 
 const Button = styled.button.withConfig({
   shouldForwardProp: (prop) => prop !== 'variant',
@@ -140,8 +141,8 @@ const ModalContent = styled.div`
   border-radius: 12px;
   padding: 24px;
   width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
+  max-width: 800px;
+  max-height: 95vh;
   overflow-y: auto;
 `;
 
@@ -183,6 +184,31 @@ const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: 16px;
+`;
+
+const FormRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const FormRowSingle = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+`;
+
+const FormRowThree = styled.div`
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const InputGroup = styled.div`
@@ -234,7 +260,8 @@ const TextArea = styled.textarea`
   border-radius: 6px;
   font-size: 14px;
   resize: vertical;
-  min-height: 80px;
+  min-height: 60px;
+  max-height: 120px;
   transition: border-color 0.2s;
 
   &:focus {
@@ -365,12 +392,28 @@ const HeaderActions = styled.div`
   align-items: center;
 `;
 
+const GuidGroup = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+`;
+
+const IdentifyButton = styled(Button)`
+  min-width: 140px;
+  background: #f39c12;
+  
+  &:hover:not(:disabled) {
+    background: #e67e22;
+  }
+`;
+
 interface FranchiseManagerProps {
   onError?: (message: string) => void;
   onSuccess?: (message: string) => void;
 }
 
 const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess }) => {
+  const { success: showSuccess, error: showError } = useAlert();
   const [locations, setLocations] = useState<FranchiseLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -381,6 +424,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
   const [totalPages, setTotalPages] = useState(1);
   const [viewingUsers, setViewingUsers] = useState<FranchiseLocation | null>(null);
   const [locationUsers, setLocationUsers] = useState<User[]>([]);
+  const [identifyingMac, setIdentifyingMac] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -397,6 +441,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
       email: ''
     },
     notes: '',
+    guid: '',
     isActive: true
   });
 
@@ -412,6 +457,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
     } catch (error: any) {
       const errorMsg = error.response?.data?.error || 'Error loading franchise locations';
       setError(errorMsg);
+      showError(errorMsg);
       if (onError) onError(errorMsg);
     } finally {
       setLoading(false);
@@ -443,6 +489,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
     } catch (error: any) {
       const errorMsg = error.response?.data?.error || 'Error loading users';
       setError(errorMsg);
+      showError(errorMsg);
       if (onError) onError(errorMsg);
     }
   };
@@ -465,6 +512,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         email: ''
       },
       notes: '',
+      guid: '',
       isActive: true
     });
     setModalOpen(true);
@@ -488,6 +536,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         email: location.contact?.email || ''
       },
       notes: location.notes || '',
+      guid: location.guid || '',
       isActive: location.isActive
     });
     setModalOpen(true);
@@ -496,6 +545,50 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
   const openUsersModal = async (location: FranchiseLocation) => {
     setViewingUsers(location);
     await fetchLocationUsers(location._id!);
+  };
+
+  const identifyBranchGuid = async () => {
+    try {
+      setIdentifyingMac(true);
+      setError(null);
+      
+      // Get WIN_SERVICE_URL from environment variable
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      const response = await fetch(`${winServiceUrl}/api/system/guid`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.guid || data.systemGuid) {
+        const guidValue = data.guid || data.systemGuid;
+        setFormData(prev => ({
+          ...prev,
+          guid: guidValue
+        }));
+        
+        const successMsg = 'GUID del sistema identificado correctamente';
+        setSuccess(successMsg);
+        showSuccess(successMsg);
+        if (onSuccess) onSuccess(successMsg);
+      } else {
+        throw new Error('No se recibió GUID del servicio');
+      }
+    } catch (error: any) {
+      const errorMsg = `Error al identificar sucursal: ${error.message}`;
+      setError(errorMsg);
+      showError(errorMsg);
+      if (onError) onError(errorMsg);
+    } finally {
+      setIdentifyingMac(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -507,18 +600,27 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         await franchiseLocationsApi.update(editingLocation._id!, formData);
         const successMsg = 'Franchise location updated successfully';
         setSuccess(successMsg);
+        showSuccess(successMsg);
         if (onSuccess) onSuccess(successMsg);
       } else {
         await franchiseLocationsApi.create(formData);
         const successMsg = 'Franchise location created successfully';
         setSuccess(successMsg);
+        showSuccess(successMsg);
         if (onSuccess) onSuccess(successMsg);
       }
       setModalOpen(false);
       await fetchLocations();
     } catch (error: any) {
-      const errorMsg = error.response?.data?.error || 'Error saving franchise location';
+      let errorMsg = error.response?.data?.error || 'Error saving franchise location';
+      
+      // Handle specific GUID duplicate error
+      if (errorMsg.includes('GUID')) {
+        errorMsg = 'No se puede guardar: Ya existe otra sucursal con este GUID. Por favor, identifique el GUID nuevamente o verifique que no haya otra sucursal registrada desde este equipo.';
+      }
+      
       setError(errorMsg);
+      showError(errorMsg);
       if (onError) onError(errorMsg);
     } finally {
       setLoading(false);
@@ -532,17 +634,20 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         await franchiseLocationsApi.delete(location._id!);
         const successMsg = 'Franchise location deactivated successfully';
         setSuccess(successMsg);
+        showSuccess(successMsg);
         if (onSuccess) onSuccess(successMsg);
       } else {
         await franchiseLocationsApi.update(location._id!, { isActive: true });
         const successMsg = 'Franchise location activated successfully';
         setSuccess(successMsg);
+        showSuccess(successMsg);
         if (onSuccess) onSuccess(successMsg);
       }
       await fetchLocations();
     } catch (error: any) {
       const errorMsg = error.response?.data?.error || 'Error updating franchise location';
       setError(errorMsg);
+      showError(errorMsg);
       if (onError) onError(errorMsg);
     } finally {
       setLoading(false);
@@ -698,142 +803,186 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
             <CloseButton onClick={() => setModalOpen(false)}>×</CloseButton>
           </ModalHeader>
 
-          <Form onSubmit={handleSubmit}>
-            <InputGroup>
-              <Label>Nombre *</Label>
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+          {success && <SuccessMessage>{success}</SuccessMessage>}
+
+          <InputGroup>
+            <Label>GUID de la Sucursal</Label>
+            <GuidGroup>
               <Input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required
-                maxLength={100}
+                value={formData.guid}
+                placeholder="GUID del sistema se identificará automáticamente"
+                disabled
+                style={{ flex: 1 }}
               />
-            </InputGroup>
-
-            <InputGroup>
-              <Label>Código *</Label>
-              <Input
-                type="text"
-                value={formData.code}
-                onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                required
-                maxLength={10}
-                pattern="[A-Z0-9]+"
-                title="Solo letras mayúsculas y números"
-              />
-            </InputGroup>
-
-            <InputGroup>
-              <Label>Tipo *</Label>
-              <Select
-                value={formData.type}
-                onChange={(e) => setFormData({...formData, type: e.target.value as 'Sucursal' | 'Oficina'})}
-                required
+              <IdentifyButton
+                type="button"
+                onClick={identifyBranchGuid}
+                disabled={identifyingMac}
               >
-                <option value="Sucursal">Sucursal</option>
-                <option value="Oficina">Oficina</option>
-              </Select>
-            </InputGroup>
+                {identifyingMac ? 'Identificando...' : 'Identificar Sucursal'}
+              </IdentifyButton>
+            </GuidGroup>
+          </InputGroup>
 
-            <InputGroup>
-              <Label>Calle</Label>
-              <Input
-                type="text"
-                value={formData.address.street}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: {...formData.address, street: e.target.value}
-                })}
-                maxLength={200}
-              />
-            </InputGroup>
+          <Form onSubmit={handleSubmit}>
+            {/* Nombre - fila completa */}
+            <FormRowSingle>
+              <InputGroup>
+                <Label>Nombre *</Label>
+                <Input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                  maxLength={100}
+                />
+              </InputGroup>
+            </FormRowSingle>
 
-            <InputGroup>
-              <Label>Ciudad</Label>
-              <Input
-                type="text"
-                value={formData.address.city}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: {...formData.address, city: e.target.value}
-                })}
-                maxLength={100}
-              />
-            </InputGroup>
+            {/* Código y Tipo */}
+            <FormRow>
+              <InputGroup>
+                <Label>Código *</Label>
+                <Input
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                  required
+                  maxLength={10}
+                  pattern="[A-Z0-9]+"
+                  title="Solo letras mayúsculas y números"
+                />
+              </InputGroup>
 
-            <InputGroup>
-              <Label>Estado</Label>
-              <Input
-                type="text"
-                value={formData.address.state}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: {...formData.address, state: e.target.value}
-                })}
-                maxLength={100}
-              />
-            </InputGroup>
+              <InputGroup>
+                <Label>Tipo *</Label>
+                <Select
+                  value={formData.type}
+                  onChange={(e) => setFormData({...formData, type: e.target.value as 'Sucursal' | 'Oficina'})}
+                  required
+                >
+                  <option value="Sucursal">Sucursal</option>
+                  <option value="Oficina">Oficina</option>
+                </Select>
+              </InputGroup>
+            </FormRow>
 
-            <InputGroup>
-              <Label>Código Postal</Label>
-              <Input
-                type="text"
-                value={formData.address.zipCode}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: {...formData.address, zipCode: e.target.value}
-                })}
-                maxLength={10}
-              />
-            </InputGroup>
+            {/* Calle y Código Postal */}
+            <FormRow>
+              <InputGroup>
+                <Label>Calle</Label>
+                <Input
+                  type="text"
+                  value={formData.address.street}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    address: {...formData.address, street: e.target.value}
+                  })}
+                  maxLength={200}
+                />
+              </InputGroup>
 
-            <InputGroup>
-              <Label>País</Label>
-              <Input
-                type="text"
-                value={formData.address.country}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  address: {...formData.address, country: e.target.value}
-                })}
-                maxLength={100}
-              />
-            </InputGroup>
+              <InputGroup>
+                <Label>Código Postal</Label>
+                <Input
+                  type="text"
+                  value={formData.address.zipCode}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    address: {...formData.address, zipCode: e.target.value}
+                  })}
+                  maxLength={10}
+                />
+              </InputGroup>
+            </FormRow>
 
-            <InputGroup>
-              <Label>Teléfono</Label>
-              <Input
-                type="tel"
-                value={formData.contact.phone}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  contact: {...formData.contact, phone: e.target.value}
-                })}
-                maxLength={20}
-              />
-            </InputGroup>
+            {/* Ciudad y Estado */}
+            <FormRow>
+              <InputGroup>
+                <Label>Ciudad</Label>
+                <Input
+                  type="text"
+                  value={formData.address.city}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    address: {...formData.address, city: e.target.value}
+                  })}
+                  maxLength={100}
+                />
+              </InputGroup>
 
-            <InputGroup>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={formData.contact.email}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  contact: {...formData.contact, email: e.target.value}
-                })}
-                maxLength={100}
-              />
-            </InputGroup>
+              <InputGroup>
+                <Label>Estado</Label>
+                <Input
+                  type="text"
+                  value={formData.address.state}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    address: {...formData.address, state: e.target.value}
+                  })}
+                  maxLength={100}
+                />
+              </InputGroup>
+            </FormRow>
 
-            <InputGroup>
-              <Label>Notas</Label>
-              <TextArea
-                value={formData.notes}
-                onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                maxLength={500}
-              />
-            </InputGroup>
+            {/* País - fila completa */}
+            <FormRowSingle>
+              <InputGroup>
+                <Label>País</Label>
+                <Input
+                  type="text"
+                  value={formData.address.country}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    address: {...formData.address, country: e.target.value}
+                  })}
+                  maxLength={100}
+                />
+              </InputGroup>
+            </FormRowSingle>
+
+            {/* Teléfono y Email */}
+            <FormRow>
+              <InputGroup>
+                <Label>Teléfono</Label>
+                <Input
+                  type="tel"
+                  value={formData.contact.phone}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    contact: {...formData.contact, phone: e.target.value}
+                  })}
+                  maxLength={20}
+                />
+              </InputGroup>
+
+              <InputGroup>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={formData.contact.email}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    contact: {...formData.contact, email: e.target.value}
+                  })}
+                  maxLength={100}
+                />
+              </InputGroup>
+            </FormRow>
+
+            {/* Notas - fila completa */}
+            {/* <FormRowSingle>
+              <InputGroup>
+                <Label>Notas</Label>
+                <TextArea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                  maxLength={500}
+                />
+              </InputGroup>
+            </FormRowSingle> */}
 
             <ModalActions>
               <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>

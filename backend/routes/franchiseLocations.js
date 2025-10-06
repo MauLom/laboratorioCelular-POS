@@ -85,7 +85,14 @@ router.post('/', authenticate, requireMasterAdmin, async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      res.status(400).json({ error: 'Location code already exists' });
+      const field = Object.keys(error.keyPattern)[0];
+      if (field === 'code') {
+        res.status(400).json({ error: 'Location code already exists' });
+      } else if (field === 'guid') {
+        res.status(400).json({ error: 'Ya existe una sucursal con este GUID. Cada sucursal debe tener un identificador único.' });
+      } else {
+        res.status(400).json({ error: `${field} already exists` });
+      }
     } else {
       res.status(400).json({ error: error.message });
     }
@@ -96,7 +103,7 @@ router.post('/', authenticate, requireMasterAdmin, async (req, res) => {
 router.put('/:id', authenticate, requireMasterAdmin, async (req, res) => {
   try {
     const allowedUpdates = [
-      'name', 'code', 'address', 'contact', 'type', 'isActive', 'notes'
+      'name', 'code', 'address', 'contact', 'type', 'isActive', 'notes', 'guid'
     ];
     
     const updates = {};
@@ -122,7 +129,14 @@ router.put('/:id', authenticate, requireMasterAdmin, async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      res.status(400).json({ error: 'Location code already exists' });
+      const field = Object.keys(error.keyPattern)[0];
+      if (field === 'code') {
+        res.status(400).json({ error: 'Location code already exists' });
+      } else if (field === 'guid') {
+        res.status(400).json({ error: 'Ya existe una sucursal con este GUID. Cada sucursal debe tener un identificador único.' });
+      } else {
+        res.status(400).json({ error: `${field} already exists` });
+      }
     } else {
       res.status(400).json({ error: error.message });
     }

@@ -76,6 +76,12 @@ const franchiseLocationSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: 500
+  },
+  guid: {
+    type: String,
+    trim: true,
+    unique: true,
+    sparse: true // Permite valores null/undefined duplicados, pero no strings duplicados
   }
 }, {
   timestamps: true
@@ -86,6 +92,7 @@ franchiseLocationSchema.index({ code: 1 });
 franchiseLocationSchema.index({ name: 1 });
 franchiseLocationSchema.index({ type: 1 });
 franchiseLocationSchema.index({ isActive: 1 });
+franchiseLocationSchema.index({ guid: 1 }, { sparse: true });
 
 // Virtual to get full address
 franchiseLocationSchema.virtual('fullAddress').get(function() {

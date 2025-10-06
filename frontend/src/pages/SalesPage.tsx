@@ -15,6 +15,7 @@ import SalesForm from '../components/sales/SalesForm';
 import { salesApi } from '../services/api';
 import { Sale, PaginatedResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../hooks/useAlert';
 
 // Use native HTML elements with Chakra styling
 const Table = chakra('table');
@@ -26,6 +27,7 @@ const Td = chakra('td');
 
 const SalesPage: React.FC = () => {
   const { user } = useAuth();
+  const { success, error } = useAlert();
   const [sales, setSales] = useState<Sale[]>([]);
   const [allSales, setAllSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,9 +99,9 @@ const SalesPage: React.FC = () => {
       const salesData = response.sales || [];
       setAllSales(salesData);
       setSales(salesData);
-    } catch (error) {
-      console.error('Failed to fetch sales:', error);
-      alert('Error al cargar las ventas');
+    } catch (err) {
+      console.error('Failed to fetch sales:', err);
+      error('Error al cargar las ventas');
     } finally {
       setLoading(false);
     }
@@ -148,10 +150,10 @@ const SalesPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      alert('Archivo Excel generado exitosamente');
-    } catch (error) {
-      console.error('Failed to export sales:', error);
-      alert('Error al exportar las ventas a Excel');
+      success('Archivo Excel generado exitosamente');
+    } catch (err) {
+      console.error('Failed to export sales:', err);
+      error('Error al exportar las ventas a Excel');
     } finally {
       setExportLoading(false);
     }
@@ -163,10 +165,10 @@ const SalesPage: React.FC = () => {
       await salesApi.create(saleData);
       setShowForm(false);
       fetchSales();
-      alert('¡Venta registrada exitosamente!');
-    } catch (error) {
-      console.error('Failed to record sale:', error);
-      alert('Error al registrar la venta');
+      success('¡Venta registrada exitosamente!');
+    } catch (err) {
+      console.error('Failed to record sale:', err);
+      error('Error al registrar la venta');
     } finally {
       setFormLoading(false);
     }
@@ -178,10 +180,10 @@ const SalesPage: React.FC = () => {
     try {
       await salesApi.delete(id);
       fetchSales();
-      alert('¡Venta eliminada exitosamente!');
-    } catch (error) {
-      console.error('Failed to delete sale:', error);
-      alert('Error al eliminar la venta');
+      success('¡Venta eliminada exitosamente!');
+    } catch (err) {
+      console.error('Failed to delete sale:', err);
+      error('Error al eliminar la venta');
     }
   };
 

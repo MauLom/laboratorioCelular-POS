@@ -13,11 +13,13 @@ import InventoryForm from '../components/inventory/InventoryForm';
 import InventoryList from '../components/inventory/InventoryList';
 import { inventoryApi } from '../services/api';
 import { InventoryItem, PaginatedResponse } from '../types';
+import { useAlert } from '../hooks/useAlert';
 
 // Use native HTML select with Chakra styling
 const Select = chakra('select');
 
 const InventoryPage: React.FC = () => {
+  const { success, error } = useAlert();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -33,9 +35,9 @@ const InventoryPage: React.FC = () => {
     try {
       const response: PaginatedResponse<InventoryItem> = await inventoryApi.getAll(filters);
       setItems(response.items || []);
-    } catch (error) {
-      console.error('Failed to fetch inventory items:', error);
-      alert('Error al cargar los artículos del inventario');
+    } catch (err) {
+      console.error('Failed to fetch inventory items:', err);
+      error('Error al cargar los artículos del inventario');
     } finally {
       setLoading(false);
     }
@@ -51,10 +53,10 @@ const InventoryPage: React.FC = () => {
       await inventoryApi.create(itemData);
       setShowForm(false);
       fetchItems();
-      alert('¡Artículo agregado exitosamente!');
-    } catch (error) {
-      console.error('Failed to add item:', error);
-      alert('Error al agregar el artículo');
+      success('¡Artículo agregado exitosamente!');
+    } catch (err) {
+      console.error('Failed to add item:', err);
+      error('Error al agregar el artículo');
     } finally {
       setFormLoading(false);
     }
@@ -69,10 +71,10 @@ const InventoryPage: React.FC = () => {
       setEditingItem(undefined);
       setShowForm(false);
       fetchItems();
-      alert('¡Artículo actualizado exitosamente!');
-    } catch (error) {
-      console.error('Failed to update item:', error);
-      alert('Error al actualizar el artículo');
+      success('¡Artículo actualizado exitosamente!');
+    } catch (err) {
+      console.error('Failed to update item:', err);
+      error('Error al actualizar el artículo');
     } finally {
       setFormLoading(false);
     }
@@ -84,10 +86,10 @@ const InventoryPage: React.FC = () => {
     try {
       await inventoryApi.delete(imei);
       fetchItems();
-      alert('¡Artículo eliminado exitosamente!');
-    } catch (error) {
-      console.error('Failed to delete item:', error);
-      alert('Error al eliminar el artículo');
+      success('¡Artículo eliminado exitosamente!');
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      error('Error al eliminar el artículo');
     }
   };
 

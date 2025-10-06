@@ -74,6 +74,7 @@ export interface FranchiseLocation {
   type: 'Sucursal' | 'Oficina';
   isActive: boolean;
   notes?: string;
+  guid?: string;
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;

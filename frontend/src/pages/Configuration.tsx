@@ -4,6 +4,7 @@ import Navigation from '../components/common/Navigation';
 import { franchiseLocationsApi, catalogsApi, configurationsApi } from '../services/api';
 import { FranchiseLocation } from '../types';
 import FranchiseManager from '../components/configuration/FranchiseManager';
+import { useAlert } from '../hooks/useAlert';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -118,6 +119,7 @@ const SuccessMessage = styled.div`
 `;
 
 const ConfigurationPage: React.FC = () => {
+  const { success: showSuccess, error: showError } = useAlert();
   const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics'>('franchises');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -166,8 +168,9 @@ const ConfigurationPage: React.FC = () => {
       const b = await catalogsApi.getBrands();
       setBrands(b || []);
       setBrandName(''); setBrandDesc('');
+      showSuccess('Marca creada exitosamente');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error');
+      showError(err.response?.data?.error || 'Error al crear la marca');
     }
   };
 
@@ -185,19 +188,23 @@ const ConfigurationPage: React.FC = () => {
       const chars = await catalogsApi.getCharacteristics();
       setCharacteristics(chars || []);
       setCharName('');
+      showSuccess('Característica creada exitosamente');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error');
+      showError(err.response?.data?.error || 'Error al crear la característica');
     }
   };
 
   const createCharacteristicValue = async () => {
-    if (!selectedChar || !valueBrand || !valueVal || !valueDisplay) return alert('Complete los campos');
+    if (!selectedChar || !valueBrand || !valueVal || !valueDisplay) {
+      showError('Complete todos los campos requeridos');
+      return;
+    }
     try {
       await catalogsApi.createCharacteristicValue(selectedChar, { brandId: valueBrand, value: valueVal.trim(), displayName: valueDisplay.trim(), hexColor: valueHex.trim() });
-      alert('Valor creado');
+      showSuccess('Valor creado exitosamente');
       setValueVal(''); setValueDisplay(''); setValueHex('');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error');
+      showError(err.response?.data?.error || 'Error al crear el valor');
     }
   };
 
