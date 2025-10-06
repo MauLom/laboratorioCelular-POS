@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
@@ -270,14 +270,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
       e.preventDefault();
       const item = imeiMatches[selectedIndex];
       setImeiInput(item.imei);
-      (document.getElementById('imei') as HTMLInputElement).value = item.imei;
+      setValue('imei', item.imei); // <-- Actualiza el valor en React Hook Form
       setImeiMatches([]);
       setSelectedIndex(-1);
       setSelectedProduct(item);
     }
   };
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SalesFormData>({
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<SalesFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: initialData || {
       description: 'Sale',
@@ -296,13 +296,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
   });
 
   const handleFormSubmit = async (data: SalesFormData) => {
-    // Usar la sucursal seleccionada automáticamente basándose en el GUID
-    if (selectedLocation) {
       data.branch = selectedLocation._id;
-    } else {
-      // Fallback a sucursal fija si no se encuentra coincidencia
-      data.branch = '68d3416323e9c62541497403';
-    }
+
     await onSubmit(data);
   };
 
@@ -383,7 +378,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
                   }}
                   onClick={() => {
                     setImeiInput(item.imei);
-                    (document.getElementById('imei') as HTMLInputElement).value = item.imei;
+                    setValue('imei', item.imei); // <-- Actualiza el valor en React Hook Form
                     setImeiMatches([]);
                     setSelectedIndex(-1);
                     setSelectedProduct(item);
