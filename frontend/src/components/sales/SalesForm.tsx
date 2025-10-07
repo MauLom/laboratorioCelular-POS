@@ -128,7 +128,7 @@ const FormRow = styled.div`
 `;
 
 interface SalesFormData {
-  description: 'Fair' | 'Payment' | 'Sale' | 'Deposit';
+  description: string;
   finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
   concept: string;
   imei?: string;
@@ -175,15 +175,15 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [systemGuid, setSystemGuid] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<FranchiseLocation | null>(null);
-  
+
   // Load configurations for descriptions and finance types
-  const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
+  // const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
   const { getLabels: getFinanceLabels, loading: financeLoading } = useConfiguration('finance_types');
 
   // Determine if user can select from multiple locations
-  const canSelectLocation = user?.role === 'Master admin' || 
-                           user?.role === 'Supervisor de sucursales' || 
-                           user?.role === 'Supervisor de oficina';
+  const canSelectLocation = user?.role === 'Master admin' ||
+    user?.role === 'Supervisor de sucursales' ||
+    user?.role === 'Supervisor de oficina';
 
   // Fetch system GUID and franchise locations
   useEffect(() => {
@@ -281,7 +281,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const { register, handleSubmit, formState: { errors }, setValue } = useForm<SalesFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: initialData || {
-      description: 'Sale',
+      description: '',
       finance: 'Cash',
       concept: '',
       imei: '',
@@ -297,10 +297,10 @@ const SalesForm: React.FC<SalesFormProps> = ({
   });
 
   const handleFormSubmit = async (data: SalesFormData) => {
-      if (selectedLocation) {
-        data.branch = selectedLocation._id;
-      }
-      
+    if (selectedLocation) {
+      data.branch = selectedLocation._id;
+    }
+
     await onSubmit(data);
   };
 
@@ -308,222 +308,211 @@ const SalesForm: React.FC<SalesFormProps> = ({
     <Form onSubmit={handleSubmit(handleFormSubmit)}>
       <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
         <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '1.5rem', fontWeight: 700, fontSize: '2rem' }}>Generar nueva venta</h2>
-      <FormRow>
-        <FormGroup>
-          <Label htmlFor="description">Descripción *</Label>
-          <Select id="description" {...register('description')} disabled={isLoading || descriptionsLoading}>
-            {descriptionsLoading ? (
-              <option value="">Cargando...</option>
-            ) : (
-              getDescriptionLabels().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))
-            )}
-          </Select>
-          {errors.description && <ErrorMessage>{errors.description.message}</ErrorMessage>}
-        </FormGroup>
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="description">Descripción *</Label>
+            <Input id="description" type="text" value={initialData?.description || ''} />
+            {errors.description && <ErrorMessage>{errors.description.message}</ErrorMessage>}
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="finance">Financiamiento *</Label>
+            <Select id="finance" {...register('finance')} disabled={isLoading || financeLoading}>
+              {financeLoading ? (
+                <option value="">Cargando...</option>
+              ) : (
+                getFinanceLabels().map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))
+              )}
+            </Select>
+            {errors.finance && <ErrorMessage>{errors.finance.message}</ErrorMessage>}
+          </FormGroup>
+        </FormRow>
 
         <FormGroup>
-          <Label htmlFor="finance">Financiamiento *</Label>
-          <Select id="finance" {...register('finance')} disabled={isLoading || financeLoading}>
-            {financeLoading ? (
-              <option value="">Cargando...</option>
-            ) : (
-              getFinanceLabels().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))
-            )}
-          </Select>
-          {errors.finance && <ErrorMessage>{errors.finance.message}</ErrorMessage>}
-        </FormGroup>
-      </FormRow>
-
-      <FormGroup>
-        <Label htmlFor="concept">Concepto *</Label>
-        <Input
-          id="concept"
-          type="text"
-          {...register('concept')}
-          disabled={isLoading}
-        />
-        {errors.concept && <ErrorMessage>{errors.concept.message}</ErrorMessage>}
-      </FormGroup>
-
-      <FormRow>
-        <FormGroup>
-          <Label htmlFor="imei">IMEI</Label>
+          <Label htmlFor="concept">Concepto *</Label>
           <Input
-            id="imei-input"
+            id="concept"
             type="text"
-            placeholder="Escribe el IMEI..."
-            value={imeiInput}
-            onChange={e => setImeiInput(e.target.value)}
+            {...register('concept')}
             disabled={isLoading}
-            autoComplete="off"
-            onKeyDown={handleImeiKeyDown}
           />
-          {imeiLoading && imeiInput.length >= 2 && (
-            <span style={{ color: '#888', fontSize: '0.9rem' }}>Buscando...</span>
-          )}
-          {imeiMatches.length > 0 && imeiInput.length >= 4 && (
-            <ul style={{ background: '#f8f9fa', border: '1px solid #ddd', borderRadius: 4, padding: '0.5rem', marginTop: 4, listStyle: 'none' }}>
-              {imeiMatches.map((item, idx) => (
-                <li key={item._id}
-                  style={{
-                    cursor: 'pointer',
-                    padding: '0.25rem 0',
-                    transition: 'background 0.2s',
-                    background: selectedIndex === idx ? '#eafaf1' : undefined
-                  }}
-                  onClick={() => {
-                    setImeiInput(item.imei);
-                    setValue('imei', item.imei); // <-- Actualiza el valor en React Hook Form
-                    setImeiMatches([]);
-                    setSelectedIndex(-1);
-                    setSelectedProduct(item);
-                  }}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                  onMouseLeave={() => setSelectedIndex(-1)}
-                >
-                  <strong>{item.model || ''} {item.brand ? `- ${item.brand}` : ''}</strong> | IMEI: {item.imei} | Estado: {item.state} {item.price !== undefined ? `| Precio: $${item.price}` : ''}
-                </li>
-              ))}
-            </ul>
-          )}
-          {imeiError && imeiInput.length >= 2 && (
-            <span style={{ color: '#e74c3c', fontSize: '0.9rem' }}>{imeiError}</span>
-          )}
-          <Input
-            id="imei"
-            type="text"
-            style={{ display: 'none' }}
-            {...register('imei')}
-          />
-        {/* Mostrar el nombre del producto seleccionado debajo del input */}
-        {selectedProduct && (
-          <div style={{ color: '#229954', fontWeight: 400, fontSize: '0.95rem', fontStyle: 'italic' }}>
-            Producto: {selectedProduct.model || ''} {selectedProduct.brand ? `- ${selectedProduct.brand}` : ''}
-          </div>
-        )}
+          {errors.concept && <ErrorMessage>{errors.concept.message}</ErrorMessage>}
         </FormGroup>
 
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="imei">IMEI</Label>
+            <Input
+              id="imei-input"
+              type="text"
+              placeholder="Escribe el IMEI..."
+              value={imeiInput}
+              onChange={e => setImeiInput(e.target.value)}
+              disabled={isLoading}
+              autoComplete="off"
+              onKeyDown={handleImeiKeyDown}
+            />
+            {imeiLoading && imeiInput.length >= 2 && (
+              <span style={{ color: '#888', fontSize: '0.9rem' }}>Buscando...</span>
+            )}
+            {imeiMatches.length > 0 && imeiInput.length >= 4 && (
+              <ul style={{ background: '#f8f9fa', border: '1px solid #ddd', borderRadius: 4, padding: '0.5rem', marginTop: 4, listStyle: 'none' }}>
+                {imeiMatches.map((item, idx) => (
+                  <li key={item._id}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '0.25rem 0',
+                      transition: 'background 0.2s',
+                      background: selectedIndex === idx ? '#eafaf1' : undefined
+                    }}
+                    onClick={() => {
+                      setImeiInput(item.imei);
+                      setValue('imei', item.imei); // <-- Actualiza el valor en React Hook Form
+                      setImeiMatches([]);
+                      setSelectedIndex(-1);
+                      setSelectedProduct(item);
+                    }}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    onMouseLeave={() => setSelectedIndex(-1)}
+                  >
+                    <strong>{item.model || ''} {item.brand ? `- ${item.brand}` : ''}</strong> | IMEI: {item.imei} | Estado: {item.state} {item.price !== undefined ? `| Precio: $${item.price}` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {imeiError && imeiInput.length >= 2 && (
+              <span style={{ color: '#e74c3c', fontSize: '0.9rem' }}>{imeiError}</span>
+            )}
+            <Input
+              id="imei"
+              type="text"
+              style={{ display: 'none' }}
+              {...register('imei')}
+            />
+            {/* Mostrar el nombre del producto seleccionado debajo del input */}
+            {selectedProduct && (
+              <div style={{ color: '#229954', fontWeight: 400, fontSize: '0.95rem', fontStyle: 'italic' }}>
+                Producto: {selectedProduct.model || ''} {selectedProduct.brand ? `- ${selectedProduct.brand}` : ''}
+              </div>
+            )}
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="paymentType">Tipo de Pago *</Label>
+            <Select
+              id="paymentType"
+              {...register('paymentType')}
+              disabled={isLoading}
+            >
+              <option value="">Selecciona tipo de pago...</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="dolar">Dólar</option>
+              <option value="mixto">Mixto</option>
+            </Select>
+            {errors.paymentType && <ErrorMessage>{errors.paymentType.message}</ErrorMessage>}
+          </FormGroup>
+        </FormRow>
+
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="reference">Referencia</Label>
+            <Input
+              id="reference"
+              type="text"
+              {...register('reference')}
+              disabled={isLoading}
+            />
+            {errors.reference && <ErrorMessage>{errors.reference.message}</ErrorMessage>}
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="amount">Monto *</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register('amount')}
+              disabled={isLoading}
+            />
+            {errors.amount && <ErrorMessage>{errors.amount.message}</ErrorMessage>}
+          </FormGroup>
+        </FormRow>
+
+        {/* Pago con - nuevo campo */}
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="paymentAmount">Pago con</Label>
+            <Input
+              id="paymentAmount"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Monto con el que se realiza el pago"
+              {...register('paymentAmount')}
+              disabled={isLoading}
+            />
+            {errors.paymentAmount && <ErrorMessage>{errors.paymentAmount.message}</ErrorMessage>}
+          </FormGroup>
+
+          <FormGroup>
+            {/* Espacio vacío para mantener la alineación */}
+          </FormGroup>
+        </FormRow>
+
+        {/* Sucursal seleccionada automáticamente */}
         <FormGroup>
-          <Label htmlFor="paymentType">Tipo de Pago *</Label>
+          <Label htmlFor="selectedBranch">Sucursal *</Label>
           <Select
-            id="paymentType"
-            {...register('paymentType')}
-            disabled={isLoading}
+            id="selectedBranch"
+            value={selectedLocation?._id || ''}
+            disabled={true}
+            style={{
+              backgroundColor: '#f8f9fa',
+              color: '#495057',
+              cursor: 'not-allowed',
+              opacity: 0.9,
+              fontWeight: '500'
+            }}
           >
-            <option value="">Selecciona tipo de pago...</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="tarjeta">Tarjeta</option>
-            <option value="dolar">Dólar</option>
-            <option value="mixto">Mixto</option>
+            {selectedLocation ? (
+              <option value={selectedLocation._id}>
+                {selectedLocation.name} ({selectedLocation.code}) - {selectedLocation.type}
+              </option>
+            ) : (
+              <option value="">
+                {systemGuid ? `Buscando sucursal para GUID: ${systemGuid.substring(0, 8)}...` : 'Obteniendo información del sistema...'}
+              </option>
+            )}
           </Select>
-          {errors.paymentType && <ErrorMessage>{errors.paymentType.message}</ErrorMessage>}
-        </FormGroup>
-      </FormRow>
 
-      <FormRow>
-        <FormGroup>
-          <Label htmlFor="reference">Referencia *</Label>
-          <Input
-            id="reference"
-            type="text"
-            {...register('reference')}
-            disabled={isLoading}
-          />
-          {errors.reference && <ErrorMessage>{errors.reference.message}</ErrorMessage>}
-        </FormGroup>
-
-        <FormGroup>
-          <Label htmlFor="amount">Monto *</Label>
-          <Input
-            id="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            {...register('amount')}
-            disabled={isLoading}
-          />
-          {errors.amount && <ErrorMessage>{errors.amount.message}</ErrorMessage>}
-        </FormGroup>
-      </FormRow>
-
-      {/* Pago con - nuevo campo */}
-      <FormRow>
-        <FormGroup>
-          <Label htmlFor="paymentAmount">Pago con</Label>
-          <Input
-            id="paymentAmount"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Monto con el que se realiza el pago"
-            {...register('paymentAmount')}
-            disabled={isLoading}
-          />
-          {errors.paymentAmount && <ErrorMessage>{errors.paymentAmount.message}</ErrorMessage>}
-        </FormGroup>
-
-        <FormGroup>
-          {/* Espacio vacío para mantener la alineación */}
-        </FormGroup>
-      </FormRow>
-
-      {/* Sucursal seleccionada automáticamente */}
-      <FormGroup>
-        <Label htmlFor="selectedBranch">Sucursal *</Label>
-        <Select
-          id="selectedBranch"
-          value={selectedLocation?._id || ''}
-          disabled={true}
-          style={{ 
-            backgroundColor: '#f8f9fa',
-            color: '#495057',
-            cursor: 'not-allowed',
-            opacity: 0.9,
-            fontWeight: '500'
-          }}
-        >
-          {selectedLocation ? (
-            <option value={selectedLocation._id}>
-              {selectedLocation.name} ({selectedLocation.code}) - {selectedLocation.type}
-            </option>
-          ) : (
-            <option value="">
-              {systemGuid ? `Buscando sucursal para GUID: ${systemGuid.substring(0, 8)}...` : 'Obteniendo información del sistema...'}
-            </option>
+          {selectedLocation && (
+            <InfoMessage>
+              ✓ Sucursal identificada automáticamente mediante GUID del sistema: {systemGuid ? systemGuid.substring(0, 8) + '...' : 'N/A'}
+            </InfoMessage>
           )}
-        </Select>
-        
-        {selectedLocation && (
-          <InfoMessage>
-            ✓ Sucursal identificada automáticamente mediante GUID del sistema: {systemGuid ? systemGuid.substring(0, 8) + '...' : 'N/A'}
-          </InfoMessage>
-        )}
-        
-        {!selectedLocation && systemGuid && (
-          <ErrorMessage>
-            ⚠ No se encontró una sucursal registrada con el GUID de este sistema. Contacte al administrador para registrar esta sucursal.
-          </ErrorMessage>
-        )}
-        
-        {!systemGuid && (
-          <ErrorMessage>
-            ⚠ No se pudo obtener el GUID del sistema. Verifique que el servicio Windows esté ejecutándose.
-          </ErrorMessage>
-        )}
-      </FormGroup>
 
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          alignItems: 'center', 
+          {!selectedLocation && systemGuid && (
+            <ErrorMessage>
+              ⚠ No se encontró una sucursal registrada con el GUID de este sistema. Contacte al administrador para registrar esta sucursal.
+            </ErrorMessage>
+          )}
+
+          {!systemGuid && (
+            <ErrorMessage>
+              ⚠ No se pudo obtener el GUID del sistema. Verifique que el servicio Windows esté ejecutándose.
+            </ErrorMessage>
+          )}
+        </FormGroup>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
           marginTop: 'auto',
           paddingTop: '1rem',
           borderTop: '1px solid #ecf0f1'

@@ -18,7 +18,7 @@ export interface InventoryItem {
 export interface Sale {
   _id?: string;
   folio?: number;
-  description: 'Fair' | 'Payment' | 'Sale' | 'Deposit';
+  description: string;
   finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
   concept: string;
   imei?: string;
