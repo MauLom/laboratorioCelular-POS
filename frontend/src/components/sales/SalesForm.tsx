@@ -148,7 +148,8 @@ const schema = yup.object().shape({
   concept: yup.string().required('El concepto es requerido'),
   imei: yup.string().optional(),
   paymentType: yup.string().required('El tipo de pago es requerido'),
-  reference: yup.string().required('La referencia es requerida'),
+  //TODO reference field should not be required
+  reference: yup.string().default(''),
   amount: yup.number().required('El monto es requerido').min(0, 'El monto debe ser positivo'),
   paymentAmount: yup.number().optional().min(0, 'El monto de pago debe ser positivo'),
   customerName: yup.string().optional(),
