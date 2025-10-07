@@ -129,8 +129,8 @@ const FormRow = styled.div`
 
 interface SalesFormData {
   description: string;
-  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
-  concept: string;
+  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Sale' | 'Other';
+  concept: 'Parciality' | 'Hitch' | 'Other';
   imei?: string;
   paymentType: string;
   reference: string;
@@ -144,7 +144,7 @@ interface SalesFormData {
 
 const schema = yup.object().shape({
   description: yup.string().required('La descripción es requerida'),
-  finance: yup.string().required('El tipo de financiamiento es requerido'),
+  finance: yup.string().required('La Financiera es requerida'),
   concept: yup.string().required('El concepto es requerido'),
   imei: yup.string().optional(),
   paymentType: yup.string().required('El tipo de pago es requerido'),
@@ -176,8 +176,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const [systemGuid, setSystemGuid] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<FranchiseLocation | null>(null);
 
-  // Load configurations for descriptions and finance types
-  // const { getLabels: getDescriptionLabels, loading: descriptionsLoading } = useConfiguration('sales_descriptions');
+  // Load configurations for concepts and finance types
+  const { getLabels: getConceptsLabels, loading: conceptsLoading } = useConfiguration('concepts_concepts');
   const { getLabels: getFinanceLabels, loading: financeLoading } = useConfiguration('finance_types');
 
   // Determine if user can select from multiple locations
@@ -283,7 +283,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
     defaultValues: initialData || {
       description: '',
       finance: 'Cash',
-      concept: '',
+      concept: 'Parciality',
       imei: '',
       paymentType: '',
       reference: '',
@@ -315,7 +315,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
             {errors.description && <ErrorMessage>{errors.description.message}</ErrorMessage>}
           </FormGroup>
           <FormGroup>
-            <Label htmlFor="finance">Financiamiento *</Label>
+            <Label htmlFor="finance">Financiera *</Label>
             <Select id="finance" {...register('finance')} disabled={isLoading || financeLoading}>
               {financeLoading ? (
                 <option value="">Cargando...</option>
@@ -330,18 +330,21 @@ const SalesForm: React.FC<SalesFormProps> = ({
             {errors.finance && <ErrorMessage>{errors.finance.message}</ErrorMessage>}
           </FormGroup>
         </FormRow>
-
         <FormGroup>
           <Label htmlFor="concept">Concepto *</Label>
-          <Input
-            id="concept"
-            type="text"
-            {...register('concept')}
-            disabled={isLoading}
-          />
+          <Select id="concept" {...register('concept')} disabled={isLoading || conceptsLoading}>
+            {conceptsLoading ? (
+              <option value="">Cargando...</option>
+            ) : (
+              getConceptsLabels().map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))
+            )}
+          </Select>
           {errors.concept && <ErrorMessage>{errors.concept.message}</ErrorMessage>}
         </FormGroup>
-
         <FormRow>
           <FormGroup>
             <Label htmlFor="imei">IMEI</Label>

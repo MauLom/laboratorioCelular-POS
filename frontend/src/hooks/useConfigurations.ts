@@ -4,11 +4,10 @@ import { Configuration, ConfigurationValue } from '../types';
 
 // Fallback configurations for when API is not available
 const FALLBACK_CONFIGURATIONS = {
-  sales_descriptions: [
-    { value: 'Fair', label: 'Justo' },
-    { value: 'Payment', label: 'Pago' },
-    { value: 'Sale', label: 'Venta' },
-    { value: 'Deposit', label: 'Depósito' }
+  concepts_concepts: [
+    { value: 'Parciality', label: 'Parcialidad' },
+    { value: 'Hitch', label: 'Enganche' },
+    { value: 'Other', label: 'Otro' },
   ],
   finance_types: [
     { value: 'Payjoy', label: 'Payjoy' },
@@ -16,6 +15,7 @@ const FALLBACK_CONFIGURATIONS = {
     { value: 'Repair', label: 'Reparación' },
     { value: 'Accessory', label: 'Accesorio' },
     { value: 'Cash', label: 'Efectivo' },
+    { value: 'Sale', label: 'Venta Contado' },
     { value: 'Other', label: 'Otro' }
   ]
 };

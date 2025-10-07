@@ -19,8 +19,8 @@ export interface Sale {
   _id?: string;
   folio?: number;
   description: string;
-  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
-  concept: string;
+  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Sale' | 'Other';
+  concept: 'Parciality' | 'Hitch' | 'Other';
   imei?: string;
   paymentType: string;
   reference: string;
