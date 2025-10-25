@@ -343,8 +343,6 @@ const ConfigurationPage: React.FC = () => {
           </Tabs>
         </Header>
 
-        {error && <ErrorMessage>{error}</ErrorMessage>}
-        {success && <SuccessMessage>{success}</SuccessMessage>}
 
         {tab === 'franchises' && (
           <Card>

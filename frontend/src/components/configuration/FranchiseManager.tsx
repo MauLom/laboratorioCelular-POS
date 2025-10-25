@@ -725,9 +725,6 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         </Button>
       </HeaderActions>
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-      {success && <SuccessMessage>{success}</SuccessMessage>}
-
       {loading && !modalOpen ? (
         <LoadingSpinner />
       ) : (

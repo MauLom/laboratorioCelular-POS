@@ -4,12 +4,12 @@ const salesSchema = new mongoose.Schema({
   description: {
     type: String,
     required: true,
-    enum: ['Fair', 'Payment', 'Sale', 'Deposit']
+    enum: ['payment', 'sale', 'deposit']
   },
   finance: {
     type: String,
     required: true,
-    enum: ['Payjoy', 'Lespago', 'Repair', 'Accessory', 'Cash', 'Other']
+    enum: ['payjoy', 'lespago', 'repair', 'accessory', 'cash', 'other']
   },
   concept: {
     type: String,
@@ -66,8 +66,24 @@ const salesSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Auto-increment folio before saving
 salesSchema.pre('save', async function(next) {
+  if (this.finance) {
+    const financeMap = {
+      'payjoy': 'Payjoy',
+      'lespago': 'Lespago', 
+      'repair': 'Repair',
+      'accessory': 'Accessory',
+      'cash': 'Cash',
+      'other': 'Other'
+    };
+    
+    const normalizedFinance = financeMap[this.finance.toLowerCase()];
+    if (normalizedFinance) {
+      this.finance = normalizedFinance;
+    }
+  }
+
+  // Auto-increment folio
   if (this.isNew && !this.folio) {
     try {
       const lastSale = await this.constructor.findOne({}, {}, { sort: { folio: -1 } });
