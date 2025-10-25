@@ -15,6 +15,17 @@ export interface InventoryItem {
   updatedAt?: string;
 }
 
+export interface SaleArticle {
+  id: string;
+  description: string;
+  concept: string;
+  finance: string;
+  imei?: string;
+  reference?: string;
+  amount: number;
+  quantity: number;
+}
+
 export interface Sale {
   _id?: string;
   folio?: number;
@@ -26,6 +37,7 @@ export interface Sale {
   reference: string;
   amount: number;
   paymentAmount?: number;
+  articles?: SaleArticle[]; // Array de artículos para ventas multi-artículo
   customerName?: string;
   customerPhone?: string;
   branch?: string; // Virtual field for backward compatibility

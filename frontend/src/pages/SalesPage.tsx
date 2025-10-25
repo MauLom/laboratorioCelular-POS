@@ -25,9 +25,25 @@ const Page = styled.div`
 `;
 
 const Container = styled.div`
-  max-width: 1100px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+`;
+
+const TableContainer = styled.div`
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  
+  @media (max-width: 1400px) {
+    overflow-x: scroll;
+  }
 `;
 
 // Type for printer from Windows service
@@ -97,7 +113,15 @@ const SalesPage: React.FC = () => {
           ? `${sale.franchiseLocation.name} ${sale.franchiseLocation.code}`.toLowerCase()
           : '',
         // Include date
-        sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : ''
+        sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : '',
+        // Include articles information for multi-article sales
+        ...(sale.articles ? sale.articles.flatMap(article => [
+          article.description?.toLowerCase() || '',
+          article.concept?.toLowerCase() || '',
+          article.finance?.toLowerCase() || '',
+          article.imei?.toLowerCase() || '',
+          article.reference?.toLowerCase() || ''
+        ]) : [])
       ];
 
       return searchableFields.some(field => field.includes(term));
@@ -311,8 +335,25 @@ const SalesPage: React.FC = () => {
       // Obtener teléfono de la sucursal
       const phone = franchiseLocation?.contact?.phone || "(000) 000-0000";
 
-      // Crear el producto principal basado en la venta
-      const productName = `${sale.concept}${sale.imei ? ` - IMEI: ${sale.imei}` : ''}`;
+      // Crear productos basado en los artículos de la venta
+      let products = [];
+      
+      if (sale.articles && sale.articles.length > 0) {
+        // Venta multi-artículo: usar cada artículo como producto
+        products = sale.articles.map(article => ({
+          name: `${article.description}${article.imei ? ` - IMEI: ${article.imei}` : ''}`,
+          quantity: article.quantity,
+          price: article.amount
+        }));
+      } else {
+        // Venta simple: usar la información principal
+        const productName = `${sale.concept}${sale.imei ? ` - IMEI: ${sale.imei}` : ''}`;
+        products = [{
+          name: productName,
+          quantity: 1,
+          price: sale.amount || 0
+        }];
+      }
 
       const ticketData = {
         address: address,
@@ -321,13 +362,7 @@ const SalesPage: React.FC = () => {
           ? `${user.firstName} ${user.lastName}`
           : user?.username || "Vendedor",
         folio: (sale.folio?.toString()) || "N/A",
-        products: [
-          {
-            name: productName,
-            quantity: 1,
-            price: sale.amount || 0
-          }
-        ],
+        products: products,
         paymentAmount: sale.paymentAmount || sale.amount || 0,
         // Incluir impresora si se especificó
         ...(printerName && { printerName: printerName })
@@ -493,7 +528,7 @@ const SalesPage: React.FC = () => {
     <Page>
       <Navigation />
       <Container title="Gestión de Ventas">
-      <VStack gap={6} align="stretch">
+      <VStack gap={6} align="stretch" w="100%">
         {/* Header */}
         <Box bg="white" p={6} rounded="lg" shadow="md">
           <HStack justify="space-between" align="center">
@@ -617,22 +652,22 @@ const SalesPage: React.FC = () => {
           </Box>
 
         {/* Sales Table */}
-        <Box bg="white" rounded="lg" shadow="md" overflow="hidden">
-          <Table w="100%" borderCollapse="collapse">
+        <TableContainer>
+          <Table w="100%" borderCollapse="collapse" minW="1200px">
             <Thead bg="green.500">
               <Tr>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Folio</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Fecha</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Descripción</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Financiamiento</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Concepto</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">IMEI</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Monto</Th>
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Cliente</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="80px">Folio</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="120px">Fecha</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="120px">Descripción</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="130px">Financiamiento</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="150px">Concepto</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="180px">IMEI</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="100px">Monto</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="120px">Cliente</Th>
                 {user?.role === 'Master admin' && (
-                  <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Sucursal</Th>
+                  <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="120px">Sucursal</Th>
                 )}
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600">Acciones</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="140px">Acciones</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -649,26 +684,43 @@ const SalesPage: React.FC = () => {
               ) : (
                 sales.map((sale) => (
                   <Tr key={sale._id} _hover={{ bg: "gray.50" }} _even={{ bg: "gray.50" }}>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold" color="blue.600">
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold" color="blue.600" w="80px">
                       #{sale.folio || 'N/A'}
                     </Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">
                       {sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : '-'}
                     </Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.description}</Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.finance}</Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.concept}</Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.imei || '-'}</Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold">${sale.amount.toFixed(2)}</Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">{sale.customerName || '-'}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">
+                      {sale.description}
+                      {sale.articles && sale.articles.length > 1 && (
+                        <Text fontSize="xs" color="blue.500" fontWeight="semibold">
+                          ({sale.articles.length} artículos)
+                        </Text>
+                      )}
+                    </Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="130px">{sale.finance}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="150px">
+                      {sale.articles && sale.articles.length > 1 
+                        ? `Múltiples (${sale.articles.map(a => a.concept).join(', ')})`
+                        : sale.concept
+                      }
+                    </Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="180px">
+                      {sale.articles && sale.articles.length > 1
+                        ? sale.articles.filter(a => a.imei).map(a => a.imei).join(', ') || '-'
+                        : sale.imei || '-'
+                      }
+                    </Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold" w="100px">${sale.amount.toFixed(2)}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">{sale.customerName || '-'}</Td>
                     {user?.role === 'Master admin' && (
-                      <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
+                      <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">
                         {typeof sale.franchiseLocation === 'object' && sale.franchiseLocation?.name 
                           ? `${sale.franchiseLocation.name} (${sale.franchiseLocation.code})` 
                           : '-'}
                       </Td>
                     )}
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200">
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="140px">
                       <Box display="flex" gap={2}>
                         <Button
                           size="sm"
@@ -677,13 +729,15 @@ const SalesPage: React.FC = () => {
                         >
                           Reimprimir
                         </Button>
-                        <Button
-                          size="sm"
-                          colorScheme="red"
-                          onClick={() => sale._id && handleDeleteSale(sale._id)}
-                        >
-                          Eliminar
-                        </Button>
+                        {user?.role === 'Master admin' && (
+                          <Button
+                            size="sm"
+                            colorScheme="red"
+                            onClick={() => sale._id && handleDeleteSale(sale._id)}
+                          >
+                            Eliminar
+                          </Button>
+                        )}
                       </Box>
                     </Td>
                   </Tr>
@@ -691,7 +745,7 @@ const SalesPage: React.FC = () => {
               )}
             </Tbody>
           </Table>
-        </Box>
+        </TableContainer>
 
           {/* Simple Modal for Add Form */}
           {showForm && (

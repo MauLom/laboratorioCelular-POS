@@ -460,6 +460,18 @@ const SalesForm: React.FC<SalesFormProps> = ({
       return;
     }
 
+    // Convertir SalesArticle a SaleArticle (del tipo Sale)
+    const saleArticles = articles.map(article => ({
+      id: article.id,
+      description: article.description,
+      concept: article.concept,
+      finance: article.finance,
+      imei: article.imei || '',
+      reference: article.reference || '',
+      amount: article.amount,
+      quantity: article.quantity
+    }));
+
     // Crear la venta final con todos los artículos
     const saleData = {
       description: 'Sale' as const, // Usar valor válido del enum del backend
@@ -472,6 +484,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       branch: selectedLocation?._id || '',
       notes: `Venta con ${articles.length} artículo(s). Artículos: ${articles.map(a => a.description).join(', ')}`,
       imei: articles.find(a => a.imei)?.imei || undefined, // Primer IMEI encontrado
+      articles: saleArticles, // Incluir todos los artículos
     };
 
     setShowPaymentModal(false);

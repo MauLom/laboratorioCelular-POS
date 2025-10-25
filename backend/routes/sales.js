@@ -298,21 +298,40 @@ router.post('/', authenticate, async (req, res) => {
     }
     const sale = new Sale(saleData);
     
-    // If IMEI is provided, check if it exists in accessible locations and update inventory status if it's a sale
-    if (sale.imei && sale.description === 'Sale') {
-      const inventoryQuery = { imei: sale.imei };
+    // Process inventory for articles or single IMEI
+    if (sale.description === 'Sale') {
+      const imeisToProcess = [];
       
-      // Apply same franchise filtering for inventory item
-      if (req.user.role !== 'Master admin') {
-        const accessibleLocations = await getAccessibleLocations(req.user);
-        const locationIds = accessibleLocations.map(loc => loc._id);
-        inventoryQuery.franchiseLocation = { $in: locationIds };
+      // Get IMEIs from articles if available, otherwise use single IMEI
+      if (sale.articles && sale.articles.length > 0) {
+        sale.articles.forEach(article => {
+          if (article.imei && article.imei.trim()) {
+            imeisToProcess.push(article.imei.trim());
+          }
+        });
+      } else if (sale.imei && sale.imei.trim()) {
+        imeisToProcess.push(sale.imei.trim());
       }
       
-      const inventoryItem = await InventoryItem.findOne(inventoryQuery);
-      if (inventoryItem) {
-        inventoryItem.state = 'Sold';
-        await inventoryItem.save();
+      // Update inventory status for all IMEIs
+      for (const imei of imeisToProcess) {
+        const inventoryQuery = { imei: imei };
+        
+        // Apply same franchise filtering for inventory item
+        if (req.user.role !== 'Master admin') {
+          const accessibleLocations = await getAccessibleLocations(req.user);
+          const locationIds = accessibleLocations.map(loc => loc._id);
+          inventoryQuery.franchiseLocation = { $in: locationIds };
+        }
+        
+        const inventoryItem = await InventoryItem.findOne(inventoryQuery);
+        if (inventoryItem) {
+          inventoryItem.state = 'Sold';
+          await inventoryItem.save();
+          console.log(`Updated inventory item ${imei} to Sold status`);
+        } else {
+          console.warn(`Inventory item with IMEI ${imei} not found`);
+        }
       }
     }
     
@@ -364,23 +383,29 @@ router.put('/:id', authenticate, handleBranchToFranchiseLocationConversion, asyn
   }
 });
 
-// Delete sale (with franchise validation)
+// Delete sale (Master admin only)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const query = { _id: req.params.id };
-    
-    // Apply franchise location filtering
+    // Only Master admin can delete sales
     if (req.user.role !== 'Master admin') {
-      const accessibleLocations = await getAccessibleLocations(req.user);
-      const locationIds = accessibleLocations.map(loc => loc._id);
-      query.franchiseLocation = { $in: locationIds };
+      return res.status(403).json({ 
+        error: 'Access denied. Only Master admin can delete sales.' 
+      });
     }
     
-    const sale = await Sale.findOneAndDelete(query);
+    const sale = await Sale.findByIdAndDelete(req.params.id);
     if (!sale) {
-      return res.status(404).json({ error: 'Sale not found or access denied' });
+      return res.status(404).json({ error: 'Sale not found' });
     }
-    res.json({ message: 'Sale deleted successfully' });
+    
+    res.json({ 
+      message: 'Sale deleted successfully',
+      deletedSale: {
+        folio: sale.folio,
+        amount: sale.amount,
+        description: sale.description
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

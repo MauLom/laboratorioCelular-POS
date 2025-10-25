@@ -4,12 +4,12 @@ const salesSchema = new mongoose.Schema({
   description: {
     type: String,
     required: true,
-    enum: ['payment', 'sale', 'deposit']
+    enum: ['Fair', 'Payment', 'Sale', 'Deposit']
   },
   finance: {
     type: String,
     required: true,
-    enum: ['payjoy', 'lespago', 'repair', 'accessory', 'cash', 'other']
+    enum: ['Payjoy', 'Lespago', 'Repair', 'Accessory', 'Cash', 'Other']
   },
   concept: {
     type: String,
@@ -40,6 +40,44 @@ const salesSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  // Articles array for multi-article sales
+  articles: [{
+    id: {
+      type: String,
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    concept: {
+      type: String,
+      required: true
+    },
+    finance: {
+      type: String,
+      required: true
+    },
+    imei: {
+      type: String,
+      trim: true
+    },
+    reference: {
+      type: String,
+      trim: true
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1
+    }
+  }],
   // Additional fields for better sales tracking
   customerName: {
     type: String,
@@ -66,30 +104,46 @@ const salesSchema = new mongoose.Schema({
   timestamps: true
 });
 
-salesSchema.pre('save', async function(next) {
-  if (this.finance) {
-    const financeMap = {
-      'payjoy': 'Payjoy',
-      'lespago': 'Lespago', 
-      'repair': 'Repair',
-      'accessory': 'Accessory',
-      'cash': 'Cash',
-      'other': 'Other'
-    };
-    
-    const normalizedFinance = financeMap[this.finance.toLowerCase()];
-    if (normalizedFinance) {
-      this.finance = normalizedFinance;
-    }
-  }
+// Counter schema for atomic folio generation
+const counterSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  seq: { type: Number, default: 0 }
+});
+const Counter = mongoose.model('Counter', counterSchema);
 
-  // Auto-increment folio
+// Function to get next folio atomically
+async function getNextFolio() {
+  const counter = await Counter.findByIdAndUpdate(
+    'sale_folio',
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return counter.seq;
+}
+
+// Auto-increment folio before saving with retry mechanism
+salesSchema.pre('save', async function(next) {
   if (this.isNew && !this.folio) {
-    try {
-      const lastSale = await this.constructor.findOne({}, {}, { sort: { folio: -1 } });
-      this.folio = lastSale ? lastSale.folio + 1 : 1;
-    } catch (error) {
-      return next(error);
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        this.folio = await getNextFolio();
+        
+        // Check if folio already exists (rare case)
+        const existingSale = await this.constructor.findOne({ folio: this.folio });
+        if (!existingSale) {
+          break; // Folio is unique, proceed
+        }
+        
+        attempts++;
+        if (attempts >= maxAttempts) {
+          return next(new Error('Unable to generate unique folio after multiple attempts'));
+        }
+      } catch (error) {
+        return next(error);
+      }
     }
   }
   next();
