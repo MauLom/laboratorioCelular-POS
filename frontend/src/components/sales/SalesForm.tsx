@@ -7,18 +7,25 @@ import { Sale, FranchiseLocation, InventoryItem } from '../../types';
 import { franchiseLocationsApi, inventoryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfiguration } from '../../hooks/useConfigurations';
+import SalesArticles, { SalesArticle } from './SalesArticles';
+
+const SalesContainer = styled.div`
+  width: 800px;
+  max-width: 800px;
+  min-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1rem 0;
+`;
 
 const Form = styled.form`
   background: white;
   padding: 2rem;
   border-radius: 8px;
-  width: 800px;
-  max-width: 800px;
-  min-width: 800px;
-  height: 750px;
-  max-height: 750px;
-  min-height: 750px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
 `;
@@ -162,6 +169,9 @@ interface SalesFormProps {
   initialData?: Sale;
   isEditing?: boolean;
   isLoading?: boolean;
+  articles: SalesArticle[];
+  onAddArticle: (article: SalesArticle) => void;
+  onDeleteArticle: (id: string) => void;
 }
 
 const SalesForm: React.FC<SalesFormProps> = ({
@@ -169,6 +179,9 @@ const SalesForm: React.FC<SalesFormProps> = ({
   initialData,
   isEditing = false,
   isLoading = false,
+  articles,
+  onAddArticle,
+  onDeleteArticle,
 }) => {
   const { user } = useAuth();
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
@@ -318,7 +331,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
     }
   };
 
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm<SalesFormData>({
+  const { register, handleSubmit, formState: { errors }, setValue, reset } = useForm<SalesFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: initialData || {
       description: '',
@@ -336,17 +349,75 @@ const SalesForm: React.FC<SalesFormProps> = ({
     },
   });
 
-  const handleFormSubmit = async (data: SalesFormData) => {
+  const handleAddArticle = (data: SalesFormData) => {
     if (selectedLocation) {
       data.branch = selectedLocation._id;
     }
 
-    await onSubmit(data);
+    // Crear el artículo con un ID único
+    const article: SalesArticle = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      description: data.description,
+      concept: data.concept,
+      finance: data.finance,
+      imei: data.imei,
+      paymentType: data.paymentType,
+      reference: data.reference,
+      amount: data.amount,
+      paymentAmount: data.paymentAmount,
+      quantity: 1, // Por defecto cantidad 1
+    };
+
+    onAddArticle(article);
+
+    // Resetear el formulario pero mantener algunos valores
+    reset({
+      description: '',
+      finance: data.finance, // Mantener la financiera seleccionada
+      concept: data.concept, // Mantener el concepto seleccionado
+      imei: '',
+      paymentType: data.paymentType, // Mantener el tipo de pago
+      reference: '',
+      amount: 0,
+      paymentAmount: 0,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      branch: data.branch,
+      notes: data.notes,
+    });
+
+    // Resetear también los estados del IMEI
+    setImeiInput('');
+    setImeiMatches([]);
+    setSelectedProduct(null);
+    setImeiError('');
+  };
+
+  const handleFinalSubmit = async () => {
+    if (articles.length === 0) {
+      alert('Debe agregar al menos un artículo a la venta');
+      return;
+    }
+
+    // Crear la venta final con todos los artículos
+    const saleData = {
+      description: `Venta con ${articles.length} artículo(s)`,
+      finance: articles[0].finance as 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Sale' | 'Other',
+      concept: articles[0].concept as 'Parciality' | 'Hitch' | 'Other',
+      paymentType: articles[0].paymentType,
+      reference: articles.map(a => a.reference).filter(r => r).join(', ') || '',
+      amount: articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0),
+      branch: selectedLocation?._id || '',
+      notes: `Artículos: ${articles.map(a => a.description).join(', ')}`,
+    };
+
+    await onSubmit(saleData);
   };
 
   return (
-    <Form onSubmit={handleSubmit(handleFormSubmit)}>
-      <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
+    <SalesContainer>
+      <Form onSubmit={handleSubmit(handleAddArticle)}>
+        <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
         <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '1.5rem', fontWeight: 700, fontSize: '2rem' }}>Generar nueva venta</h2>
         <FormRow>
           <FormGroup>
@@ -512,65 +583,122 @@ const SalesForm: React.FC<SalesFormProps> = ({
           </FormGroup>
         </FormRow>
 
-        {/* Sucursal seleccionada automáticamente */}
+        {/* Sucursal - Automática o Manual para Master Admin */}
         <FormGroup>
           <Label htmlFor="selectedBranch">Sucursal *</Label>
-          <Select
-            id="selectedBranch"
-            value={selectedLocation?._id || ''}
-            disabled={true}
-            style={{
-              backgroundColor: '#f8f9fa',
-              color: '#495057',
-              cursor: 'not-allowed',
-              opacity: 0.9,
-              fontWeight: '500'
-            }}
-          >
-            {selectedLocation ? (
-              <option value={selectedLocation._id}>
-                {selectedLocation.name} ({selectedLocation.code}) - {selectedLocation.type}
-              </option>
-            ) : (
-              <option value="">
-                {systemGuid ? `Buscando sucursal para GUID: ${systemGuid.substring(0, 8)}...` : 'Obteniendo información del sistema...'}
-              </option>
-            )}
-          </Select>
+          
+          {canSelectLocation ? (
+            // Master Admin puede seleccionar manualmente
+            <Select
+              id="selectedBranch"
+              value={selectedLocation?._id || ''}
+              onChange={(e) => {
+                const locationId = e.target.value;
+                const location = franchiseLocations.find(loc => loc._id === locationId);
+                setSelectedLocation(location || null);
+              }}
+              disabled={isLoading}
+            >
+              <option value="">Selecciona una sucursal...</option>
+              {franchiseLocations.map((location) => (
+                <option key={location._id} value={location._id}>
+                  {location.name} ({location.code}) - {location.type}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            // Usuarios normales - automático
+            <Select
+              id="selectedBranch"
+              value={selectedLocation?._id || ''}
+              disabled={true}
+              style={{
+                backgroundColor: '#f8f9fa',
+                color: '#495057',
+                cursor: 'not-allowed',
+                opacity: 0.9,
+                fontWeight: '500'
+              }}
+            >
+              {selectedLocation ? (
+                <option value={selectedLocation._id}>
+                  {selectedLocation.name} ({selectedLocation.code}) - {selectedLocation.type}
+                </option>
+              ) : (
+                <option value="">
+                  {systemGuid ? `Buscando sucursal para GUID: ${systemGuid.substring(0, 8)}...` : 'Obteniendo información del sistema...'}
+                </option>
+              )}
+            </Select>
+          )}
 
-          {selectedLocation && (
+          {/* Mensajes informativos */}
+          {canSelectLocation && selectedLocation && (
+            <InfoMessage>
+              ✓ Sucursal seleccionada: {selectedLocation.name}
+            </InfoMessage>
+          )}
+          
+          {canSelectLocation && !selectedLocation && (
+            <InfoMessage>
+              Como Master Admin, puedes seleccionar cualquier sucursal de la lista.
+            </InfoMessage>
+          )}
+
+          {!canSelectLocation && selectedLocation && (
             <InfoMessage>
               ✓ Sucursal identificada automáticamente mediante GUID del sistema: {systemGuid ? systemGuid.substring(0, 8) + '...' : 'N/A'}
             </InfoMessage>
           )}
 
-          {!selectedLocation && systemGuid && (
+          {!canSelectLocation && !selectedLocation && systemGuid && (
             <ErrorMessage>
               ⚠ No se encontró una sucursal registrada con el GUID de este sistema. Contacte al administrador para registrar esta sucursal.
             </ErrorMessage>
           )}
 
-          {!systemGuid && (
+          {!canSelectLocation && !systemGuid && (
             <ErrorMessage>
               ⚠ No se pudo obtener el GUID del sistema. Verifique que el servicio Windows esté ejecutándose.
             </ErrorMessage>
           )}
         </FormGroup>
 
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          marginTop: 'auto',
-          paddingTop: '1rem',
-          borderTop: '1px solid #ecf0f1'
-        }}>
-          <Button type="submit" disabled={isLoading || !selectedLocation}>
-            {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Venta' : 'Registrar Venta'}
-          </Button>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 'auto',
+            paddingTop: '1rem',
+            borderTop: '1px solid #ecf0f1'
+          }}>
+            <Button 
+              type="button" 
+              onClick={handleFinalSubmit}
+              disabled={isLoading || articles.length === 0}
+              style={{ backgroundColor: '#e74c3c', marginRight: '1rem' }}
+            >
+              {isLoading ? 'Procesando...' : `Finalizar Venta (${articles.length} artículos)`}
+            </Button>
+            <Button type="submit" disabled={isLoading || !selectedLocation}>
+              {isLoading 
+                ? 'Guardando...' 
+                : !selectedLocation && canSelectLocation 
+                  ? 'Selecciona una sucursal para continuar'
+                  : !selectedLocation 
+                    ? 'Esperando identificación de sucursal...'
+                    : 'Agregar Artículo'
+              }
+            </Button>
+          </div>
         </div>
-      </div>
-    </Form>
+      </Form>
+      
+      <SalesArticles 
+        articles={articles}
+        onDeleteArticle={onDeleteArticle}
+      />
+    </SalesContainer>
   );
 };
 
