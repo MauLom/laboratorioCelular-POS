@@ -92,6 +92,10 @@ const SalesPage: React.FC = () => {
   const [pendingSale, setPendingSale] = useState<Sale | null>(null);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
 
+  // Ticket modal states
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [ticketData, setTicketData] = useState<any>(null);
+
   // Filter sales based on search term
   const filteredSales = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -121,7 +125,11 @@ const SalesPage: React.FC = () => {
           article.finance?.toLowerCase() || '',
           article.imei?.toLowerCase() || '',
           article.reference?.toLowerCase() || ''
-        ]) : [])
+        ]) : []),
+        // Include creator information
+        sale.createdByName?.toLowerCase() || '',
+        sale.createdByUsername?.toLowerCase() || '',
+        sale.createdByRole?.toLowerCase() || ''
       ];
 
       return searchableFields.some(field => field.includes(term));
@@ -310,50 +318,50 @@ const SalesPage: React.FC = () => {
   };
 
   const printTicket = async (sale: Sale, printerName?: string) => {
+    // Preparar datos para el ticket con la nueva estructura (fuera del try-catch para acceso en catch)
+    const saleDate = sale.createdAt ? new Date(sale.createdAt) : new Date();
+
+    // Obtener información de la sucursal (franchiseLocation)
+    const franchiseLocation = typeof sale.franchiseLocation === 'object' && sale.franchiseLocation
+      ? sale.franchiseLocation
+      : null;
+
+    // Construir la dirección completa
+    let address = "Dirección no disponible";
+    if (franchiseLocation?.address) {
+      const streetPart = franchiseLocation.address.street || '';
+      const cityPart = franchiseLocation.address.city || '';
+      const combinedAddress = `${streetPart} ${cityPart}`.trim();
+      if (combinedAddress) {
+        address = combinedAddress;
+      }
+    }
+
+    // Obtener teléfono de la sucursal
+    const phone = franchiseLocation?.contact?.phone || "(000) 000-0000";
+
+    // Crear productos basado en los artículos de la venta
+    let products = [];
+    
+    if (sale.articles && sale.articles.length > 0) {
+      // Venta multi-artículo: usar cada artículo como producto
+      products = sale.articles.map(article => ({
+        name: `${article.description}${article.imei ? ` - IMEI: ${article.imei}` : ''}`,
+        quantity: article.quantity,
+        price: article.amount
+      }));
+    } else {
+      // Venta simple: usar la información principal
+      const productName = `${sale.concept}${sale.imei ? ` - IMEI: ${sale.imei}` : ''}`;
+      products = [{
+        name: productName,
+        quantity: 1,
+        price: sale.amount || 0
+      }];
+    }
+
     try {
       const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-
-      // Preparar datos para el ticket con la nueva estructura
-      const saleDate = sale.createdAt ? new Date(sale.createdAt) : new Date();
-
-      // Obtener información de la sucursal (franchiseLocation)
-      const franchiseLocation = typeof sale.franchiseLocation === 'object' && sale.franchiseLocation
-        ? sale.franchiseLocation
-        : null;
-
-      // Construir la dirección completa
-      let address = "Dirección no disponible";
-      if (franchiseLocation?.address) {
-        const streetPart = franchiseLocation.address.street || '';
-        const cityPart = franchiseLocation.address.city || '';
-        const combinedAddress = `${streetPart} ${cityPart}`.trim();
-        if (combinedAddress) {
-          address = combinedAddress;
-        }
-      }
-
-      // Obtener teléfono de la sucursal
-      const phone = franchiseLocation?.contact?.phone || "(000) 000-0000";
-
-      // Crear productos basado en los artículos de la venta
-      let products = [];
-      
-      if (sale.articles && sale.articles.length > 0) {
-        // Venta multi-artículo: usar cada artículo como producto
-        products = sale.articles.map(article => ({
-          name: `${article.description}${article.imei ? ` - IMEI: ${article.imei}` : ''}`,
-          quantity: article.quantity,
-          price: article.amount
-        }));
-      } else {
-        // Venta simple: usar la información principal
-        const productName = `${sale.concept}${sale.imei ? ` - IMEI: ${sale.imei}` : ''}`;
-        products = [{
-          name: productName,
-          quantity: 1,
-          price: sale.amount || 0
-        }];
-      }
 
       const ticketData = {
         address: address,
@@ -391,16 +399,31 @@ const SalesPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to print ticket:', err);
 
-      let errorMsg = 'No se pudo imprimir el ticket, pero la venta se registró correctamente';
+      let errorMsg = 'Impresión no disponible. Se mostrará el ticket en pantalla.';
 
       if (err.name === 'AbortError') {
-        errorMsg = 'Timeout al enviar ticket a impresora (5s), pero la venta se registró correctamente';
+        errorMsg = 'Timeout en impresión. Se mostrará el ticket en pantalla.';
       } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
-        errorMsg = 'Servicio de impresión no disponible. La venta se registró correctamente.';
+        errorMsg = 'Servicio de impresión no disponible. Se mostrará el ticket en pantalla.';
       } else if (err.message.includes('Error en impresión')) {
-        errorMsg = `Error en impresión: ${err.message}. La venta se registró correctamente.`;
+        errorMsg = 'Error en impresión. Se mostrará el ticket en pantalla.';
       }
 
+      // Mostrar el ticket en modal cuando falla la impresión
+      setTicketData({
+        sale,
+        address,
+        phone,
+        seller: user?.firstName && user?.lastName
+          ? `${user.firstName} ${user.lastName}`
+          : user?.username || "Vendedor",
+        folio: (sale.folio?.toString()) || "N/A",
+        products,
+        paymentAmount: sale.paymentAmount || sale.amount || 0,
+        saleDate
+      });
+      setShowTicketModal(true);
+      
       error(errorMsg);
     }
   };
@@ -452,6 +475,57 @@ const SalesPage: React.FC = () => {
 
   const handleReprintTicket = async (sale: Sale) => {
     await handlePrintWithPrinterSelection(sale);
+  };
+
+  const showTicketInModal = (sale: Sale) => {
+    // Preparar datos del ticket para mostrar en modal
+    const saleDate = sale.createdAt ? new Date(sale.createdAt) : new Date();
+    
+    const franchiseLocation = typeof sale.franchiseLocation === 'object' && sale.franchiseLocation
+      ? sale.franchiseLocation
+      : null;
+
+    let address = "Dirección no disponible";
+    if (franchiseLocation?.address) {
+      const streetPart = franchiseLocation.address.street || '';
+      const cityPart = franchiseLocation.address.city || '';
+      const combinedAddress = `${streetPart} ${cityPart}`.trim();
+      if (combinedAddress) {
+        address = combinedAddress;
+      }
+    }
+
+    const phone = franchiseLocation?.contact?.phone || "(000) 000-0000";
+
+    let products = [];
+    if (sale.articles && sale.articles.length > 0) {
+      products = sale.articles.map(article => ({
+        name: `${article.description}${article.imei ? ` - IMEI: ${article.imei}` : ''}`,
+        quantity: article.quantity,
+        price: article.amount
+      }));
+    } else {
+      const productName = `${sale.concept}${sale.imei ? ` - IMEI: ${sale.imei}` : ''}`;
+      products = [{
+        name: productName,
+        quantity: 1,
+        price: sale.amount || 0
+      }];
+    }
+
+    setTicketData({
+      sale,
+      address,
+      phone,
+      seller: user?.firstName && user?.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : user?.username || "Vendedor",
+      folio: (sale.folio?.toString()) || "N/A",
+      products,
+      paymentAmount: sale.paymentAmount || sale.amount || 0,
+      saleDate
+    });
+    setShowTicketModal(true);
   };
 
   // Handle printer selection from modal
@@ -653,7 +727,7 @@ const SalesPage: React.FC = () => {
 
         {/* Sales Table */}
         <TableContainer>
-          <Table w="100%" borderCollapse="collapse" minW="1200px">
+          <Table w="100%" borderCollapse="collapse" minW="1440px">
             <Thead bg="green.500">
               <Tr>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="80px">Folio</Th>
@@ -664,16 +738,17 @@ const SalesPage: React.FC = () => {
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="180px">IMEI</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="100px">Monto</Th>
                 <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="120px">Cliente</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="140px">Creado Por</Th>
                 {user?.role === 'Master admin' && (
                   <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="120px">Sucursal</Th>
                 )}
-                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="140px">Acciones</Th>
+                <Th color="white" py={4} px={4} textAlign="left" fontWeight="600" w="200px">Acciones</Th>
               </Tr>
             </Thead>
             <Tbody>
               {sales.length === 0 ? (
                 <Tr>
-                  <Td colSpan={user?.role === 'Master admin' ? 10 : 9}>
+                  <Td colSpan={user?.role === 'Master admin' ? 11 : 10}>
                     <Box py={12} textAlign="center">
                       <Text fontSize="lg" color="gray.500">
                         No se encontraron registros de ventas
@@ -713,6 +788,16 @@ const SalesPage: React.FC = () => {
                     </Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" fontWeight="semibold" w="100px">${sale.amount.toFixed(2)}</Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">{sale.customerName || '-'}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="140px">
+                      <VStack gap={0} align="start">
+                        <Text fontSize="sm" fontWeight="medium">
+                          {sale.createdByName || sale.createdByUsername || 'Usuario desconocido'}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {sale.createdByRole || 'Rol desconocido'}
+                        </Text>
+                      </VStack>
+                    </Td>
                     {user?.role === 'Master admin' && (
                       <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">
                         {typeof sale.franchiseLocation === 'object' && sale.franchiseLocation?.name 
@@ -720,14 +805,22 @@ const SalesPage: React.FC = () => {
                           : '-'}
                       </Td>
                     )}
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="140px">
-                      <Box display="flex" gap={2}>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="200px">
+                      <Box display="flex" gap={2} flexWrap="wrap">
                         <Button
                           size="sm"
                           colorScheme="blue"
                           onClick={() => handleReprintTicket(sale)}
                         >
-                          Reimprimir
+                          Imprimir
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="gray"
+                          variant="outline"
+                          onClick={() => showTicketInModal(sale)}
+                        >
+                          Ver Ticket
                         </Button>
                         {user?.role === 'Master admin' && (
                           <Button
@@ -916,6 +1009,110 @@ const SalesPage: React.FC = () => {
                       disabled={!selectedPrinter || loadingPrinters}
                     >
                       {pendingSale ? 'Imprimir y Establecer como Predeterminada' : 'Establecer como Predeterminada'}
+                    </Button>
+                  </HStack>
+                </VStack>
+              </Box>
+            </Box>
+          )}
+
+          {/* Ticket Modal */}
+          {showTicketModal && ticketData && (
+            <Box
+              position="fixed"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              bg="blackAlpha.600"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              zIndex={1000}
+              onClick={() => setShowTicketModal(false)}
+            >
+              <Box
+                bg="white"
+                rounded="lg"
+                shadow="2xl"
+                maxWidth="400px"
+                width="90%"
+                maxHeight="80vh"
+                overflow="auto"
+                onClick={(e) => e.stopPropagation()}
+                p={6}
+              >
+                <VStack gap={4}>
+                  <Heading size="md" textAlign="center" color="green.600">
+                    Ticket de Venta
+                  </Heading>
+                  
+                  <Box w="100%" textAlign="center" fontSize="sm" color="gray.600">
+                    <Text fontWeight="bold">Laboratorio Celular POS</Text>
+                    <Text>{ticketData.address}</Text>
+                    <Text>{ticketData.phone}</Text>
+                  </Box>
+
+                  <Box w="100%" fontSize="sm">
+                    <HStack justify="space-between">
+                      <Text>Folio:</Text>
+                      <Text fontWeight="bold">#{ticketData.folio}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text>Fecha:</Text>
+                      <Text>{ticketData.saleDate.toLocaleDateString()}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text>Vendedor:</Text>
+                      <VStack gap={0} align="end">
+                        <Text fontSize="sm" fontWeight="medium">{ticketData.seller}</Text>
+                        {ticketData.sale?.createdByRole && (
+                          <Text fontSize="xs" color="gray.500">{ticketData.sale.createdByRole}</Text>
+                        )}
+                      </VStack>
+                    </HStack>
+                  </Box>
+
+                  <Box w="100%">
+                    <Text fontWeight="bold" mb={2} fontSize="sm">Productos:</Text>
+                    <VStack gap={2} align="stretch">
+                      {ticketData.products.map((product: any, index: number) => (
+                        <Box key={index} borderBottom="1px solid" borderColor="gray.200" pb={2}>
+                          <Text fontSize="sm" fontWeight="medium">{product.name}</Text>
+                          <HStack justify="space-between" fontSize="xs" color="gray.600">
+                            <Text>Cantidad: {product.quantity}</Text>
+                            <Text fontWeight="bold">${product.price.toFixed(2)}</Text>
+                          </HStack>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+
+                  <Box w="100%" borderTop="2px solid" borderColor="gray.300" pt={3}>
+                    <HStack justify="space-between" fontSize="lg" fontWeight="bold">
+                      <Text>Total:</Text>
+                      <Text>${ticketData.paymentAmount.toFixed(2)}</Text>
+                    </HStack>
+                  </Box>
+
+                  <Text fontSize="xs" textAlign="center" color="gray.500" mt={4}>
+                    ¡Gracias por su compra!
+                  </Text>
+
+                  <HStack gap={3} mt={4}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowTicketModal(false)}
+                    >
+                      Cerrar
+                    </Button>
+                    <Button
+                      size="sm"
+                      colorScheme="blue"
+                      onClick={() => window.print()}
+                    >
+                      Imprimir Página
                     </Button>
                   </HStack>
                 </VStack>

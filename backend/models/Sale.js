@@ -96,6 +96,27 @@ const salesSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // User information who created the sale
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  createdByName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  createdByRole: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  createdByUsername: {
+    type: String,
+    required: true,
+    trim: true
+  },
   folio: {
     type: Number,
     unique: true

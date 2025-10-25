@@ -85,6 +85,7 @@ router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
     
     const sales = await Sale.find(query)
       .populate('franchiseLocation', 'name code type address contact')
+      .populate('createdBy', 'firstName lastName username role')
       .limit(options.limit * 1)
       .skip((options.page - 1) * options.limit)
       .sort(options.sort);
@@ -153,6 +154,7 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
     // Get all sales without pagination for export
     const sales = await Sale.find(query)
       .populate('franchiseLocation', 'name code type address contact')
+      .populate('createdBy', 'firstName lastName username role')
       .sort({ createdAt: -1 });
 
     // Create Excel workbook and worksheet
@@ -173,6 +175,9 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
       { header: 'Monto', key: 'monto', width: 12 },
       { header: 'Cliente', key: 'cliente', width: 20 },
       { header: 'Teléfono', key: 'telefono', width: 15 },
+      { header: 'Creado Por', key: 'creadoPor', width: 20 },
+      { header: 'Rol Creador', key: 'rolCreador', width: 18 },
+      { header: 'Usuario Creador', key: 'usuarioCreador', width: 18 },
       { header: 'Sucursal', key: 'sucursal', width: 20 },
       { header: 'Código Sucursal', key: 'codigoSucursal', width: 15 },
       { header: 'Tipo Sucursal', key: 'tipoSucursal', width: 15 },
@@ -202,6 +207,9 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
         monto: sale.amount,
         cliente: sale.customerName || '',
         telefono: sale.customerPhone || '',
+        creadoPor: sale.createdByName || '',
+        rolCreador: sale.createdByRole || '',
+        usuarioCreador: sale.createdByUsername || '',
         sucursal: sale.franchiseLocation?.name || '',
         codigoSucursal: sale.franchiseLocation?.code || '',
         tipoSucursal: sale.franchiseLocation?.type || '',
@@ -296,6 +304,15 @@ router.post('/', authenticate, async (req, res) => {
         return res.status(403).json({ error: 'Access denied. Cannot create sale for this franchise location.' });
       }
     }
+
+    // Add user information who created the sale
+    saleData.createdBy = req.user._id;
+    saleData.createdByName = req.user.firstName && req.user.lastName 
+      ? `${req.user.firstName} ${req.user.lastName}` 
+      : req.user.username;
+    saleData.createdByRole = req.user.role;
+    saleData.createdByUsername = req.user.username;
+
     const sale = new Sale(saleData);
     
     // Process inventory for articles or single IMEI
@@ -337,8 +354,9 @@ router.post('/', authenticate, async (req, res) => {
     
     await sale.save();
     
-    // Populate franchise location for response
+    // Populate franchise location and creator info for response
     await sale.populate('franchiseLocation', 'name code type address contact');
+    await sale.populate('createdBy', 'firstName lastName username role');
     
     res.status(201).json(sale);
   } catch (error) {

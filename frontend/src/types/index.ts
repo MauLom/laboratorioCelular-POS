@@ -43,6 +43,11 @@ export interface Sale {
   branch?: string; // Virtual field for backward compatibility
   franchiseLocation?: string | FranchiseLocation; // New field
   notes?: string;
+  // User information who created the sale
+  createdBy?: string;
+  createdByName?: string;
+  createdByRole?: string;
+  createdByUsername?: string;
   createdAt?: string;
   updatedAt?: string;
 }
