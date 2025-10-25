@@ -336,6 +336,109 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
 
+  // Estados para formateo de montos
+  const [formattedAmount, setFormattedAmount] = useState('');
+  const [formattedPaymentAmount, setFormattedPaymentAmount] = useState('');
+
+  // Funciones de utilidad para formateo de monedas
+  const formatCurrency = (value: number | string): string => {
+    if (!value && value !== 0) return '';
+    
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numValue)) return '';
+    
+    return numValue.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
+  const parseCurrency = (formattedValue: string): number => {
+    if (!formattedValue) return 0;
+    
+    // Remover comas y espacios, mantener solo números y punto decimal
+    const cleaned = formattedValue.replace(/[,\s]/g, '');
+    const parsed = parseFloat(cleaned);
+    
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    
+    // Permitir solo números y punto decimal durante la escritura
+    const sanitized = inputValue.replace(/[^\d.]/g, '');
+    
+    // Validar formato decimal (máximo 2 decimales)
+    const decimalParts = sanitized.split('.');
+    if (decimalParts.length > 2) return; // Más de un punto decimal
+    if (decimalParts[1] && decimalParts[1].length > 2) return; // Más de 2 decimales
+    
+    // Durante la escritura, mostrar el valor sin formato
+    setFormattedAmount(sanitized);
+    
+    // Actualizar el valor numérico para react-hook-form
+    const numValue = parseFloat(sanitized) || 0;
+    setValue('amount', numValue);
+  };
+
+  const handleAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    const numValue = parseFloat(inputValue) || 0;
+    
+    // Aplicar formato al salir del campo
+    const formatted = formatCurrency(numValue);
+    setFormattedAmount(formatted);
+    setValue('amount', numValue);
+  };
+
+  const handleAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Al enfocar el campo, mostrar el valor sin formato para facilitar la edición
+    const currentValue = e.target.value;
+    if (currentValue) {
+      const numValue = parseCurrency(currentValue);
+      setFormattedAmount(numValue > 0 ? numValue.toString() : '');
+    }
+  };
+
+  const handlePaymentAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    
+    // Permitir solo números y punto decimal durante la escritura
+    const sanitized = inputValue.replace(/[^\d.]/g, '');
+    
+    // Validar formato decimal (máximo 2 decimales)
+    const decimalParts = sanitized.split('.');
+    if (decimalParts.length > 2) return; // Más de un punto decimal
+    if (decimalParts[1] && decimalParts[1].length > 2) return; // Más de 2 decimales
+    
+    // Durante la escritura, mostrar el valor sin formato
+    setFormattedPaymentAmount(sanitized);
+    
+    // Actualizar el valor numérico
+    const numValue = parseFloat(sanitized) || 0;
+    setPaymentAmount(numValue);
+  };
+
+  const handlePaymentAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    const numValue = parseFloat(inputValue) || 0;
+    
+    // Aplicar formato al salir del campo
+    const formatted = formatCurrency(numValue);
+    setFormattedPaymentAmount(formatted);
+    setPaymentAmount(numValue);
+  };
+
+  const handlePaymentAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Al enfocar el campo, mostrar el valor sin formato para facilitar la edición
+    const currentValue = e.target.value;
+    if (currentValue) {
+      const numValue = parseCurrency(currentValue);
+      setFormattedPaymentAmount(numValue > 0 ? numValue.toString() : '');
+    }
+  };
+
   // Buscar coincidencias de IMEI
   useEffect(() => {
     if (imeiInput.length < 4) {
@@ -376,6 +479,13 @@ const SalesForm: React.FC<SalesFormProps> = ({
       const item = imeiMatches[selectedIndex];
       setImeiInput(item.imei);
       setValue('imei', item.imei); // <-- Actualiza el valor en React Hook Form
+      
+      // Establecer automáticamente el monto del producto
+      if (item.price && item.price > 0) {
+        setValue('amount', item.price);
+        setFormattedAmount(formatCurrency(item.price));
+      }
+      
       setImeiMatches([]);
       setSelectedIndex(-1);
       setSelectedProduct(item);
@@ -437,11 +547,12 @@ const SalesForm: React.FC<SalesFormProps> = ({
       customerPhone: data.customerPhone,
       branch: data.branch,
       notes: data.notes,
-    });    // Resetear también los estados del IMEI
+    });    // Resetear también los estados del IMEI y montos formateados
     setImeiInput('');
     setImeiMatches([]);
     setSelectedProduct(null);
     setImeiError('');
+    setFormattedAmount('');
   };
 
   const handleFinalSubmit = async () => {
@@ -488,6 +599,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
     };
 
     setShowPaymentModal(false);
+    setFormattedPaymentAmount('');
+    setPaymentAmount(0);
     await onSubmit(saleData);
   };
 
@@ -567,6 +680,13 @@ const SalesForm: React.FC<SalesFormProps> = ({
                     onClick={() => {
                       setImeiInput(item.imei);
                       setValue('imei', item.imei); // <-- Actualiza el valor en React Hook Form
+                      
+                      // Establecer automáticamente el monto del producto
+                      if (item.price && item.price > 0) {
+                        setValue('amount', item.price);
+                        setFormattedAmount(formatCurrency(item.price));
+                      }
+                      
                       setImeiMatches([]);
                       setSelectedIndex(-1);
                       setSelectedProduct(item);
@@ -574,7 +694,18 @@ const SalesForm: React.FC<SalesFormProps> = ({
                     onMouseEnter={() => setSelectedIndex(idx)}
                     onMouseLeave={() => setSelectedIndex(-1)}
                   >
-                    <strong>{item.model || ''} {item.brand ? `- ${item.brand}` : ''}</strong> | IMEI: {item.imei} | Estado: {item.state} {item.price !== undefined ? `| Precio: $${item.price}` : ''}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <strong>{item.model || ''} {item.brand ? `- ${item.brand}` : ''}</strong>
+                        <br />
+                        <small style={{ color: '#666' }}>IMEI: {item.imei} | Estado: {item.state}</small>
+                      </div>
+                      {item.price !== undefined && item.price > 0 && (
+                        <div style={{ color: '#2980b9', fontWeight: 'bold' }}>
+                          ${item.price.toFixed(2)}
+                        </div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -591,7 +722,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
             {/* Mostrar el nombre del producto seleccionado debajo del input */}
             {selectedProduct && (
               <div style={{ color: '#229954', fontWeight: 400, fontSize: '0.95rem', fontStyle: 'italic' }}>
-                Producto: {selectedProduct.model || ''} {selectedProduct.brand ? `- ${selectedProduct.brand}` : ''}
+                <div>Producto: {selectedProduct.model || ''} {selectedProduct.brand ? `- ${selectedProduct.brand}` : ''}</div>
               </div>
             )}
           </FormGroup>
@@ -600,13 +731,21 @@ const SalesForm: React.FC<SalesFormProps> = ({
             <Label htmlFor="amount">Monto *</Label>
             <Input
               id="amount"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register('amount')}
+              type="text"
+              placeholder="1000.00"
+              value={formattedAmount}
+              onChange={handleAmountChange}
+              onFocus={handleAmountFocus}
+              onBlur={handleAmountBlur}
               disabled={isLoading}
+              style={{ textAlign: 'right' }}
             />
             {errors.amount && <ErrorMessage>{errors.amount.message}</ErrorMessage>}
+            {/* Campo oculto para react-hook-form */}
+            <input
+              type="hidden"
+              {...register('amount')}
+            />
           </FormGroup>
         </FormRow>
 
@@ -727,7 +866,11 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
       {/* Modal de Pago */}
       {showPaymentModal && (
-        <Modal onClick={() => setShowPaymentModal(false)}>
+        <Modal onClick={() => {
+          setShowPaymentModal(false);
+          setFormattedPaymentAmount('');
+          setPaymentAmount(0);
+        }}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalTitle>💰 Finalizar Venta</ModalTitle>
             
@@ -754,13 +897,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
               <Label htmlFor="paymentAmount">Pago con (monto recibido) *</Label>
               <Input
                 id="paymentAmount"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Ingrese el monto con el que paga el cliente"
-                value={paymentAmount || ''}
-                onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                type="text"
+                placeholder="1000.00"
+                value={formattedPaymentAmount}
+                onChange={handlePaymentAmountChange}
+                onFocus={handlePaymentAmountFocus}
+                onBlur={handlePaymentAmountBlur}
                 autoFocus
+                style={{ textAlign: 'right' }}
               />
             </FormGroup>
             
@@ -791,7 +935,11 @@ const SalesForm: React.FC<SalesFormProps> = ({
             )}
 
             <ModalButtons>
-              <CancelButton type="button" onClick={() => setShowPaymentModal(false)}>
+              <CancelButton type="button" onClick={() => {
+                setShowPaymentModal(false);
+                setFormattedPaymentAmount('');
+                setPaymentAmount(0);
+              }}>
                 Cancelar
               </CancelButton>
               <Button 
