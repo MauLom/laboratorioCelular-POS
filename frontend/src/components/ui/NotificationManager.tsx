@@ -40,7 +40,9 @@ const NotificationContainer = styled.div`
   }
 `;
 
-const NotificationItem = styled.div<{ type: NotificationType; isRemoving?: boolean }>`
+const NotificationItem = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== 'isRemoving',
+})<{ type: NotificationType; isRemoving?: boolean }>`
   background: ${({ type }) => {
     switch (type) {
       case 'success': return 'linear-gradient(135deg, #27ae60, #2ecc71)';
@@ -90,7 +92,9 @@ const NotificationHeader = styled.div`
   margin-bottom: 4px;
 `;
 
-const NotificationIcon = styled.div<{ type: NotificationType }>`
+const NotificationIcon = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== 'type',
+})<{ type: NotificationType }>`
   font-size: 20px;
   margin-right: 12px;
   flex-shrink: 0;

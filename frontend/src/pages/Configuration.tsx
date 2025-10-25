@@ -174,22 +174,52 @@ const ConfigurationPage: React.FC = () => {
         setCurrentPrinter(saved);
       }
       
-      // Load available printers
+      // Try to load available printers (optional service)
       const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-      const response = await fetch(`${winServiceUrl}/api/printer/list`);
-      if (response.ok) {
-        const data = await response.json();
-        // Manejar diferentes estructuras de respuesta
-        const printersList = data.printers || data || [];
-        // Asegurar que es un array
-        const printersArray = Array.isArray(printersList) ? printersList : [];
-        setPrinters(printersArray);
-        console.log('Printers loaded:', printersArray);
+      
+      // Add timeout and proper error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      try {
+        const response = await fetch(`${winServiceUrl}/api/printer/list`, {
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const printersList = data.printers || data || [];
+          const printersArray = Array.isArray(printersList) ? printersList : [];
+          setPrinters(printersArray);
+          console.log('Printers loaded:', printersArray);
+        } else {
+          // Service responded but with error
+          console.warn('Printer service responded with error:', response.status);
+          setPrinters([]);
+        }
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          console.warn('Printer service request timeout (3s)');
+        } else if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('Failed to fetch')) {
+          console.warn('Printer service not available (connection refused)');
+        } else {
+          console.warn('Error connecting to printer service:', fetchError.message);
+        }
+        
+        // Set empty array but don't show error to user (this service is optional)
+        setPrinters([]);
       }
+      
     } catch (err) {
-      console.error('Error loading equipment data:', err);
-      setPrinters([]); // Asegurar que siempre sea un array
-      notifyError('Error al cargar las impresoras disponibles');
+      console.error('Unexpected error in loadEquipmentData:', err);
+      setPrinters([]);
     } finally {
       setLoadingPrinters(false);
     }
@@ -206,10 +236,15 @@ const ConfigurationPage: React.FC = () => {
   };
 
   const testPrinter = async () => {
+    if (!currentPrinter) {
+      notifyError('Selecciona una impresora primero');
+      return;
+    }
+
     try {
       const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
       const response = await fetch(`${winServiceUrl}/api/printer/test?printerName=${encodeURIComponent(currentPrinter)}`, {
         method: 'POST',
@@ -224,13 +259,16 @@ const ConfigurationPage: React.FC = () => {
       if (response.ok) {
         notifySuccess('Test de impresora ejecutado correctamente');
       } else {
-        notifyError('Error en el test de impresora');
+        const errorText = await response.text().catch(() => 'Error desconocido');
+        notifyError(`Error en el test de impresora: ${response.status} - ${errorText}`);
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        // notifyError('Timeout: el test de impresora tardó demasiado');
+        notifyError('Timeout: el test de impresora tardó demasiado (5s)');
+      } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
+        notifyError('Servicio de impresoras no disponible. Verifica que esté ejecutándose en el puerto 5005.');
       } else {
-        notifyError('Error al ejecutar test de impresora');
+        notifyError(`Error al ejecutar test de impresora: ${err.message}`);
       }
     }
   };

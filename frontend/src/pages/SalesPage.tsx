@@ -142,7 +142,16 @@ const SalesPage: React.FC = () => {
     setLoadingPrinters(true);
     try {
       const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-      const response = await fetch(`${winServiceUrl}/api/printer/list`);
+      
+      // Crear controlador para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`${winServiceUrl}/api/printer/list`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -159,9 +168,18 @@ const SalesPage: React.FC = () => {
       } else {
         throw new Error('Failed to fetch printers');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch printers:', err);
-      error('No se pudieron cargar las impresoras disponibles');
+      
+      let errorMsg = 'No se pudieron cargar las impresoras disponibles';
+      
+      if (err.name === 'AbortError') {
+        errorMsg = 'Timeout: la carga de impresoras tardó demasiado (3s)';
+      } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
+        errorMsg = 'Servicio de impresión no disponible. Verifica que esté ejecutándose en el puerto 5005.';
+      }
+      
+      error(errorMsg);
       return [];
     } finally {
       setLoadingPrinters(false);
@@ -307,11 +325,18 @@ const SalesPage: React.FC = () => {
       success('¡Ticket enviado a impresora!');
     } catch (err: any) {
       console.error('Failed to print ticket:', err);
+      
+      let errorMsg = 'No se pudo imprimir el ticket, pero la venta se registró correctamente';
+      
       if (err.name === 'AbortError') {
-        //error('Timeout al enviar ticket a impresora, pero la venta se registró correctamente');
-      } else {
-        error('No se pudo imprimir el ticket, pero la venta se registró correctamente');
+        errorMsg = 'Timeout al enviar ticket a impresora (5s), pero la venta se registró correctamente';
+      } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
+        errorMsg = 'Servicio de impresión no disponible. La venta se registró correctamente.';
+      } else if (err.message.includes('Error en impresión')) {
+        errorMsg = `Error en impresión: ${err.message}. La venta se registró correctamente.`;
       }
+      
+      error(errorMsg);
     }
   };
 

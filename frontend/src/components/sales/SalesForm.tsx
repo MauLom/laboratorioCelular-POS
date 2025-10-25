@@ -189,40 +189,81 @@ const SalesForm: React.FC<SalesFormProps> = ({
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Obtener el GUID del sistema local
-        const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-        const guidResponse = await fetch(`${winServiceUrl}/api/system/guid`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
         let currentGuid = '';
-        if (guidResponse.ok) {
-          const guidData = await guidResponse.json();
-          currentGuid = guidData.guid || guidData.systemGuid || '';
-          setSystemGuid(currentGuid);
+        
+        // Try to get system GUID (optional service)
+        try {
+          const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+          
+          const guidResponse = await fetch(`${winServiceUrl}/api/system/guid`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (guidResponse.ok) {
+            const guidData = await guidResponse.json();
+            currentGuid = guidData.guid || guidData.systemGuid || '';
+            setSystemGuid(currentGuid);
+            console.log('System GUID loaded:', currentGuid);
+          } else {
+            console.warn('System GUID service responded with error:', guidResponse.status);
+          }
+        } catch (guidError: any) {
+          if (guidError.name === 'AbortError') {
+            console.debug('System GUID request timeout (2s) - service not available');
+          } else if (guidError.message.includes('Failed to fetch') || guidError.code === 'ECONNREFUSED') {
+            console.debug('System GUID service not available (connection refused)');
+          } else {
+            console.debug('Error fetching system GUID:', guidError.message);
+          }
+          // Continue without GUID - this is optional functionality
         }
 
-        // Obtener todas las sucursales
+        // Always try to get franchise locations (this is required)
         const locations = await franchiseLocationsApi.getActive();
         setFranchiseLocations(locations);
 
-        // Buscar la sucursal que coincida con el GUID del sistema
+        // If we got a GUID, try to find matching location
         if (currentGuid) {
           const matchingLocation = locations.find(location => location.guid === currentGuid);
           if (matchingLocation) {
             setSelectedLocation(matchingLocation);
+            console.log('Auto-selected location based on GUID:', matchingLocation.name);
           }
         }
+
+        // If no GUID or no matching location, and user can only access one location, auto-select it
+        if (!currentGuid || !locations.find(location => location.guid === currentGuid)) {
+          if (!canSelectLocation && locations.length === 1) {
+            setSelectedLocation(locations[0]);
+            console.log('Auto-selected single available location:', locations[0].name);
+          }
+        }
+
       } catch (error) {
         console.error('Failed to initialize form data:', error);
+        // Even if initialization fails, try to load locations as fallback
+        try {
+          const locations = await franchiseLocationsApi.getActive();
+          setFranchiseLocations(locations);
+          if (locations.length === 1 && !canSelectLocation) {
+            setSelectedLocation(locations[0]);
+          }
+        } catch (fallbackError) {
+          console.error('Failed to load franchise locations:', fallbackError);
+        }
       }
     };
 
     initializeData();
-  }, []);
+  }, [canSelectLocation]);
 
   // Estado para búsqueda de IMEI
   const [imeiInput, setImeiInput] = useState('');
@@ -311,7 +352,12 @@ const SalesForm: React.FC<SalesFormProps> = ({
         <FormRow>
           <FormGroup>
             <Label htmlFor="description">Descripción *</Label>
-            <Input id="description" type="text" value={initialData?.description || ''} />
+            <Input 
+              id="description" 
+              type="text" 
+              {...register('description')}
+              defaultValue={initialData?.description || ''} 
+            />
             {errors.description && <ErrorMessage>{errors.description.message}</ErrorMessage>}
           </FormGroup>
           <FormGroup>

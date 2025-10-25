@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { configurationsApi } from '../services/api';
 import { Configuration, ConfigurationValue } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 // Fallback configurations for when API is not available
 const FALLBACK_CONFIGURATIONS = {
@@ -21,11 +22,28 @@ const FALLBACK_CONFIGURATIONS = {
 };
 
 export const useConfigurations = () => {
+  const { user, token } = useAuth();
   const [configurations, setConfigurations] = useState<Record<string, Configuration>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchConfigurations = useCallback(async () => {
+    // Only fetch if user is authenticated
+    if (!user || !token) {
+      // Use fallback configurations when not authenticated
+      const fallbackConfigs: Record<string, Configuration> = {};
+      Object.entries(FALLBACK_CONFIGURATIONS).forEach(([key, values]) => {
+        fallbackConfigs[key] = {
+          key,
+          name: key,
+          values: values.map(v => ({ ...v, isActive: true })),
+          isActive: true
+        };
+      });
+      setConfigurations(fallbackConfigs);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -54,7 +72,7 @@ export const useConfigurations = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user, token]);
 
   const getConfigValues = useCallback((key: string): ConfigurationValue[] => {
     const config = configurations[key];
@@ -80,11 +98,27 @@ export const useConfigurations = () => {
 };
 
 export const useConfiguration = (key: string) => {
+  const { user, token } = useAuth();
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchConfiguration = useCallback(async () => {
+    // Only fetch if user is authenticated
+    if (!user || !token) {
+      // Use fallback configuration when not authenticated
+      const fallbackValues = FALLBACK_CONFIGURATIONS[key as keyof typeof FALLBACK_CONFIGURATIONS];
+      if (fallbackValues) {
+        setConfiguration({
+          key,
+          name: key,
+          values: fallbackValues.map(v => ({ ...v, isActive: true })),
+          isActive: true
+        });
+      }
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -106,7 +140,7 @@ export const useConfiguration = (key: string) => {
     } finally {
       setLoading(false);
     }
-  }, [key]);
+  }, [key, user, token]);
 
   const getValues = useCallback((): ConfigurationValue[] => {
     return configuration?.values?.filter(v => v.isActive) || [];

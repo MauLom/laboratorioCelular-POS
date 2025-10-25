@@ -7,8 +7,9 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "create-admin": "node scripts/createMasterAdmin.js",
-  "seed-configs": "node scripts/seedConfigurations.js",
-  "seed-catalogs": "node scripts/seedCatalogs.js"
+    "seed-configs": "node scripts/seedConfigurations.js",
+    "seed-catalogs": "node scripts/seedCatalogs.js",
+    "seed-sales-configs": "node scripts/seedSalesConfigurations.js"
   },
   "keywords": [
     "cellphone",
