@@ -18,13 +18,32 @@ const Header = styled.div`
 const Title = styled.h3`
   margin: 0;
   color: #2c3e50;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
 `;
 
 const ArticlesList = styled.div`
-  max-height: 300px;
+  max-height: 250px;
   overflow-y: auto;
+  
+  /* Personalizar la barra de scroll */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+  }
 `;
 
 const ArticleItem = styled.div`

@@ -10,13 +10,12 @@ import { useConfiguration } from '../../hooks/useConfigurations';
 import SalesArticles, { SalesArticle } from './SalesArticles';
 
 const SalesContainer = styled.div`
-  width: 800px;
-  max-width: 800px;
+  width: 1000px;
+  max-width: 95vw;
   min-width: 800px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   max-height: 90vh;
   overflow-y: auto;
   padding: 1rem 0;
@@ -25,7 +24,7 @@ const SalesContainer = styled.div`
 const Form = styled.form`
   background: white;
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: 8px;f
   display: flex;
   flex-direction: column;
 `;
@@ -133,15 +132,56 @@ const FormRow = styled.div`
   }
 `;
 
+const Modal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90vw;
+`;
+
+const ModalTitle = styled.h3`
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  text-align: center;
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+`;
+
+const CancelButton = styled(Button)`
+  background-color: #95a5a6;
+  
+  &:hover {
+    background-color: #7f8c8d;
+  }
+`;
+
 interface SalesFormData {
   description: string;
-  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Sale' | 'Other';
+  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
   concept: 'Parciality' | 'Hitch' | 'Other';
   imei?: string;
   paymentType: string;
   reference: string;
   amount: number;
-  paymentAmount?: number;
   customerName?: string;
   customerPhone?: string;
   branch?: string;
@@ -153,11 +193,9 @@ const schema = yup.object().shape({
   finance: yup.string().required('La Financiera es requerida'),
   concept: yup.string().required('El concepto es requerido'),
   imei: yup.string().optional(),
-  paymentType: yup.string().required('El tipo de pago es requerido'),
-  //TODO reference field should not be required
-  reference: yup.string().default(''),
+  paymentType: yup.string().optional(), // Movido al modal, ya no es requerido aquí
+  reference: yup.string().default('N/A'), // Valor por defecto válido
   amount: yup.number().required('El monto es requerido').min(0, 'El monto debe ser positivo'),
-  paymentAmount: yup.number().optional().min(0, 'El monto de pago debe ser positivo'),
   customerName: yup.string().optional(),
   customerPhone: yup.string().optional(),
   branch: yup.string().optional(),
@@ -172,6 +210,7 @@ interface SalesFormProps {
   articles: SalesArticle[];
   onAddArticle: (article: SalesArticle) => void;
   onDeleteArticle: (id: string) => void;
+  resetLocationLock?: boolean; // Nueva prop para resetear el bloqueo
 }
 
 const SalesForm: React.FC<SalesFormProps> = ({
@@ -182,11 +221,16 @@ const SalesForm: React.FC<SalesFormProps> = ({
   articles,
   onAddArticle,
   onDeleteArticle,
+  resetLocationLock = false,
 }) => {
   const { user } = useAuth();
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [systemGuid, setSystemGuid] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<FranchiseLocation | null>(null);
+  const [locationLocked, setLocationLocked] = useState<boolean>(false);
+  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentType, setPaymentType] = useState<string>('');
 
   // Load configurations for concepts and finance types
   const { getLabels: getConceptsLabels, loading: conceptsLoading } = useConfiguration('concepts_concepts');
@@ -277,6 +321,13 @@ const SalesForm: React.FC<SalesFormProps> = ({
     initializeData();
   }, [canSelectLocation]);
 
+  // Resetear el bloqueo de ubicación cuando se indique desde el padre
+  useEffect(() => {
+    if (resetLocationLock) {
+      setLocationLocked(false);
+    }
+  }, [resetLocationLock]);
+
   // Estado para búsqueda de IMEI
   const [imeiInput, setImeiInput] = useState('');
   const [imeiMatches, setImeiMatches] = useState<InventoryItem[]>([]);
@@ -341,7 +392,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
       paymentType: '',
       reference: '',
       amount: 0,
-      paymentAmount: 0,
       customerName: '',
       customerPhone: '',
       branch: canSelectLocation ? '' : (user?.franchiseLocation as FranchiseLocation)?._id || '',
@@ -361,32 +411,33 @@ const SalesForm: React.FC<SalesFormProps> = ({
       concept: data.concept,
       finance: data.finance,
       imei: data.imei,
-      paymentType: data.paymentType,
+      paymentType: '', // Se capturará en el modal de pago
       reference: data.reference,
       amount: data.amount,
-      paymentAmount: data.paymentAmount,
       quantity: 1, // Por defecto cantidad 1
     };
 
     onAddArticle(article);
 
-    // Resetear el formulario pero mantener algunos valores
+    // Bloquear la sucursal después del primer artículo para Master Admin
+    if (canSelectLocation && selectedLocation) {
+      setLocationLocked(true);
+    }
+
+      // Resetear el formulario pero mantener algunos valores
     reset({
       description: '',
       finance: data.finance, // Mantener la financiera seleccionada
       concept: data.concept, // Mantener el concepto seleccionado
       imei: '',
-      paymentType: data.paymentType, // Mantener el tipo de pago
+      paymentType: '', // Se reseteará ya que se captura en el modal
       reference: '',
       amount: 0,
-      paymentAmount: 0,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       branch: data.branch,
       notes: data.notes,
-    });
-
-    // Resetear también los estados del IMEI
+    });    // Resetear también los estados del IMEI
     setImeiInput('');
     setImeiMatches([]);
     setSelectedProduct(null);
@@ -399,18 +450,31 @@ const SalesForm: React.FC<SalesFormProps> = ({
       return;
     }
 
+    // Mostrar modal para capturar el pago
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSubmit = async () => {
+    if (articles.length === 0) {
+      alert('No hay artículos para procesar la venta');
+      return;
+    }
+
     // Crear la venta final con todos los artículos
     const saleData = {
-      description: `Venta con ${articles.length} artículo(s)`,
-      finance: articles[0].finance as 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Sale' | 'Other',
-      concept: articles[0].concept as 'Parciality' | 'Hitch' | 'Other',
-      paymentType: articles[0].paymentType,
-      reference: articles.map(a => a.reference).filter(r => r).join(', ') || '',
+      description: 'Sale' as const, // Usar valor válido del enum del backend
+      finance: (articles[0]?.finance || 'Cash') as 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other',
+      concept: (articles[0]?.concept || 'Other') as 'Parciality' | 'Hitch' | 'Other',
+      paymentType: paymentType,
+      reference: articles.map(a => a.reference).filter(r => r && r.trim()).join(', ') || 'N/A',
       amount: articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0),
+      paymentAmount: paymentAmount,
       branch: selectedLocation?._id || '',
-      notes: `Artículos: ${articles.map(a => a.description).join(', ')}`,
+      notes: `Venta con ${articles.length} artículo(s). Artículos: ${articles.map(a => a.description).join(', ')}`,
+      imei: articles.find(a => a.imei)?.imei || undefined, // Primer IMEI encontrado
     };
 
+    setShowPaymentModal(false);
     await onSubmit(saleData);
   };
 
@@ -520,35 +584,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
           </FormGroup>
 
           <FormGroup>
-            <Label htmlFor="paymentType">Tipo de Pago *</Label>
-            <Select
-              id="paymentType"
-              {...register('paymentType')}
-              disabled={isLoading}
-            >
-              <option value="">Selecciona tipo de pago...</option>
-              <option value="efectivo">Efectivo</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="dolar">Dólar</option>
-              <option value="mixto">Mixto</option>
-            </Select>
-            {errors.paymentType && <ErrorMessage>{errors.paymentType.message}</ErrorMessage>}
-          </FormGroup>
-        </FormRow>
-
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="reference">Referencia</Label>
-            <Input
-              id="reference"
-              type="text"
-              {...register('reference')}
-              disabled={isLoading}
-            />
-            {errors.reference && <ErrorMessage>{errors.reference.message}</ErrorMessage>}
-          </FormGroup>
-
-          <FormGroup>
             <Label htmlFor="amount">Monto *</Label>
             <Input
               id="amount"
@@ -562,26 +597,18 @@ const SalesForm: React.FC<SalesFormProps> = ({
           </FormGroup>
         </FormRow>
 
-        {/* Pago con - nuevo campo */}
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="paymentAmount">Pago con</Label>
-            <Input
-              id="paymentAmount"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Monto con el que se realiza el pago"
-              {...register('paymentAmount')}
-              disabled={isLoading}
-            />
-            {errors.paymentAmount && <ErrorMessage>{errors.paymentAmount.message}</ErrorMessage>}
-          </FormGroup>
+        <FormGroup>
+          <Label htmlFor="reference">Referencia</Label>
+          <Input
+            id="reference"
+            type="text"
+            {...register('reference')}
+            disabled={isLoading}
+          />
+          {errors.reference && <ErrorMessage>{errors.reference.message}</ErrorMessage>}
+        </FormGroup>
 
-          <FormGroup>
-            {/* Espacio vacío para mantener la alineación */}
-          </FormGroup>
-        </FormRow>
+
 
         {/* Sucursal - Automática o Manual para Master Admin */}
         <FormGroup>
@@ -597,7 +624,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
                 const location = franchiseLocations.find(loc => loc._id === locationId);
                 setSelectedLocation(location || null);
               }}
-              disabled={isLoading}
+              disabled={isLoading || locationLocked}
+              style={locationLocked ? {
+                backgroundColor: '#f8f9fa',
+                color: '#495057',
+                cursor: 'not-allowed',
+                opacity: 0.9,
+                fontWeight: '500'
+              } : undefined}
             >
               <option value="">Selecciona una sucursal...</option>
               {franchiseLocations.map((location) => (
@@ -632,41 +666,35 @@ const SalesForm: React.FC<SalesFormProps> = ({
             </Select>
           )}
 
-          {/* Mensajes informativos */}
-          {canSelectLocation && selectedLocation && (
-            <InfoMessage>
-              ✓ Sucursal seleccionada: {selectedLocation.name}
-            </InfoMessage>
-          )}
-          
-          {canSelectLocation && !selectedLocation && (
-            <InfoMessage>
-              Como Master Admin, puedes seleccionar cualquier sucursal de la lista.
-            </InfoMessage>
-          )}
-
-          {!canSelectLocation && selectedLocation && (
-            <InfoMessage>
-              ✓ Sucursal identificada automáticamente mediante GUID del sistema: {systemGuid ? systemGuid.substring(0, 8) + '...' : 'N/A'}
-            </InfoMessage>
-          )}
-
-          {!canSelectLocation && !selectedLocation && systemGuid && (
-            <ErrorMessage>
-              ⚠ No se encontró una sucursal registrada con el GUID de este sistema. Contacte al administrador para registrar esta sucursal.
-            </ErrorMessage>
-          )}
-
-          {!canSelectLocation && !systemGuid && (
-            <ErrorMessage>
-              ⚠ No se pudo obtener el GUID del sistema. Verifique que el servicio Windows esté ejecutándose.
-            </ErrorMessage>
-          )}
         </FormGroup>
+
+        {/* Botón Agregar Artículo debajo de Sucursal */}
+        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <Button type="submit" disabled={isLoading || !selectedLocation}>
+            {isLoading 
+              ? 'Guardando...' 
+              : !selectedLocation && canSelectLocation 
+                ? 'Selecciona una sucursal para continuar'
+                : !selectedLocation 
+                  ? 'Esperando identificación de sucursal...'
+                  : 'Agregar Artículo'
+            }
+          </Button>
+        </div>
+
+          {/* Resumen de artículos agregados */}
+          {articles.length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <SalesArticles 
+                articles={articles}
+                onDeleteArticle={onDeleteArticle}
+              />
+            </div>
+          )}
 
           <div style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             alignItems: 'center',
             marginTop: 'auto',
             paddingTop: '1rem',
@@ -676,28 +704,98 @@ const SalesForm: React.FC<SalesFormProps> = ({
               type="button" 
               onClick={handleFinalSubmit}
               disabled={isLoading || articles.length === 0}
-              style={{ backgroundColor: '#e74c3c', marginRight: '1rem' }}
+              style={{ backgroundColor: '#e74c3c' }}
             >
               {isLoading ? 'Procesando...' : `Finalizar Venta (${articles.length} artículos)`}
-            </Button>
-            <Button type="submit" disabled={isLoading || !selectedLocation}>
-              {isLoading 
-                ? 'Guardando...' 
-                : !selectedLocation && canSelectLocation 
-                  ? 'Selecciona una sucursal para continuar'
-                  : !selectedLocation 
-                    ? 'Esperando identificación de sucursal...'
-                    : 'Agregar Artículo'
-              }
             </Button>
           </div>
         </div>
       </Form>
-      
-      <SalesArticles 
-        articles={articles}
-        onDeleteArticle={onDeleteArticle}
-      />
+
+      {/* Modal de Pago */}
+      {showPaymentModal && (
+        <Modal onClick={() => setShowPaymentModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>💰 Finalizar Venta</ModalTitle>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <strong>Total a cobrar: ${articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0).toFixed(2)}</strong>
+            </div>
+            
+            <FormGroup>
+              <Label htmlFor="paymentType">Tipo de Pago *</Label>
+              <Select
+                id="paymentType"
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
+              >
+                <option value="">Selecciona tipo de pago...</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="dolar">Dólar</option>
+                <option value="mixto">Mixto</option>
+              </Select>
+            </FormGroup>
+
+            <FormGroup>
+              <Label htmlFor="paymentAmount">Pago con (monto recibido) *</Label>
+              <Input
+                id="paymentAmount"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Ingrese el monto con el que paga el cliente"
+                value={paymentAmount || ''}
+                onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                autoFocus
+              />
+            </FormGroup>
+            
+            {paymentAmount > 0 && paymentAmount >= articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) && (
+              <div style={{ 
+                background: '#d4edda', 
+                color: '#155724', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                marginTop: '0.5rem',
+                fontSize: '0.9rem'
+              }}>
+                💡 Cambio a devolver: ${(paymentAmount - articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0)).toFixed(2)}
+              </div>
+            )}
+            
+            {paymentAmount > 0 && paymentAmount < articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) && (
+              <div style={{ 
+                background: '#f8d7da', 
+                color: '#721c24', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                marginTop: '0.5rem',
+                fontSize: '0.9rem'
+              }}>
+                ⚠️ El monto recibido es menor al total de la venta
+              </div>
+            )}
+
+            <ModalButtons>
+              <CancelButton type="button" onClick={() => setShowPaymentModal(false)}>
+                Cancelar
+              </CancelButton>
+              <Button 
+                type="button" 
+                onClick={handlePaymentSubmit}
+                disabled={
+                  paymentAmount <= 0 || 
+                  !paymentType || 
+                  paymentAmount < articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0)
+                }
+              >
+                Procesar Venta
+              </Button>
+            </ModalButtons>
+          </ModalContent>
+        </Modal>
+      )}
     </SalesContainer>
   );
 };

@@ -59,6 +59,9 @@ const SalesPage: React.FC = () => {
   // Articles state
   const [articles, setArticles] = useState<SalesArticle[]>([]);
   
+  // Location lock reset state
+  const [resetLocationLock, setResetLocationLock] = useState<boolean>(false);
+  
   // Date range filters (keeping these as they're commonly needed)
   const [dateFilters, setDateFilters] = useState({
     startDate: '',
@@ -459,6 +462,9 @@ const SalesPage: React.FC = () => {
   const closeForm = () => {
     setShowForm(false);
     setArticles([]); // Limpiar artículos al cerrar el formulario
+    setResetLocationLock(true);
+    // Resetear el flag después de un pequeño delay
+    setTimeout(() => setResetLocationLock(false), 100);
   };
 
   if (loading) {
@@ -514,7 +520,13 @@ const SalesPage: React.FC = () => {
               >
                 📊 {exportLoading ? 'Exportando...' : 'Exportar a Excel'}
               </Button>
-              <Button colorScheme="green" onClick={() => setShowForm(true)}>
+              <Button colorScheme="green" onClick={() => { 
+                setShowForm(true); 
+                setArticles([]); 
+                setResetLocationLock(true);
+                // Resetear el flag después de un pequeño delay
+                setTimeout(() => setResetLocationLock(false), 100);
+              }}>
                 Registrar Nueva Venta
               </Button>
             </HStack>
@@ -694,16 +706,18 @@ const SalesPage: React.FC = () => {
               alignItems="center"
               justifyContent="center"
               zIndex="1000"
+              p={4}
             >
               <Box
                 bg="white"
-                p={6}
-                w="max-content"
-                maxW="90vw"
-                maxH="90vh"
-                overflowY="hidden"
+                p={2}
+                w="fit-content"
+                maxW="95vw"
+                maxH="95vh"
+                overflowY="auto"
                 position="relative"
-
+                borderRadius="8px"
+                boxShadow="0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
               >
                 <Button
                   position="absolute"
@@ -721,9 +735,10 @@ const SalesPage: React.FC = () => {
                 <SalesForm
                   onSubmit={handleAddSale}
                   isLoading={formLoading}
-                articles={articles}
-                onAddArticle={handleAddArticle}
-                onDeleteArticle={handleDeleteArticle}
+                  articles={articles}
+                  onAddArticle={handleAddArticle}
+                  onDeleteArticle={handleDeleteArticle}
+                  resetLocationLock={resetLocationLock}
                 />
               </Box>
             </Box>
