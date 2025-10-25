@@ -665,13 +665,12 @@ const SalesPage: React.FC = () => {
             <Box
               bg="white"
               p={6}
-              rounded="lg"
               w="max-content"
               maxW="90vw"
               maxH="90vh"
-              overflowY="auto"
+              overflowY="hidden"
               position="relative"
-              shadow="xl"
+
             >
               <Button
                 position="absolute"
@@ -711,11 +710,9 @@ const SalesPage: React.FC = () => {
             <Box
               bg="white"
               p={6}
-              rounded="lg"
               w="500px"
               maxW="90vw"
               position="relative"
-              shadow="xl"
             >
               <Button
                 position="absolute"
