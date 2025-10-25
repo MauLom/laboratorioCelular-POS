@@ -18,8 +18,8 @@ export interface InventoryItem {
 export interface Sale {
   _id?: string;
   folio?: number;
-  description: string;
-  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Sale' | 'Other';
+  description: 'Fair' | 'Payment' | 'Sale' | 'Deposit'; // Enum específico del backend
+  finance: 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other';
   concept: 'Parciality' | 'Hitch' | 'Other';
   imei?: string;
   paymentType: string;
