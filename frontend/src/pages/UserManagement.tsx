@@ -361,9 +361,9 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner>Cargando usuarios...</LoadingSpinner>;
-  }
+  // if (loading) {
+  //   return <LoadingSpinner>Cargando usuarios...</LoadingSpinner>;
+  // }
 
   return (
     <Container>
