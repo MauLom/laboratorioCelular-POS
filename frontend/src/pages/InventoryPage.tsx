@@ -199,12 +199,12 @@ const InventoryPage: React.FC = () => {
               alignItems="center"
               justifyContent="center"
               zIndex="1000"
+              minW="800px"
             >
               <Box
                 bg="white"
                 p={6}
                 rounded="lg"
-                maxW="90vw"
                 maxH="90vh"
                 overflowY="auto"
                 position="relative"
@@ -218,7 +218,6 @@ const InventoryPage: React.FC = () => {
                   onClick={closeForm}
                   fontSize="xl"
                   p={1}
-                  minW="auto"
                   h="auto"
                 >
                   ×

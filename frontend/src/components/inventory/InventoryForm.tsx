@@ -10,11 +10,10 @@ interface Brand { _id: string; name: string }
 interface CharValue { _id: string; value: string; displayName: string }
 
 const Form = styled.form`
+  min-width: 800px;
   background: white;
   padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  max-width: 600px;
   margin: 0 auto;
 `;
 
