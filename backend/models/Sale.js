@@ -40,6 +40,31 @@ const salesSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  // Payment methods array for multiple payment types
+  paymentMethods: [{
+    id: {
+      type: String,
+      required: true
+    },
+    type: {
+      type: String,
+      required: true,
+      enum: ['efectivo', 'tarjeta', 'dolar', 'transferencia', 'cheque']
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    reference: {
+      type: String,
+      trim: true
+    },
+    notes: {
+      type: String,
+      trim: true
+    }
+  }],
   // Articles array for multi-article sales
   articles: [{
     id: {

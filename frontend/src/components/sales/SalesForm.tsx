@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
-import { Sale, FranchiseLocation, InventoryItem } from '../../types';
+import { Sale, FranchiseLocation, InventoryItem, PaymentMethod } from '../../types';
 import { franchiseLocationsApi, inventoryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfiguration } from '../../hooks/useConfigurations';
@@ -149,8 +149,8 @@ const ModalContent = styled.div`
   background: white;
   padding: 2rem;
   border-radius: 8px;
-  width: 400px;
-  max-width: 90vw;
+  width: 600px;
+  max-width: 95vw;
 `;
 
 const ModalTitle = styled.h3`
@@ -231,6 +231,21 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentType, setPaymentType] = useState<string>('');
+  
+  // Estados para múltiples métodos de pago
+  const [paymentMethods, setPaymentMethods] = useState<Array<{
+    id: string;
+    type: string;
+    amount: number;
+    formattedAmount: string;
+  }>>([]);
+
+  // Inicializar con un método de pago vacío cuando se abre el modal
+  useEffect(() => {
+    if (showPaymentModal && paymentMethods.length === 0) {
+      addPaymentMethod();
+    }
+  }, [showPaymentModal]);
 
   // Load configurations for concepts and finance types
   const { getLabels: getConceptsLabels, loading: conceptsLoading } = useConfiguration('concepts_concepts');
@@ -439,6 +454,77 @@ const SalesForm: React.FC<SalesFormProps> = ({
     }
   };
 
+  // Funciones para múltiples métodos de pago
+  const addPaymentMethod = () => {
+    const newPaymentMethod = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      type: '',
+      amount: 0,
+      formattedAmount: ''
+    };
+    setPaymentMethods(prev => [...prev, newPaymentMethod]);
+  };
+
+  const removePaymentMethod = (id: string) => {
+    setPaymentMethods(prev => {
+      const updated = prev.filter(pm => pm.id !== id);
+      // Recalcular total
+      const total = updated.reduce((sum, pm) => sum + pm.amount, 0);
+      setPaymentAmount(total);
+      return updated;
+    });
+  };
+
+  const updatePaymentMethod = (id: string, field: string, value: any) => {
+    setPaymentMethods(prev => {
+      const updated = prev.map(pm => {
+        if (pm.id === id) {
+          return { ...pm, [field]: value };
+        }
+        return pm;
+      });
+      
+      // Recalcular total
+      const total = updated.reduce((sum, pm) => sum + pm.amount, 0);
+      setPaymentAmount(total);
+      
+      return updated;
+    });
+  };
+
+  const handlePaymentMethodAmountChange = (id: string, inputValue: string) => {
+    // Permitir solo números y punto decimal durante la escritura
+    const sanitized = inputValue.replace(/[^\d.]/g, '');
+    
+    // Validar formato decimal (máximo 2 decimales)
+    const decimalParts = sanitized.split('.');
+    if (decimalParts.length > 2) return;
+    if (decimalParts[1] && decimalParts[1].length > 2) return;
+    
+    // Actualizar el valor formateado
+    updatePaymentMethod(id, 'formattedAmount', sanitized);
+    
+    // Actualizar el valor numérico
+    const numValue = parseFloat(sanitized) || 0;
+    updatePaymentMethod(id, 'amount', numValue);
+  };
+
+  const handlePaymentMethodAmountBlur = (id: string, inputValue: string) => {
+    const numValue = parseFloat(inputValue) || 0;
+    const formatted = formatCurrency(numValue);
+    updatePaymentMethod(id, 'formattedAmount', formatted);
+    updatePaymentMethod(id, 'amount', numValue);
+  };
+
+  const handlePaymentMethodAmountFocus = (id: string, currentValue: string) => {
+    if (currentValue) {
+      const numValue = parseCurrency(currentValue);
+      updatePaymentMethod(id, 'formattedAmount', numValue > 0 ? numValue.toString() : '');
+    }
+  };
+
+
+
   // Buscar coincidencias de IMEI
   useEffect(() => {
     if (imeiInput.length < 4) {
@@ -583,17 +669,37 @@ const SalesForm: React.FC<SalesFormProps> = ({
       quantity: article.quantity
     }));
 
+    // Preparar métodos de pago
+    const finalPaymentMethods: PaymentMethod[] = paymentMethods
+      .filter(pm => pm.type && pm.amount > 0)
+      .map(pm => ({
+        id: pm.id,
+        type: pm.type as 'efectivo' | 'tarjeta' | 'dolar' | 'transferencia' | 'cheque',
+        amount: pm.amount,
+        reference: undefined,
+        notes: undefined
+      }));
+
+    // Construir notas con información detallada del pago
+    let paymentNotes = `Venta con ${articles.length} artículo(s). Artículos: ${articles.map(a => a.description).join(', ')}`;
+    
+    if (finalPaymentMethods.length > 1) {
+      const paymentDetails = finalPaymentMethods.map(pm => `${pm.type}: $${pm.amount.toFixed(2)}`);
+      paymentNotes += ` | Pagos múltiples: ${paymentDetails.join(', ')}`;
+    }
+
     // Crear la venta final con todos los artículos
     const saleData = {
       description: 'Sale' as const, // Usar valor válido del enum del backend
       finance: (articles[0]?.finance || 'Cash') as 'Payjoy' | 'Lespago' | 'Repair' | 'Accessory' | 'Cash' | 'Other',
       concept: (articles[0]?.concept || 'Other') as 'Parciality' | 'Hitch' | 'Other',
-      paymentType: paymentType,
+      paymentType: finalPaymentMethods.length > 1 ? 'multiple' : (finalPaymentMethods[0]?.type || 'multiple'),
       reference: articles.map(a => a.reference).filter(r => r && r.trim()).join(', ') || 'N/A',
       amount: articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0),
       paymentAmount: paymentAmount,
+      paymentMethods: finalPaymentMethods, // Incluir métodos de pago
       branch: selectedLocation?._id || '',
-      notes: `Venta con ${articles.length} artículo(s). Artículos: ${articles.map(a => a.description).join(', ')}`,
+      notes: paymentNotes,
       imei: articles.find(a => a.imei)?.imei || undefined, // Primer IMEI encontrado
       articles: saleArticles, // Incluir todos los artículos
     };
@@ -601,6 +707,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
     setShowPaymentModal(false);
     setFormattedPaymentAmount('');
     setPaymentAmount(0);
+    setPaymentType('');
+    setPaymentMethods([]);
     await onSubmit(saleData);
   };
 
@@ -870,6 +978,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
           setShowPaymentModal(false);
           setFormattedPaymentAmount('');
           setPaymentAmount(0);
+          setPaymentType('');
+          setPaymentMethods([]);
         }}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalTitle>💰 Finalizar Venta</ModalTitle>
@@ -878,35 +988,119 @@ const SalesForm: React.FC<SalesFormProps> = ({
               <strong>Total a cobrar: ${articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0).toFixed(2)}</strong>
             </div>
             
-            <FormGroup>
-              <Label htmlFor="paymentType">Tipo de Pago *</Label>
-              <Select
-                id="paymentType"
-                value={paymentType}
-                onChange={(e) => setPaymentType(e.target.value)}
-              >
-                <option value="">Selecciona tipo de pago...</option>
-                <option value="efectivo">Efectivo</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="dolar">Dólar</option>
-                <option value="mixto">Mixto</option>
-              </Select>
-            </FormGroup>
+            {/* Métodos de Pago */}
+            <div style={{ 
+              background: '#f8f9fa', 
+              padding: '1rem', 
+              borderRadius: '8px', 
+              border: '1px solid #dee2e6',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0, color: '#495057', fontSize: '1rem', fontWeight: '600' }}>
+                  Métodos de Pago
+                </h4>
+                <button
+                  type="button"
+                  onClick={addPaymentMethod}
+                  style={{
+                    background: '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.4rem 0.8rem',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}
+                >
+                  + Agregar método
+                </button>
+              </div>
 
-            <FormGroup>
-              <Label htmlFor="paymentAmount">Pago con (monto recibido) *</Label>
-              <Input
-                id="paymentAmount"
-                type="text"
-                placeholder="1000.00"
-                value={formattedPaymentAmount}
-                onChange={handlePaymentAmountChange}
-                onFocus={handlePaymentAmountFocus}
-                onBlur={handlePaymentAmountBlur}
-                autoFocus
-                style={{ textAlign: 'right' }}
-              />
-            </FormGroup>
+              {paymentMethods.map((pm, index) => (
+                <div key={pm.id} style={{ 
+                  background: 'white', 
+                  padding: '0.8rem', 
+                  borderRadius: '6px', 
+                  border: '1px solid #ddd',
+                  marginBottom: '0.5rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '500', color: '#495057' }}>
+                      Método {index + 1}
+                    </span>
+                    {paymentMethods.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removePaymentMethod(pm.id)}
+                        style={{
+                          background: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.2rem 0.4rem',
+                          borderRadius: '3px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          marginLeft: 'auto'
+                        }}
+                      >
+                        X
+                      </button>
+                    )}
+                  </div>
+                  
+                  <FormRow style={{ gap: '0.5rem' }}>
+                    <FormGroup style={{ marginBottom: '0.3rem' }}>
+                      <Label style={{ fontSize: '0.8rem', marginBottom: '0.2rem' }}>Tipo</Label>
+                      <Select
+                        value={pm.type}
+                        onChange={(e) => updatePaymentMethod(pm.id, 'type', e.target.value)}
+                        style={{ fontSize: '0.9rem', padding: '0.4rem' }}
+                      >
+                        <option value="">Seleccionar...</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="dolar">Dólar</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="cheque">Cheque</option>
+                      </Select>
+                    </FormGroup>
+                    
+                    <FormGroup style={{ marginBottom: '0.3rem' }}>
+                      <Label style={{ fontSize: '0.8rem', marginBottom: '0.2rem' }}>Monto</Label>
+                      <Input
+                        type="text"
+                        placeholder="0.00"
+                        value={pm.formattedAmount}
+                        onChange={(e) => handlePaymentMethodAmountChange(pm.id, e.target.value)}
+                        onFocus={() => handlePaymentMethodAmountFocus(pm.id, pm.formattedAmount)}
+                        onBlur={(e) => handlePaymentMethodAmountBlur(pm.id, e.target.value)}
+                        style={{ textAlign: 'right', fontSize: '0.9rem', padding: '0.4rem' }}
+                      />
+                    </FormGroup>
+                  </FormRow>
+                </div>
+              ))}
+
+              <div style={{ 
+                background: '#e3f2fd', 
+                padding: '0.8rem', 
+                borderRadius: '6px',
+                marginTop: '0.8rem',
+                textAlign: 'center',
+                borderLeft: '4px solid #2196f3'
+              }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1976d2', marginBottom: '0.3rem' }}>
+                  Total recibido: ${paymentAmount.toFixed(2)}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#1565c0' }}>
+                  {paymentMethods.filter(pm => pm.type && pm.amount > 0).length} método(s) de pago
+                </div>
+              </div>
+            </div>
             
             {paymentAmount > 0 && paymentAmount >= articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) && (
               <div style={{ 
@@ -939,6 +1133,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
                 setShowPaymentModal(false);
                 setFormattedPaymentAmount('');
                 setPaymentAmount(0);
+                setPaymentType('');
+                setPaymentMethods([]);
               }}>
                 Cancelar
               </CancelButton>
@@ -947,7 +1143,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
                 onClick={handlePaymentSubmit}
                 disabled={
                   paymentAmount <= 0 || 
-                  !paymentType || 
+                  paymentMethods.filter(pm => pm.type && pm.amount > 0).length === 0 || 
                   paymentAmount < articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0)
                 }
               >

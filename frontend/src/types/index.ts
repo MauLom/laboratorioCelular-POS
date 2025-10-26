@@ -26,6 +26,14 @@ export interface SaleArticle {
   quantity: number;
 }
 
+export interface PaymentMethod {
+  id: string;
+  type: 'efectivo' | 'tarjeta' | 'dolar' | 'transferencia' | 'cheque';
+  amount: number;
+  reference?: string;
+  notes?: string;
+}
+
 export interface Sale {
   _id?: string;
   folio?: number;
@@ -37,6 +45,7 @@ export interface Sale {
   reference: string;
   amount: number;
   paymentAmount?: number;
+  paymentMethods?: PaymentMethod[]; // Múltiples métodos de pago
   articles?: SaleArticle[]; // Array de artículos para ventas multi-artículo
   customerName?: string;
   customerPhone?: string;
