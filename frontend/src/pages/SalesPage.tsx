@@ -18,6 +18,7 @@ import { Sale, PaginatedResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../hooks/useAlert';
 import styled from 'styled-components';
+import { translateDescription, translateFinance, translateConcept} from '../lib/translations';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -104,11 +105,13 @@ const SalesPage: React.FC = () => {
 
     const term = searchTerm.toLowerCase();
     return allSales.filter(sale => {
-      // Search across all relevant fields
+      // Search across all relevant fields including translations
       const searchableFields = [
         sale.description?.toLowerCase() || '',
+        translateDescription(sale.description).toLowerCase() || '',
         sale.finance?.toLowerCase() || '',
-        sale.concept?.toLowerCase() || '',
+        translateFinance(sale.finance).toLowerCase() || '',
+        translateConcept(sale.concept).toLowerCase() || '',
         sale.imei?.toLowerCase() || '',
         sale.customerName?.toLowerCase() || '',
         sale.amount?.toString() || '',
@@ -766,18 +769,18 @@ const SalesPage: React.FC = () => {
                       {sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : '-'}
                     </Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="120px">
-                      {sale.description}
+                      {translateDescription(sale.description)}
                       {sale.articles && sale.articles.length > 1 && (
                         <Text fontSize="xs" color="blue.500" fontWeight="semibold">
                           ({sale.articles.length} artículos)
                         </Text>
                       )}
                     </Td>
-                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="130px">{sale.finance}</Td>
+                    <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="130px">{translateFinance(sale.finance)}</Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="150px">
                       {sale.articles && sale.articles.length > 1 
-                        ? `Múltiples (${sale.articles.map(a => a.concept).join(', ')})`
-                        : sale.concept
+                        ? `Múltiples (${sale.articles.map(a => translateConcept(a.concept)).join(', ')})`
+                        : translateConcept(sale.concept)
                       }
                     </Td>
                     <Td py={4} px={4} borderTop="1px solid" borderColor="gray.200" w="180px">

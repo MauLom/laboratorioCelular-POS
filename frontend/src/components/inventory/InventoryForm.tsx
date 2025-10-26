@@ -3,8 +3,9 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
-import { InventoryItem } from '../../types';
-import { catalogsApi } from '../../services/api';
+import { InventoryItem, FranchiseLocation } from '../../types';
+import { catalogsApi, franchiseLocationsApi } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Brand { _id: string; name: string }
 interface CharValue { _id: string; value: string; displayName: string }
@@ -103,7 +104,7 @@ const ErrorMessage = styled.span`
 interface InventoryFormData {
   imei: string;
   state: 'New' | 'Repair' | 'Repaired' | 'Sold' | 'Lost' | 'Clearance';
-  branch: string;
+  franchiseLocation: string;
   model?: string;
   brand?: string;
   color?: string;
@@ -115,7 +116,7 @@ interface InventoryFormData {
 const schema = yup.object().shape({
   imei: yup.string().required('El IMEI es requerido').min(10, 'El IMEI debe tener al menos 10 caracteres'),
   state: yup.string().required('El estado es requerido'),
-  branch: yup.string().required('La sucursal es requerida'),
+  franchiseLocation: yup.string().required('La sucursal es requerida'),
   model: yup.string().optional(),
   brand: yup.string().optional(),
   price: yup.number().optional().min(0, 'El precio debe ser positivo'),
@@ -135,22 +136,50 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
   isEditing = false,
   isLoading = false,
 }) => {
+  const { user } = useAuth();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [colorValues, setColorValues] = useState<CharValue[]>([]);
   const [storageValues, setStorageValues] = useState<CharValue[]>([]);
+  const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string | undefined>(initialData?.brand);
+
+  // Determinar si el usuario puede seleccionar múltiples sucursales
+  const canSelectMultipleLocations = user?.role === 'Supervisor de sucursales' || 
+                                   user?.role === 'Supervisor de oficina' || 
+                                   user?.role === 'Master admin';
+
+  // Obtener el ID de la sucursal del usuario o del item inicial
+  const getDefaultFranchiseLocation = () => {
+    if (initialData?.franchiseLocation) {
+      return typeof initialData.franchiseLocation === 'string' 
+        ? initialData.franchiseLocation 
+        : initialData.franchiseLocation._id || '';
+    }
+    if (user?.franchiseLocation) {
+      return typeof user.franchiseLocation === 'string' 
+        ? user.franchiseLocation 
+        : user.franchiseLocation._id || '';
+    }
+    return '';
+  };
 
   useEffect(() => {
     const load = async () => {
       try {
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
+        
+        // Solo cargar sucursales si el usuario puede seleccionar múltiples
+        if (canSelectMultipleLocations) {
+          const locations = await franchiseLocationsApi.getAll();
+          setFranchiseLocations(locations.locations || []);
+        }
       } catch (err) {
-        console.error('Failed to load brands', err);
+        console.error('Failed to load data', err);
       }
     };
     load();
-  }, []);
+  }, [canSelectMultipleLocations]);
 
   useEffect(() => {
     const loadValues = async () => {
@@ -181,21 +210,30 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
   }, [selectedBrand]);
   const { register, handleSubmit, formState: { errors } } = useForm<InventoryFormData>({
     resolver: yupResolver(schema) as any,
-    defaultValues: initialData || {
-      imei: '',
-      state: 'New',
-      branch: '',
-      model: '',
-      brand: '',
-      color: '',
-      storage: '',
-      price: 0,
-      notes: '',
+    defaultValues: {
+      imei: initialData?.imei || '',
+      state: initialData?.state || 'New',
+      franchiseLocation: getDefaultFranchiseLocation(),
+      model: initialData?.model || '',
+      brand: initialData?.brand || '',
+      color: initialData?.color || '',
+      storage: initialData?.storage || '',
+      price: initialData?.price || 0,
+      notes: initialData?.notes || '',
     },
   });
 
   const handleFormSubmit = async (data: InventoryFormData) => {
-    await onSubmit(data);
+    // Si el usuario no puede seleccionar múltiples sucursales, 
+    // usar la sucursal del usuario actual
+    const finalData = {
+      ...data,
+      franchiseLocation: canSelectMultipleLocations 
+        ? data.franchiseLocation 
+        : getDefaultFranchiseLocation()
+    };
+    
+    await onSubmit(finalData);
   };
 
   return (
@@ -225,14 +263,49 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
       </FormGroup>
 
       <FormGroup>
-        <Label htmlFor="branch">Sucursal *</Label>
-        <Input
-          id="branch"
-          type="text"
-          {...register('branch')}
-          disabled={isLoading}
-        />
-        {errors.branch && <ErrorMessage>{errors.branch.message}</ErrorMessage>}
+        <Label htmlFor="franchiseLocation">
+          Sucursal *
+          {!canSelectMultipleLocations && (
+            <span style={{ fontSize: '0.8em', color: '#6c757d', fontWeight: 'normal' }}>
+              {' '}(asignada automáticamente)
+            </span>
+          )}
+        </Label>
+        {canSelectMultipleLocations ? (
+          <Select
+            id="franchiseLocation"
+            {...register('franchiseLocation')}
+            disabled={isLoading}
+          >
+            <option value="">Seleccionar sucursal</option>
+            {franchiseLocations.map(location => (
+              <option key={location._id} value={location._id}>
+                {location.name}
+              </option>
+            ))}
+          </Select>
+        ) : (
+          <>
+            <Input
+              id="franchiseLocation-display"
+              type="text"
+              value={user?.franchiseLocation && typeof user.franchiseLocation === 'object' 
+                ? user.franchiseLocation.name 
+                : 'Sucursal no asignada'}
+              disabled={true}
+              style={{ 
+                backgroundColor: '#f8f9fa', 
+                color: '#6c757d',
+                cursor: 'not-allowed'
+              }}
+            />
+            <input
+              type="hidden"
+              {...register('franchiseLocation')}
+            />
+          </>
+        )}
+        {errors.franchiseLocation && <ErrorMessage>{errors.franchiseLocation.message}</ErrorMessage>}
       </FormGroup>
 
       <FormGroup>

@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { translateFinance } from '../../lib/translations';
 
 const Container = styled.div`
   background: white;
@@ -200,7 +201,7 @@ const SalesArticles: React.FC<SalesArticlesProps> = ({ articles, onDeleteArticle
                     </div>
                   )}
                   <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>
-                    {article.concept} - {article.finance}
+                    {article.concept} - {translateFinance(article.finance)}
                   </div>
                 </ConceptText>
                 <QuantityText>{article.quantity}</QuantityText>

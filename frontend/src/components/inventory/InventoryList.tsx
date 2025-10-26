@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { InventoryItem } from '../../types';
+import { translateState } from '../../lib/translations';
 
 const Table = styled.table`
   width: 100%;
@@ -156,7 +157,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
           <TableRow key={item.imei}>
             <TableCell>{item.imei}</TableCell>
             <TableCell>
-              <StateChip state={item.state}>{item.state}</StateChip>
+              <StateChip state={item.state}>{translateState(item.state)}</StateChip>
             </TableCell>
             <TableCell>{item.branch}</TableCell>
             <TableCell>{item.brand || '-'}</TableCell>
