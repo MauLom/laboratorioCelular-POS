@@ -177,3 +177,24 @@ export interface Configuration {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface CashSession {
+  _id?: string;
+  franchiseLocationId: string;
+  userId: string;
+  opening_cash_mxn: number;
+  opening_cash_usd: number;
+  exchange_rate_usd_mxn: number;
+  notes?: string;
+  opened_at: string;
+  closed_at?: string;
+  isActive: boolean;
+}
+
+export interface CashSessionOpenRequest {
+  franchiseLocationId: string;
+  opening_cash_mxn: number;
+  opening_cash_usd: number;
+  exchange_rate_usd_mxn: number;
+  notes?: string;
+}

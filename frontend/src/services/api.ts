@@ -8,7 +8,8 @@ import {
   LoginResponse,
   UserPaginatedResponse,
   FranchiseLocation,
-  LocationPaginatedResponse
+  LocationPaginatedResponse,
+  CashSessionOpenRequest
 } from '../types';
 
 // Environment validation
@@ -405,6 +406,17 @@ export const catalogsApi = {
   },
   createCharacteristicValue: async (characteristicId: string, payload: { brandId: string; value: string; displayName: string; hexColor?: string }) => {
     const response = await api.post(`/characteristics/${characteristicId}/values`, payload);
+    return response.data;
+  }
+};
+
+export const cashSessionApi = {
+  open: async (data: CashSessionOpenRequest) => {
+    const response = await api.post('/cash-session/open', data);
+    return response.data;
+  },
+  checkTodaySession: async (franchiseLocationId: string) => {
+    const response = await api.get(`/cash-session/status/${franchiseLocationId}`);
     return response.data;
   }
 };

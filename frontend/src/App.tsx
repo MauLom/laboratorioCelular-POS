@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationManager from './components/ui/NotificationManager';
+import CashSessionProvider from './components/cash/CashSessionProvider';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
@@ -16,10 +17,11 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <Router>
-          <div className="App">
-            <NotificationManager />
-            <Routes>
+        <CashSessionProvider>
+          <Router>
+            <div className="App">
+              <NotificationManager />
+              <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route 
               path="/" 
@@ -65,6 +67,7 @@ function App() {
           </Routes>
         </div>
       </Router>
+        </CashSessionProvider>
       </NotificationProvider>
     </AuthProvider>
   );
