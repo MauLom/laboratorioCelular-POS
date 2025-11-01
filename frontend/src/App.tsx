@@ -11,6 +11,7 @@ import InventoryPage from './pages/InventoryPage';
 import SalesPage from './pages/SalesPage';
 import UserManagement from './pages/UserManagement';
 import ConfigurationPage from './pages/Configuration';
+import CashClose from './components/cash/CashClose';
 import './App.css';
 
 function App() {
@@ -60,6 +61,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={['Master admin']}>
                   <ConfigurationPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/cerrar-caja" 
+              element={
+                <ProtectedRoute>
+                  <CashClose />
                 </ProtectedRoute>
               } 
             />

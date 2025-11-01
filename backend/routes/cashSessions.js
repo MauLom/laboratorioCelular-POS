@@ -171,7 +171,7 @@ router.get('/status/:franchiseId', authenticate, async (req, res) => {
     }
 
     res.json({
-      hasSession: true,
+      hasSession: session.status === 'open',
       status: session.status,
       session: {
         _id: session._id,

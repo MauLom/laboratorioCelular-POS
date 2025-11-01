@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cashSessionApi, franchiseLocationsApi } from '../../services/api';
+import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import CashOpenModal from './CashOpenModal';
 
 interface CashSessionProviderProps {
@@ -21,52 +22,6 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   
-  // Cache para el GUID y franquicia para evitar múltiples llamadas
-  const [cachedGuid, setCachedGuid] = useState<string | null>(null);
-  const [guidLastFetch, setGuidLastFetch] = useState<number>(0);
-
-  // Función para obtener el GUID del sistema con cache
-  const fetchSystemGuid = async (): Promise<string | null> => {
-    const now = Date.now();
-    const CACHE_DURATION = 30000; // 30 segundos de cache
-    
-    // Si tenemos un GUID en cache y no ha expirado, usarlo
-    if (cachedGuid && (now - guidLastFetch) < CACHE_DURATION) {
-      return cachedGuid;
-    }
-    
-    try {
-      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(`${winServiceUrl}/api/system/guid`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const data = await response.json();
-        const guid = data.guid || data.systemGuid || null;
-        
-        // Actualizar cache
-        setCachedGuid(guid);
-        setGuidLastFetch(now);
-        
-        return guid;
-      } else {
-        return null;
-      }
-    } catch (error: any) {
-      return null;
-    }
-  };
-
   const getCurrentFranchise = async () => {
     try {
       
@@ -74,7 +29,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       const locations = await franchiseLocationsApi.getActive();
       
       // Obtener GUID del sistema
-      const systemGuid = await fetchSystemGuid();
+      const systemGuid = await deviceTrackerApi.getSystemGuid();
       
       if (systemGuid) {
         // Buscar franquicia que coincida con el GUID
@@ -175,6 +130,25 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     };
 
   }, [isAuthenticated, user, hasInitialized, isCheckingSession]);
+
+  // Función para forzar verificación desde componentes externos
+  const forceCheckCashSession = () => {
+    if (isAuthenticated && user && !isCheckingSession) {
+      checkCashSession();
+    }
+  };
+
+  // Exponer la función globalmente para que otros componentes puedan usarla
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).forceCheckCashSession = forceCheckCashSession;
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).forceCheckCashSession;
+      }
+    };
+  }, [isAuthenticated, user, isCheckingSession]);
 
   const handleCashModalClose = () => {
     setShowCashModal(false);

@@ -54,6 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       setToken(response.token);
       setUser(response.user);
+      
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Login failed');
     } finally {

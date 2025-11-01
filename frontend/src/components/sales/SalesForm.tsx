@@ -5,6 +5,7 @@ import * as yup from 'yup';
 import styled from 'styled-components';
 import { Sale, FranchiseLocation, InventoryItem, PaymentMethod } from '../../types';
 import { franchiseLocationsApi, inventoryApi } from '../../services/api';
+import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfiguration } from '../../hooks/useConfigurations';
 import SalesArticles, { SalesArticle } from './SalesArticles';
@@ -264,36 +265,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
         
         // Try to get system GUID (optional service)
         try {
-          const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-          
-          const guidResponse = await fetch(`${winServiceUrl}/api/system/guid`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-
-          if (guidResponse.ok) {
-            const guidData = await guidResponse.json();
-            currentGuid = guidData.guid || guidData.systemGuid || '';
+          const systemGuid = await deviceTrackerApi.getSystemGuid();
+          if (systemGuid) {
+            currentGuid = systemGuid;
             setSystemGuid(currentGuid);
             console.log('System GUID loaded:', currentGuid);
-          } else {
-            console.warn('System GUID service responded with error:', guidResponse.status);
           }
         } catch (guidError: any) {
-          if (guidError.name === 'AbortError') {
-            console.debug('System GUID request timeout (2s) - service not available');
-          } else if (guidError.message.includes('Failed to fetch') || guidError.code === 'ECONNREFUSED') {
-            console.debug('System GUID service not available (connection refused)');
-          } else {
-            console.debug('Error fetching system GUID:', guidError.message);
-          }
+          console.debug('Error fetching system GUID:', guidError.message);
           // Continue without GUID - this is optional functionality
         }
 

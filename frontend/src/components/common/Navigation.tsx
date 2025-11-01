@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { Box, HStack, chakra, Text, Button } from '@chakra-ui/react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,9 +7,16 @@ const ChakraLink = chakra(RouterLink);
 
 const Navigation: React.FC = () => {
   const location = useLocation();
-  const { user, logout, canManageUsers } = useAuth();
+  const { user, logout, canManageUsers, isAuthenticated } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
+
+  // Verificar estado de caja cuando se monta el navigation (se ejecuta en todas las páginas)
+  useEffect(() => {
+    if (isAuthenticated && user && typeof window !== 'undefined' && (window as any).forceCheckCashSession) {
+      (window as any).forceCheckCashSession();
+    }
+  }, [isAuthenticated, user, location.pathname]); // También reacciona a cambios de ruta
 
   const handleLogout = () => {
     logout();
@@ -93,6 +100,20 @@ const Navigation: React.FC = () => {
               Configuración
             </ChakraLink>
           )}
+          <ChakraLink
+            to="/cerrar-caja"
+            color="gray.100"
+            px={4}
+            py={2}
+            rounded="md"
+            transition="all 0.2s"
+            bg={isActive('/cerrar-caja') ? 'brand.400' : 'transparent'}
+            _hover={{ bg: isActive('/cerrar-caja') ? 'brand.500' : 'dark.400' }}
+            fontWeight="medium"
+            textDecoration="none"
+          >
+            Cerrar Caja
+          </ChakraLink>
         </HStack>
         
         <HStack gap={4}>

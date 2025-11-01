@@ -418,6 +418,13 @@ export const cashSessionApi = {
   checkTodaySession: async (franchiseLocationId: string) => {
     const response = await api.get(`/cash-session/status/${franchiseLocationId}`);
     return response.data;
+  },
+  close: async (franchiseLocationId: string, closeData: any) => {
+    const response = await api.post('/cash-session/close', {
+      franchiseLocationId,
+      ...closeData
+    });
+    return response.data;
   }
 };
 
