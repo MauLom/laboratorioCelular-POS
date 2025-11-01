@@ -9,6 +9,7 @@ import {
 } from '@chakra-ui/react';
 import { cashSessionApi } from '../../services/api';
 import { CashSessionOpenRequest } from '../../types';
+import { useAlert } from '../../hooks/useAlert';
 
 interface CashOpenModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ const CashOpenModal: React.FC<CashOpenModalProps> = ({
   onSuccess
 }) => {
   const [loading, setLoading] = useState(false);
+  const { success, error: alertError } = useAlert();
   const [formData, setFormData] = useState({
     opening_cash_mxn: '',
     opening_cash_usd: '',
@@ -47,14 +49,14 @@ const CashOpenModal: React.FC<CashOpenModalProps> = ({
     e.preventDefault();
     
     if (!isValidFranchise) {
-      alert('No se puede abrir la caja sin una franquicia válida');
+      alertError('No se puede abrir la caja sin una franquicia válida');
       return;
     }
     
     const { opening_cash_mxn, opening_cash_usd, exchange_rate_usd_mxn } = formData;
     
     if (!opening_cash_mxn || !opening_cash_usd || !exchange_rate_usd_mxn) {
-      alert('Todos los campos son obligatorios');
+      alertError('Todos los campos son obligatorios');
       return;
     }
 
@@ -71,13 +73,13 @@ const CashOpenModal: React.FC<CashOpenModalProps> = ({
       console.log('💰 Opening cash session with data:', requestData);
       await cashSessionApi.open(requestData);
       console.log('✅ Cash session opened successfully');
-      alert('Caja abierta exitosamente');
+      success('Caja abierta exitosamente');
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error('💥 Error opening cash session:', error);
       console.error('💥 Error response:', error.response?.data);
-      alert(error.response?.data?.error || 'Error al abrir la caja');
+      alertError(error.response?.data?.error || 'Error al abrir la caja');
     } finally {
       setLoading(false);
     }
