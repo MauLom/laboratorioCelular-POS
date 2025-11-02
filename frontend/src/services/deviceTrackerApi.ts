@@ -102,7 +102,7 @@ export const deviceTrackerApi = {
   testPrinter: async (printerName: string): Promise<boolean> => {
     try {
       await makeRequest(`/api/printer/test?printerName=${encodeURIComponent(printerName)}`, {
-        method: 'GET'
+        method: 'POST'
       });
       return true;
     } catch (error) {
