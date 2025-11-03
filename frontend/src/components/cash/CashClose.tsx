@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Heading, Text, Button, Flex, Input, SimpleGrid } from '@chakra-ui/react';
 import Navigation from '../common/Navigation';
-import { franchiseLocationsApi, cashSessionApi } from '../../services/api';
+import { franchiseLocationsApi, cashSessionApi, salesApi } from '../../services/api';
 import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../hooks/useAlert';
@@ -26,6 +26,7 @@ const CashClose: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [closingCash, setClosingCash] = useState(false);
+  const [loadingSalesData, setLoadingSalesData] = useState(false);
   
   // Estados para los campos de cierre de caja
   const [corte, setCorte] = useState('');
@@ -33,6 +34,9 @@ const CashClose: React.FC = () => {
   const [tarjeta, setTarjeta] = useState('');
   const [dolar, setDolar] = useState('');
   const [salida, setSalida] = useState('');
+  
+  // Estado para el tipo de cambio
+  const [exchangeRate, setExchangeRate] = useState<number>(1);
 
   const getCurrentFranchise = async () => {
     try {
@@ -60,9 +64,127 @@ const CashClose: React.FC = () => {
     }
   };
 
+  // Función para calcular los montos del día
+  const loadTodaysSalesData = async () => {
+    if (!franchiseId) return;
+
+    try {
+      setLoadingSalesData(true);
+      
+      // Obtener la sesión de caja del día para el tipo de cambio
+      const sessionStatus = await cashSessionApi.checkTodaySession(franchiseId);
+      let currentExchangeRate = 1;
+      
+      if (sessionStatus.hasSession && sessionStatus.session?.exchange_rate_usd_mxn) {
+        currentExchangeRate = sessionStatus.session.exchange_rate_usd_mxn;
+        setExchangeRate(currentExchangeRate);
+      }
+
+      // Obtener ventas del día
+      const allSales = await salesApi.getTodaysByFranchise(franchiseId);
+
+      // Filtrar ventas del día actual en el cliente como respaldo
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+      
+      const todaysSales = allSales.filter(sale => {
+        if (!sale.createdAt) {
+          console.log('❌ Venta sin createdAt:', sale.folio);
+          return false;
+        }
+        
+        const saleDate = new Date(sale.createdAt);
+        
+        // Comparar solo las fechas (año, mes, día) sin considerar la hora
+        const saleDateOnly = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate());
+        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        // También considerar las últimas 24 horas para manejar diferencias de zona horaria
+        const last24Hours = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        const next24Hours = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+        
+        const isToday = saleDateOnly.getTime() === todayOnly.getTime();
+        const isWithin24Hours = saleDate >= last24Hours && saleDate <= next24Hours;
+        
+        // Aceptar si es del día actual O si está dentro de las últimas/próximas 24 horas
+        const shouldInclude = isToday || isWithin24Hours;
+        return shouldInclude;
+      });
+            
+      // Calcular montos por tipo de pago
+      let totalCard = 0;
+      let totalUSD = 0;
+      let totalCash = 0;
+      let totalAmount = 0;
+
+      todaysSales.forEach((sale, index) => {
+        
+        if (sale.paymentMethods && Array.isArray(sale.paymentMethods)) {
+          sale.paymentMethods.forEach(payment => {
+            const amount = payment.amount || 0;
+            console.log(`💰 Método de pago: ${payment.type} - $${amount}`);
+            
+            switch (payment.type?.toLowerCase()) {
+              case 'tarjeta':
+              case 'card':
+                totalCard += amount;
+                break;
+              case 'dolar':
+              case 'usd':
+              case 'dollar':
+                totalUSD += amount;
+                // Para el corte total, convertir dólares a pesos
+                totalAmount += amount * currentExchangeRate;
+                break;
+              case 'efectivo':
+              case 'cash':
+                totalCash += amount;
+                break;
+              default:
+                // Si no se especifica tipo, asumir que es efectivo
+                totalCash += amount;
+                console.log(`⚠️ Tipo de pago no reconocido: ${payment.type}, asignado a efectivo`);
+                break;
+            }
+          });
+        } else {
+          // Si no hay paymentMethods, usar el amount total como efectivo
+          const amount = sale.amount || 0;
+          totalCash += amount;
+        }
+        
+        // Sumar al total general (excepto USD que ya se convirtió arriba)
+        if (!sale.paymentMethods || !sale.paymentMethods.some(p => 
+          ['dolar', 'usd', 'dollar'].includes(p.type?.toLowerCase() || ''))) {
+          totalAmount += sale.amount || 0;
+        }
+      });
+
+      // Establecer valores calculados
+      setCorte(totalAmount.toFixed(2));
+      setFeria(totalCash.toFixed(2));
+      setTarjeta(totalCard.toFixed(2));
+      setDolar(totalUSD.toFixed(2));
+
+    } catch (error: any) {
+      console.error('Error cargando datos de ventas del día:', error);
+      alertError('Error al cargar los datos de ventas del día');
+    } finally {
+      setLoadingSalesData(false);
+    }
+  };
+
   useEffect(() => {
     getCurrentFranchise();
   }, []);
+
+  // Cargar datos de ventas cuando se obtenga el ID de la franquicia
+  useEffect(() => {
+    if (franchiseId) {
+      loadTodaysSalesData();
+    }
+  }, [franchiseId]);
 
   // Función para validar números con hasta 2 decimales
   const handleNumericInput = (value: string, setter: (value: string) => void) => {
@@ -171,53 +293,99 @@ const CashClose: React.FC = () => {
                     </Box>
                 </Flex>
                 
-                {/* Inputs para cierre de caja */}
-                <SimpleGrid columns={2} mt={6} gap={4}>
-                  <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={2} color="gray.700">
-                      Corte:
+                {/* Header con botón de actualizar */}
+                <Flex justify="space-between" align="center" mt={6} mb={4}>
+                  <Button 
+                    size="sm" 
+                    colorScheme="blue" 
+                    variant="outline"
+                    onClick={loadTodaysSalesData}
+                    disabled={loadingSalesData || !franchiseId}
+                    loading={loadingSalesData}
+                  >
+                    {loadingSalesData ? 'Actualizando...' : '🔄 Actualizar Datos'}
+                  </Button>
+                </Flex>
+                
+                {loadingSalesData && (
+                  <Box textAlign="center" py={4}>
+                    <Text color="blue.500" fontSize="sm">
+                      Calculando montos del día...
                     </Text>
+                  </Box>
+                )}
+
+                {exchangeRate !== 1 && (
+                  <Box bg="blue.50" p={3} rounded="md" border="1px" borderColor="blue.200" mb={4}>
+                    <Text fontSize="sm" color="blue.700">
+                      Tipo de cambio USD → MXN: <strong>${exchangeRate.toFixed(2)}</strong>
+                    </Text>
+                  </Box>
+                )}
+                
+                {/* Inputs para cierre de caja */}
+                <SimpleGrid columns={2} gap={4}>
+                  <Box>
+                    <Flex justify="space-between" align="center" mb={2}>
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        Corte Total (MXN):
+                      </Text>
+                    </Flex>
                     <Input
                       type="text"
                       placeholder="0.00"
                       value={corte}
                       onChange={(e) => handleNumericInput(e.target.value, setCorte)}
+                      bg={corte ? "green.50" : "white"}
+                      borderColor={corte ? "green.200" : "gray.200"}
                     />
                   </Box>
                   
                   <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={2} color="gray.700">
-                      Feria:
-                    </Text>
+                    <Flex justify="space-between" align="center" mb={2}>
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        Efectivo (MXN):
+                      </Text>
+                    </Flex>
                     <Input
                       type="text"
                       placeholder="0.00"
                       value={feria}
                       onChange={(e) => handleNumericInput(e.target.value, setFeria)}
+                      bg={feria ? "green.50" : "white"}
+                      borderColor={feria ? "green.200" : "gray.200"}
                     />
                   </Box>
                   
                   <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={2} color="gray.700">
-                      Tarjeta:
-                    </Text>
+                    <Flex justify="space-between" align="center" mb={2}>
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        Tarjeta (MXN):
+                      </Text>
+                    </Flex>
                     <Input
                       type="text"
                       placeholder="0.00"
                       value={tarjeta}
                       onChange={(e) => handleNumericInput(e.target.value, setTarjeta)}
+                      bg={tarjeta ? "green.50" : "white"}
+                      borderColor={tarjeta ? "green.200" : "gray.200"}
                     />
                   </Box>
                   
                   <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={2} color="gray.700">
-                      Dólar:
-                    </Text>
+                    <Flex justify="space-between" align="center" mb={2}>
+                      <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                        Dólar (USD):
+                      </Text>
+                    </Flex>
                     <Input
                       type="text"
                       placeholder="0.00"
                       value={dolar}
                       onChange={(e) => handleNumericInput(e.target.value, setDolar)}
+                      bg={dolar ? "green.50" : "white"}
+                      borderColor={dolar ? "green.200" : "gray.200"}
                     />
                   </Box>
                   

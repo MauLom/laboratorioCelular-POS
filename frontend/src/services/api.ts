@@ -170,6 +170,39 @@ export const salesApi = {
     });
     return response.data;
   },
+
+  // Get today's sales for a specific franchise location
+  getTodaysByFranchise: async (franchiseLocationId: string): Promise<Sale[]> => {
+    const today = new Date();
+    const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).toISOString();
+    const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
+    
+    // Primero intentar con filtro de fechas
+    let response = await api.get('/sales', {
+      params: {
+        franchiseLocation: franchiseLocationId,
+        startDate,
+        endDate,
+        limit: 1000 // Obtener todas las ventas del día
+      }
+    });
+    
+    // El backend devuelve { sales: [...] } según el ejemplo proporcionado
+    let sales = response.data.sales || response.data.items || [];
+    
+    // Si no hay ventas con filtro de fechas, intentar obtener todas las ventas de la franquicia
+    if (sales.length === 0) {
+      response = await api.get('/sales', {
+        params: {
+          franchiseLocation: franchiseLocationId,
+          limit: 1000
+        }
+      });
+      sales = response.data.sales || response.data.items || [];
+    }
+
+    return sales;
+  },
 };
 
 // Health check

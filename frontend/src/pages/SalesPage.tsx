@@ -94,6 +94,16 @@ const SalesPage: React.FC = () => {
   const [pendingSale, setPendingSale] = useState<Sale | null>(null);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
 
+  // Helper function to safely extract printer name
+  const extractPrinterName = (printer: any, fallback: string = 'Impresora desconocida'): string => {
+    if (typeof printer.name === 'string') {
+      return printer.name;
+    } else if (printer.name && typeof printer.name === 'object' && typeof printer.name.name === 'string') {
+      return printer.name.name;
+    }
+    return fallback;
+  };
+
   // Ticket modal states
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketData, setTicketData] = useState<any>(null);
@@ -187,6 +197,7 @@ const SalesPage: React.FC = () => {
   // Load default printer from localStorage
   useEffect(() => {
     const savedPrinter = localStorage.getItem('defaultPrinter');
+    console.log(savedPrinter);  
     if (savedPrinter) {
       setDefaultPrinter(savedPrinter);
     }
@@ -197,12 +208,22 @@ const SalesPage: React.FC = () => {
     setLoadingPrinters(true);
     try {
       const printers = await deviceTrackerApi.getPrinterList();
-      const printersArray = printers.map(name => ({ name, isDefault: false }));
+      
+      // La API ya devuelve objetos {name, isDefault}, no strings
+      let printersArray: Printer[];
+      if (Array.isArray(printers) && printers.length > 0 && typeof printers[0] === 'object') {
+        // API devuelve objetos - usar directamente
+        printersArray = printers as unknown as Printer[];
+      } else {
+        // API devuelve strings - convertir a objetos
+        printersArray = (printers as string[]).map(name => ({ name, isDefault: false }));
+      }
+      
       setAvailablePrinters(printersArray);
 
       // Si hay una impresora guardada como default, mantenerla
-      if (printers.length > 0 && !defaultPrinter) {
-        setDefaultPrinter(printers[0]);
+      if (printersArray.length > 0 && !defaultPrinter) {
+        setDefaultPrinter(extractPrinterName(printersArray[0])); // Extraer nombre seguro
       }
       
       return printersArray;
@@ -415,7 +436,8 @@ const SalesPage: React.FC = () => {
 
     // Si solo hay una impresora, úsala directamente
     if (printers.length === 1) {
-      const printerName = printers[0].name;
+      // Extraer nombre seguro del primer printer usando helper
+      const printerName = extractPrinterName(printers[0]);
       saveDefaultPrinter(printerName);
       await printTicket(sale, printerName);
       return;
@@ -908,7 +930,8 @@ const SalesPage: React.FC = () => {
                   ) : (
                     <VStack gap={3} align="stretch">
                       {availablePrinters.map((printer, index) => {
-                        const printerName = printer.name;
+                        // Extraer nombre seguro usando helper
+                        const printerName = extractPrinterName(printer);
                         return (
                           <Box
                             key={index}
