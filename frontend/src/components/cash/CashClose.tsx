@@ -8,7 +8,7 @@ import { useAlert } from '../../hooks/useAlert';
 import styled from 'styled-components';
 
 const Page = styled.div`
-  min-height: 100vh;
+  min-height: 98vh;
   background: #f8f9fa;
 `;
 
