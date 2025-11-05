@@ -4,25 +4,23 @@ import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationManager from './components/ui/NotificationManager';
-import CashSessionProvider from './components/cash/CashSessionProvider';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import SalesPage from './pages/SalesPage';
 import UserManagement from './pages/UserManagement';
 import ConfigurationPage from './pages/Configuration';
-import CashClose from './components/cash/CashClose';
+import ExpensesPage from './pages/ExpensesPage';
 import './App.css';
 
 function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <CashSessionProvider>
-          <Router>
-            <div className="App">
-              <NotificationManager />
-              <Routes>
+        <Router>
+          <div className="App">
+            <NotificationManager />
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route 
               path="/" 
@@ -48,6 +46,14 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            <Route
+              path="/expenses"
+              element={
+                <ProtectedRoute>
+                 <ExpensesPage />
+                </ProtectedRoute> 
+              }
+             /> 
             <Route 
               path="/users" 
               element={
@@ -64,19 +70,10 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            <Route 
-              path="/cerrar-caja" 
-              element={
-                <ProtectedRoute>
-                  <CashClose />
-                </ProtectedRoute>
-              } 
-            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </Router>
-        </CashSessionProvider>
       </NotificationProvider>
     </AuthProvider>
   );

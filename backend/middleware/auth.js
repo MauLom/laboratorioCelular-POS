@@ -94,7 +94,6 @@ const applyFranchiseFilter = (req, res, next) => {
 
   // Supervisor de sucursales can see all branch data
   if (req.user.role === 'Supervisor de sucursales') {
-    // This middleware will be applied at the route level
     req.franchiseFilter = { type: 'Sucursal' };
     return next();
   }
@@ -114,10 +113,69 @@ const applyFranchiseFilter = (req, res, next) => {
   return res.status(403).json({ error: 'Access denied. No franchise location assigned.' });
 };
 
+// Middleware mejorado: aplica filtros según rol, fecha y sucursal o usuario creador
+const applyRoleDataFilter = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  const role = req.user.role;
+  const user = req.user;
+
+  // Master admin o Administradores pueden ver todo
+  if (['Master admin', 'Administrador', 'Admin'].includes(role)) {
+    req.roleFilter = {}; // sin restricciones
+    return next();
+  }
+
+  // Cajeros y vendedores: solo lo de hoy y su sucursal o creador
+  if (['Cajero', 'Vendedor'].includes(role)) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const filter = {
+      createdAt: { $gte: today, $lt: tomorrow }
+    };
+
+    if (user.franchiseLocation) {
+      filter.franchiseLocation = user.franchiseLocation._id;
+    } else {
+      filter.createdBy = user._id;
+    }
+
+    req.roleFilter = filter;
+    return next();
+  }
+
+  // Supervisores de oficina o sucursales: ver todo su tipo
+  if (role === 'Supervisor de oficina') {
+    req.roleFilter = { type: 'Oficina' };
+    return next();
+  }
+
+  if (role === 'Supervisor de sucursales') {
+    req.roleFilter = { type: 'Sucursal' };
+    return next();
+  }
+
+  // Usuarios con sucursal asignada pero sin rol especial: solo su sucursal
+  if (user.franchiseLocation) {
+    req.roleFilter = { franchiseLocation: user.franchiseLocation._id };
+    return next();
+  }
+
+  // Usuarios sin sucursal: solo sus propios datos
+  req.roleFilter = { createdBy: user._id };
+  next();
+};
+
 module.exports = {
   authenticate,
   authorize,
   requireMasterAdmin,
   canManageLocation,
-  applyFranchiseFilter
+  applyFranchiseFilter,
+  applyRoleDataFilter
 };

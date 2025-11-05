@@ -8,8 +8,7 @@ import {
   LoginResponse,
   UserPaginatedResponse,
   FranchiseLocation,
-  LocationPaginatedResponse,
-  CashSessionOpenRequest
+  LocationPaginatedResponse
 } from '../types';
 
 // Environment validation
@@ -38,7 +37,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -55,8 +54,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -169,39 +168,6 @@ export const salesApi = {
       responseType: 'blob' 
     });
     return response.data;
-  },
-
-  // Get today's sales for a specific franchise location
-  getTodaysByFranchise: async (franchiseLocationId: string): Promise<Sale[]> => {
-    const today = new Date();
-    const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).toISOString();
-    const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
-    
-    // Primero intentar con filtro de fechas
-    let response = await api.get('/sales', {
-      params: {
-        franchiseLocation: franchiseLocationId,
-        startDate,
-        endDate,
-        limit: 1000 // Obtener todas las ventas del día
-      }
-    });
-    
-    // El backend devuelve { sales: [...] } según el ejemplo proporcionado
-    let sales = response.data.sales || response.data.items || [];
-    
-    // Si no hay ventas con filtro de fechas, intentar obtener todas las ventas de la franquicia
-    if (sales.length === 0) {
-      response = await api.get('/sales', {
-        params: {
-          franchiseLocation: franchiseLocationId,
-          limit: 1000
-        }
-      });
-      sales = response.data.sales || response.data.items || [];
-    }
-
-    return sales;
   },
 };
 
@@ -439,24 +405,6 @@ export const catalogsApi = {
   },
   createCharacteristicValue: async (characteristicId: string, payload: { brandId: string; value: string; displayName: string; hexColor?: string }) => {
     const response = await api.post(`/characteristics/${characteristicId}/values`, payload);
-    return response.data;
-  }
-};
-
-export const cashSessionApi = {
-  open: async (data: CashSessionOpenRequest) => {
-    const response = await api.post('/cash-session/open', data);
-    return response.data;
-  },
-  checkTodaySession: async (franchiseLocationId: string) => {
-    const response = await api.get(`/cash-session/status/${franchiseLocationId}`);
-    return response.data;
-  },
-  close: async (franchiseLocationId: string, closeData: any) => {
-    const response = await api.post('/cash-session/close', {
-      franchiseLocationId,
-      ...closeData
-    });
     return response.data;
   }
 };
