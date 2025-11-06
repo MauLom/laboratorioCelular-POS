@@ -1,18 +1,17 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const FranchiseLocation = require('../models/FranchiseLocation');
 
-// Middleware to verify JWT token
 const authenticate = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
     if (!token) {
       return res.status(401).json({ error: 'No token provided. Access denied.' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId).populate('franchiseLocation');
-    
+
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'Invalid token or inactive user.' });
     }
@@ -25,22 +24,20 @@ const authenticate = async (req, res, next) => {
     } else if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expired.' });
     }
+    console.error('Auth error:', error);
     res.status(500).json({ error: 'Server error during authentication.' });
   }
 };
 
-// Middleware to check if user has required role
 const authorize = (allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required.' });
-    }
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Access denied. Insufficient permissions.',
         required: allowedRoles,
-        current: req.user.role
+        current: req.user.role,
       });
     }
 
@@ -48,126 +45,108 @@ const authorize = (allowedRoles) => {
   };
 };
 
-// Middleware to check if user is Master admin
 const requireMasterAdmin = authorize(['Master admin']);
 
-// Middleware to check if user can manage users in their franchise location
 const canManageLocation = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required.' });
-  }
+  if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
 
-  // Master admin can manage all locations
-  if (req.user.role === 'Master admin') {
+  const role = req.user.role;
+
+  if (['Master admin', 'Supervisor de sucursales', 'Supervisor de oficina'].includes(role)) {
     return next();
   }
 
-  // Supervisor de sucursales can manage all branch locations
-  if (req.user.role === 'Supervisor de sucursales') {
-    return next();
-  }
-
-  // Supervisor de oficina can manage all office locations
-  if (req.user.role === 'Supervisor de oficina') {
-    return next();
-  }
-
-  // Other roles can only manage their own location
   const targetLocationId = req.params.locationId || req.body.franchiseLocation;
-  if (req.user.franchiseLocation && req.user.franchiseLocation._id.toString() === targetLocationId) {
+  if (
+    req.user.franchiseLocation &&
+    req.user.franchiseLocation._id.toString() === targetLocationId
+  ) {
     return next();
   }
 
   return res.status(403).json({ error: 'Access denied. Cannot manage this location.' });
 };
 
-// Middleware to filter data by franchise location
-const applyFranchiseFilter = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required.' });
-  }
+const applyFranchiseFilter = async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
 
-  // Master admin can see all data
-  if (req.user.role === 'Master admin') {
-    return next();
-  }
+    const role = req.user.role;
 
-  // Supervisor de sucursales can see all branch data
-  if (req.user.role === 'Supervisor de sucursales') {
-    req.franchiseFilter = { type: 'Sucursal' };
-    return next();
-  }
-
-  // Supervisor de oficina can see all office data
-  if (req.user.role === 'Supervisor de oficina') {
-    req.franchiseFilter = { type: 'Oficina' };
-    return next();
-  }
-
-  // Other roles can only see their specific location data
-  if (req.user.franchiseLocation) {
-    req.franchiseFilter = { _id: req.user.franchiseLocation._id };
-    return next();
-  }
-
-  return res.status(403).json({ error: 'Access denied. No franchise location assigned.' });
-};
-
-// Middleware mejorado: aplica filtros según rol, fecha y sucursal o usuario creador
-const applyRoleDataFilter = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required.' });
-  }
-
-  const role = req.user.role;
-  const user = req.user;
-
-  // Master admin o Administradores pueden ver todo
-  if (['Master admin', 'Administrador', 'Admin'].includes(role)) {
-    req.roleFilter = {}; // sin restricciones
-    return next();
-  }
-
-  // Cajeros y vendedores: solo lo de hoy y su sucursal o creador
-  if (['Cajero', 'Vendedor'].includes(role)) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    const filter = {
-      createdAt: { $gte: today, $lt: tomorrow }
-    };
-
-    if (user.franchiseLocation) {
-      filter.franchiseLocation = user.franchiseLocation._id;
-    } else {
-      filter.createdBy = user._id;
+    // Master admin ve todo
+    if (role === 'Master admin' || role === 'Administrador general') {
+      return next();
     }
 
-    req.roleFilter = filter;
+    // Supervisores de sucursales
+    if (role === 'Supervisor de sucursales') {
+      const locs = await FranchiseLocation.find({ type: 'Sucursal', isActive: true }).select('_id');
+      req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
+      return next();
+    }
+
+    // Supervisores de oficina
+    if (role === 'Supervisor de oficina') {
+      const locs = await FranchiseLocation.find({ type: 'Oficina', isActive: true }).select('_id');
+      req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
+      return next();
+    }
+
+    // Vendedor o Cajero → solo su sucursal y solo los gastos del día
+    if (['Vendedor', 'Cajero'].includes(role)) {
+      if (!req.user.franchiseLocation?._id) {
+        return res.status(403).json({ error: 'Sin sucursal asignada.' });
+      }
+
+      const now = new Date();
+      const tzOffset = now.getTimezoneOffset() * 60000;
+      const localNow = new Date(now - tzOffset);
+
+      const startOfDay = new Date(localNow);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(localNow);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+
+      req.franchiseFilter = {
+        franchiseLocation: req.user.franchiseLocation._id,
+        date: { $gte: startOfDay, $lte: endOfDay },
+      };
+      return next();
+    }
+
+    // Por defecto, si tiene sucursal asignada
+    if (req.user.franchiseLocation?._id) {
+      req.franchiseFilter = { franchiseLocation: req.user.franchiseLocation._id };
+      return next();
+    }
+
+    next();
+  } catch (err) {
+    console.error('applyFranchiseFilter error:', err);
+    res.status(500).json({ error: 'Internal server error (applyFranchiseFilter).' });
+  }
+};
+
+const applyRoleDataFilter = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+
+  const { role, _id } = req.user;
+
+  // Admins ven todo
+  if (['Master admin', 'Administrador', 'Admin', 'Administrador general'].includes(role)) {
+    req.roleFilter = {};
     return next();
   }
 
-  // Supervisores de oficina o sucursales: ver todo su tipo
-  if (role === 'Supervisor de oficina') {
-    req.roleFilter = { type: 'Oficina' };
+  // Cajeros/Vendedores: solo sus propios registros (además del filtro por fecha y sucursal)
+  if (['Cajero', 'Vendedor'].includes(role)) {
+    req.roleFilter = { createdBy: _id };
     return next();
   }
 
-  if (role === 'Supervisor de sucursales') {
-    req.roleFilter = { type: 'Sucursal' };
-    return next();
-  }
-
-  // Usuarios con sucursal asignada pero sin rol especial: solo su sucursal
-  if (user.franchiseLocation) {
-    req.roleFilter = { franchiseLocation: user.franchiseLocation._id };
-    return next();
-  }
-
-  // Usuarios sin sucursal: solo sus propios datos
-  req.roleFilter = { createdBy: user._id };
+  // Supervisores → sin filtro por usuario, ya se filtra por sucursal en applyFranchiseFilter
+  req.roleFilter = {};
   next();
 };
 
@@ -177,5 +156,5 @@ module.exports = {
   requireMasterAdmin,
   canManageLocation,
   applyFranchiseFilter,
-  applyRoleDataFilter
+  applyRoleDataFilter,
 };

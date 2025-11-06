@@ -32,9 +32,7 @@ export default function ExpensesPage() {
     'Usuario Actual';
 
   const today = new Date();
-  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10);
+  const localDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
 
   const emptyExpense: Expense = {
     reason: '',
@@ -196,9 +194,26 @@ export default function ExpensesPage() {
               <Input
                 type="date"
                 value={form.date}
-                readOnly
-                bg="#f0f0f0"
-                cursor="not-allowed"
+                onChange={(e) => handleChange('date', e.target.value)}
+                readOnly={
+                  !['Master admin', 'Administrador', 'Admin'].includes(
+                    localStorage.getItem('userRole') || localStorage.getItem('role') || ''
+                  )
+                }
+                bg={
+                  ['Master admin', 'Administrador', 'Admin'].includes(
+                    localStorage.getItem('userRole') || localStorage.getItem('role') || ''
+                  )
+                    ? 'white'
+                    : '#f0f0f0'
+                }
+                cursor={
+                  ['Master admin', 'Administrador', 'Admin'].includes(
+                    localStorage.getItem('userRole') || localStorage.getItem('role') || ''
+                  )
+                    ? 'text'
+                    : 'not-allowed'
+                }
               />
             </Flex>
 
@@ -323,7 +338,10 @@ export default function ExpensesPage() {
                       borderBottom="1px solid #ddd"
                     >
                       <Box as="td" p="8px">
-                        {new Date(e.date).toLocaleDateString()}
+                        {(() => {
+                          const parts = e.date.split('T')[0].split('-');
+                          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        })()}
                       </Box>
                       <Box as="td" p="8px">
                         {e.reason}
@@ -339,23 +357,33 @@ export default function ExpensesPage() {
                       </Box>
                       <Box as="td" p="8px" textAlign="center">
                         <Flex justify="center">
-                          <Button
-                            size="sm"
-                            colorScheme="yellow"
-                            onClick={() => handleEdit(e)}
-                            mr="6px"
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            colorScheme="red"
-                            onClick={() => handleDelete(e._id)}
-                          >
-                            Eliminar
-                          </Button>
-                        </Flex>
-                      </Box>
+                          {['Master admin', 'Administrador', 'Admin', 'Supervisor de sucursales', 'Supervisor de oficina'].includes(
+                            localStorage.getItem('userRole') || localStorage.getItem('role') || ''
+                          ) ? (
+                            <>
+                             <Button
+                              size="sm"
+                              colorScheme="yellow"
+                              onClick={() => handleEdit(e)}
+                              mr="6px"
+                             >
+                              Editar
+                             </Button>
+                             <Button
+                               size="sm"
+                               colorScheme="red"
+                               onClick={() => handleDelete(e._id)}
+                              >
+                                Eliminar
+                              </Button>
+                             </>
+                          ) : (
+                            <Text color="gray.400" fontSize="sm">
+                              —
+                            </Text>
+                          )}
+                         </Flex>
+                        </Box>  
                     </Box>
                   ))
                 ) : (

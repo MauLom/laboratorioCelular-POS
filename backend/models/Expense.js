@@ -18,9 +18,24 @@ const ExpenseSchema = new mongoose.Schema(
       required: [true, 'El usuario es obligatorio'],
       trim: true
     },
+    // Campo que guarda el ObjectId del usuario
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true
+    },
+    // Campo que guarda la sucursal/franquicia donde se registró el gasto
+    franchiseLocation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'FranchiseLocation',
+      required: false,
+      index: true
+    },
     date: {
       type: Date,
-      required: [true, 'La fecha es obligatoria']
+      required: [true, 'La fecha es obligatoria'],
+      index: true
     },
     notes: {
       type: String,
@@ -33,5 +48,7 @@ const ExpenseSchema = new mongoose.Schema(
 
 ExpenseSchema.index({ date: -1 });
 ExpenseSchema.index({ user: 1, date: -1 });
+ExpenseSchema.index({ franchiseLocation: 1, date: -1 });
+ExpenseSchema.index({ createdBy: 1, date: -1 });
 
 module.exports = mongoose.model('Expense', ExpenseSchema);

@@ -4,7 +4,6 @@ const FranchiseLocation = require('../models/FranchiseLocation');
 // Helper: obtener sucursales accesibles según el rol del usuario
 const getAccessibleLocations = async (user) => {
   if (['Master admin', 'Administrador', 'Admin'].includes(user.role)) {
-    // Puede acceder a todas las sucursales
     return await FranchiseLocation.find({ isActive: true });
   }
   if (user.role === 'Supervisor de sucursales') {
@@ -19,48 +18,34 @@ const getAccessibleLocations = async (user) => {
   return [];
 };
 
-// LISTAR GASTOS (con filtros por rol, sucursal, búsqueda y fecha)
 exports.list = async (req, res) => {
   try {
     const { q, from, to, user } = req.query;
 
-    // Base del filtro (rol del usuario)
-    const query = req.roleFilter ? { ...req.roleFilter } : {};
+    // Base del filtro (rol y sucursal)
+    const query = { ...(req.roleFilter || {}), ...(req.franchiseFilter || {}) };
 
-    // Combinar con filtro de sucursal si existe
-    if (req.franchiseFilter) {
-      Object.assign(query, req.franchiseFilter);
-    }
-
+    // Evitar sobreescribir el filtro de fecha del middleware
     const userRole = req.user.role;
 
-    // Master admin / Administrador / Admin: ver todos
-    if (['Master admin', 'Administrador', 'Admin'].includes(userRole)) {
-      // sin restricciones
-    } 
-    // Cajero o Vendedor: filtrado por middleware
-    else if (['Cajero', 'Vendedor'].includes(userRole)) {
-      // ya filtrado por fecha y sucursal en applyRoleDataFilter
-    } 
-    // Supervisores o con sucursal asignada: mantener sus filtros
-    else {
-      // filtros adicionales de búsqueda
-      if (q) {
-        query.$or = [
-          { reason: new RegExp(q, 'i') },
-          { notes: new RegExp(q, 'i') },
-          { user: new RegExp(q, 'i') },
-        ];
-      }
-
+    // Solo los roles superiores pueden aplicar rango de fechas libremente
+    if (['Master admin', 'Administrador', 'Admin', 'Supervisor de oficina', 'Supervisor de sucursales'].includes(userRole)) {
       if (from || to) {
         query.date = {};
         if (from) query.date.$gte = new Date(from);
         if (to) query.date.$lte = new Date(to);
       }
-
-      if (user) query.user = new RegExp(user, 'i');
     }
+
+    // Filtros de texto o usuario
+    if (q) {
+      query.$or = [
+        { reason: new RegExp(q, 'i') },
+        { notes: new RegExp(q, 'i') },
+        { user: new RegExp(q, 'i') },
+      ];
+    }
+    if (user) query.user = new RegExp(user, 'i');
 
     const expenses = await Expense.find(query)
       .sort({ date: -1 })
@@ -74,12 +59,10 @@ exports.list = async (req, res) => {
   }
 };
 
-// OBTENER GASTO POR ID
 exports.getOne = async (req, res) => {
   try {
     const query = { _id: req.params.id };
 
-    // Solo filtrar acceso si no es Master/Admin
     if (!['Master admin', 'Administrador', 'Admin'].includes(req.user.role)) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const ids = accessibleLocations.map(loc => loc._id);
@@ -100,7 +83,6 @@ exports.getOne = async (req, res) => {
   }
 };
 
-// CREAR GASTO
 exports.create = async (req, res) => {
   try {
     const data = { ...req.body };
@@ -113,8 +95,23 @@ exports.create = async (req, res) => {
       data.franchiseLocation = req.user.franchiseLocation._id;
     }
 
+    // Registrar autor y fecha actual si no se especifica
     data.createdBy = req.user._id;
     data.user = req.user.username || 'Usuario';
+    if (!data.date) {
+      const now = new Date();
+      const localNow = new Date(
+        now.toLocaleString('en-US', { timeZone: 'America/Monterrey' })
+      );
+      
+      const year = localNow.getFullYear();
+      const month = String(localNow.getMonth() + 1).padStart(2, '0');
+      const day = String(localNow.getDate()).padStart(2, '0');
+
+      data.date = new Date(`${year}-${month}-${day}T00:00:00`);
+    }  
+
+    console.log('🕒 Fecha guardada local (sin UTC):', data.date);
 
     const expense = new Expense(data);
     await expense.save();
@@ -126,12 +123,10 @@ exports.create = async (req, res) => {
   }
 };
 
-// ACTUALIZAR GASTO
 exports.update = async (req, res) => {
   try {
     const query = { _id: req.params.id };
 
-    // Solo restringir a roles no administrativos
     if (!['Master admin', 'Administrador', 'Admin'].includes(req.user.role)) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const ids = accessibleLocations.map(loc => loc._id);
@@ -149,7 +144,6 @@ exports.update = async (req, res) => {
   }
 };
 
-// ELIMINAR GASTO
 exports.remove = async (req, res) => {
   try {
     if (!['Master admin', 'Administrador', 'Admin'].includes(req.user.role)) {
