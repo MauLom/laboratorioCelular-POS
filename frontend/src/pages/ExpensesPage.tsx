@@ -156,7 +156,7 @@ export default function ExpensesPage() {
   );
 
   return (
-    <Layout title="Gastos">
+    <Layout>
       {/* Formulario de registro */}
       <Box bg="white" p="20px" borderRadius="8px" boxShadow="md">
         <Heading as="h2" size="md" mb="4">

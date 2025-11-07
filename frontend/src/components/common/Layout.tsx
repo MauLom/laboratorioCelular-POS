@@ -11,15 +11,8 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, title = "Laboratorio Celular POS", hideNav = false }) => {
   return (
     <Box minH="100vh" bg="gray.50">
-      {/* ✅ Barra superior de navegación */}
+      {/* Barra superior de navegación */}
       {!hideNav && <Navigation />}
-
-      {/* Encabezado con título */}
-      <Box bg="dark.400" color="white" py={4} px={8} shadow="md">
-        <Heading size="lg" fontWeight="semibold" m={0}>
-          {title}
-        </Heading>
-      </Box>
 
       {/* Contenido principal */}
       <Container maxW="1200px" py={8}>
