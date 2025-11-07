@@ -38,7 +38,6 @@ const salesConfigurations = [
       { value: 'lespago', label: 'Lespago' },
       { value: 'repair', label: 'Reparacion' },
       { value: 'accesory', label: 'Accesorios' },
-      { value: 'cash', label: 'Efectivo' },
       { value: 'other', label: 'Otros' },
       // { value: 'financing_12', label: 'Financiamiento 12 meses' },
       // { value: 'financing_18', label: 'Financiamiento 18 meses' },

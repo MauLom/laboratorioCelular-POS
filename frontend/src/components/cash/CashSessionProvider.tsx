@@ -22,6 +22,22 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   
+  // Función para determinar si el usuario necesita sesión de caja
+  const userNeedsCashSession = (): boolean => {
+    if (!user) return false;
+    
+    // Roles administrativos que NO necesitan abrir caja
+    // Estos roles pueden acceder al sistema sin necesidad de manejar efectivo
+    const administrativeRoles = [
+      'Supervisor de sucursales',  // Maneja múltiples sucursales, no maneja caja directamente
+      'Supervisor de oficina',     // Rol administrativo/gerencial
+      'Master admin'               // Administrador general del sistema
+    ];
+    
+    // Si el usuario tiene un rol administrativo, no necesita abrir caja
+    return !administrativeRoles.includes(user.role);
+  };
+  
   const getCurrentFranchise = async () => {
     try {
       
@@ -67,6 +83,14 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       return;
     }
     
+    // Si el usuario no necesita sesión de caja, no mostrar el modal
+    if (!userNeedsCashSession()) {
+      console.log(`Usuario con rol administrativo '${user.role}' - omitiendo verificación de caja`);
+      setShowCashModal(false);
+      setActiveCashSession(null);
+      return;
+    }
+    
     setIsCheckingSession(true);
     setLoading(true);
     
@@ -99,8 +123,8 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       }
     } catch (error) {
       console.error('Error in checkCashSession:', error);
-      // Si hay error, mostrar modal por seguridad
-      setShowCashModal(true);
+      // Solo mostrar modal si el usuario necesita sesión de caja
+      setShowCashModal(userNeedsCashSession());
       setActiveCashSession(null);
     } finally {
       setLoading(false);
@@ -167,6 +191,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   return (
     <>
       {children}
+
       <CashOpenModal
         isOpen={showCashModal}
         onClose={handleCashModalClose}
