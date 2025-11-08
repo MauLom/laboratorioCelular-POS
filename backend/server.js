@@ -68,6 +68,7 @@ app.use('/api/sales', require('./routes/sales'));
 app.use('/api/configurations', require('./routes/configurations'));
 app.use('/api/brands', require('./routes/brands'));
 app.use('/api/characteristics', require('./routes/characteristics'));
+app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash-session', require('./routes/cashSessions'));
 
 // Health check

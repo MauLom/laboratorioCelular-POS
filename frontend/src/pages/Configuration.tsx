@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import Navigation from '../components/common/Navigation';
-import { franchiseLocationsApi, catalogsApi, configurationsApi } from '../services/api';
-import { deviceTrackerApi } from '../services/deviceTrackerApi';
-import { FranchiseLocation } from '../types';
+import { catalogsApi } from '../services/api';
 import FranchiseManager from '../components/configuration/FranchiseManager';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -100,32 +98,11 @@ const Small = styled.div`
   color: #7f8c8d;
 `;
 
-const ErrorMessage = styled.div`
-  background: #ffe6e6;
-  color: #e74c3c;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  border: 1px solid #ffcdd2;
-`;
-
-const SuccessMessage = styled.div`
-  background: #e8f5e8;
-  color: #27ae60;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  border: 1px solid #c8e6c9;
-`;
-
 const ConfigurationPage: React.FC = () => {
   const { notifySuccess, notifyError } = useNotification();
   const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics' | 'equipment'>('franchises');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // franchises
-  const [locations, setLocations] = useState<FranchiseLocation[]>([]);
 
   // brands
   const [brands, setBrands] = useState<any[]>([]);
@@ -150,15 +127,12 @@ const ConfigurationPage: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const locs = await franchiseLocationsApi.getActive();
-        setLocations(locs || []);
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
         const chars = await catalogsApi.getCharacteristics();
         setCharacteristics(chars || []);
       } catch (err) {
         console.error(err);
-        setError('Error loading configuration data');
       }
     };
     load();
@@ -175,13 +149,44 @@ const ConfigurationPage: React.FC = () => {
       }
       
       // Try to load available printers (optional service)
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      
+      // Add timeout and proper error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
       try {
-        const printersList = await deviceTrackerApi.getPrinterList();
-        const printersArray = Array.isArray(printersList) ? printersList : [];
-        setPrinters(printersArray);
-        console.log('Printers loaded:', printersArray);
+        const response = await fetch(`${winServiceUrl}/api/printer/list`, {
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const printersList = data.printers || data || [];
+          const printersArray = Array.isArray(printersList) ? printersList : [];
+          setPrinters(printersArray);
+          console.log('Printers loaded:', printersArray);
+        } else {
+          // Service responded but with error
+          console.warn('Printer service responded with error:', response.status);
+          setPrinters([]);
+        }
       } catch (fetchError: any) {
-        console.warn('Printer service not available:', fetchError.message);
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          console.warn('Printer service request timeout (3s)');
+        } else if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('Failed to fetch')) {
+          console.warn('Printer service not available (connection refused)');
+        } else {
+          console.warn('Error connecting to printer service:', fetchError.message);
+        }
+        
         // Set empty array but don't show error to user (this service is optional)
         setPrinters([]);
       }
@@ -211,14 +216,34 @@ const ConfigurationPage: React.FC = () => {
     }
 
     try {
-      const success = await deviceTrackerApi.testPrinter(currentPrinter);
-      if (success) {
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`${winServiceUrl}/api/printer/test?printerName=${encodeURIComponent(currentPrinter)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
         notifySuccess('Test de impresora ejecutado correctamente');
       } else {
-        notifyError('Error al ejecutar test de impresora');
+        const errorText = await response.text().catch(() => 'Error desconocido');
+        notifyError(`Error en el test de impresora: ${response.status} - ${errorText}`);
       }
     } catch (err: any) {
-      notifyError(`Error al ejecutar test de impresora: ${err.message}`);
+      if (err.name === 'AbortError') {
+        notifyError('Timeout: el test de impresora tardó demasiado (5s)');
+      } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
+        notifyError('Servicio de impresoras no disponible. Verifica que esté ejecutándose en el puerto 5005.');
+      } else {
+        notifyError(`Error al ejecutar test de impresora: ${err.message}`);
+      }
     }
   };
 
@@ -270,13 +295,11 @@ const ConfigurationPage: React.FC = () => {
   };
 
   const handleError = (message: string) => {
-    setError(message);
-    setTimeout(() => setError(null), 5000);
+    notifyError(message);
   };
-
+    
   const handleSuccess = (message: string) => {
-    setSuccess(message);
-    setTimeout(() => setSuccess(null), 5000);
+    notifySuccess(message);
   };
 
   return (

@@ -3,7 +3,7 @@ const router = express.Router();
 const Sale = require('../models/Sale');
 const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
-const { authenticate, applyFranchiseFilter } = require('../middleware/auth');
+const { authenticate, applyFranchiseFilter, applyRoleDataFilter } = require('../middleware/auth');
 const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
 const ExcelJS = require('exceljs');
 
@@ -30,81 +30,87 @@ const getAccessibleLocations = async (user) => {
 };
 
 // Get all sales (with franchise filtering)
-router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/', authenticate, applyRoleDataFilter, async (req, res) => {
   try {
     const { description, finance, franchiseLocation, page = 1, limit = 10, startDate, endDate } = req.query;
-    const query = {};
     
-    // Handle array-based filters for multi-select support
-    if (description) {
-      if (Array.isArray(description) && description.length > 0) {
-        query.description = { $in: description };
-      } else if (!Array.isArray(description)) {
-        // Handle single value (backward compatibility)
-        query.description = description;
+    // Iniciamos query base desde el filtro aplicado por rol
+    const query = { ...(req.roleFilter || {}) };
+
+    // 🔍 Log para depuración
+    console.log(`🧩 Usuario: ${req.user.username} (${req.user.role})`);
+    console.log('📋 Filtro base (roleFilter):', query);
+
+    // Solo roles superiores pueden aplicar filtros extra
+    if (!['Cajero', 'Vendedor'].includes(req.user.role)) {
+
+      if (description) {
+        query.description = Array.isArray(description)
+          ? { $in: description }
+          : description;
       }
-    }
-    
-    if (finance) {
-      if (Array.isArray(finance) && finance.length > 0) {
-        query.finance = { $in: finance };
-      } else if (!Array.isArray(finance)) {
-        // Handle single value (backward compatibility)
-        query.finance = finance;
+
+      if (finance) {
+        query.finance = Array.isArray(finance)
+          ? { $in: finance }
+          : finance;
       }
-    }
-    
-    // Date filtering
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-    
-    // Apply franchise location filtering
-    if (req.user.role === 'Master admin') {
-      // Master admin can filter by any location or see all
-      if (franchiseLocation) query.franchiseLocation = franchiseLocation;
-    } else {
-      // Other users are restricted to their accessible locations
-      const accessibleLocations = await getAccessibleLocations(req.user);
-      const locationIds = accessibleLocations.map(loc => loc._id);
-      
-      if (franchiseLocation && locationIds.some(id => id.toString() === franchiseLocation)) {
-        query.franchiseLocation = franchiseLocation;
+
+      // Filtro de fechas (solo si no está usando el filtro diario del rol)
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) query.createdAt.$gte = new Date(startDate);
+        if (endDate) query.createdAt.$lte = new Date(endDate);
+      }
+
+      // Filtro por sucursal (solo admin/supervisores)
+      if (req.user.role === 'Master admin') {
+        if (franchiseLocation) query.franchiseLocation = franchiseLocation;
       } else {
-        query.franchiseLocation = { $in: locationIds };
+        const accessibleLocations = await getAccessibleLocations(req.user);
+        const locationIds = accessibleLocations.map(loc => loc._id);
+
+        if (franchiseLocation && locationIds.some(id => id.toString() === franchiseLocation)) {
+          query.franchiseLocation = franchiseLocation;
+        } else if (!query.franchiseLocation) {
+          query.franchiseLocation = { $in: locationIds };
+        }
       }
     }
-    
+
+    // 🔎 Mostrar query final antes de ejecutar
+    console.log('✅ Query final ejecutada:', JSON.stringify(query, null, 2));
+
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
       sort: { createdAt: -1 }
     };
-    
+
     const sales = await Sale.find(query)
       .populate('franchiseLocation', 'name code type address contact')
       .populate('createdBy', 'firstName lastName username role')
-      .limit(options.limit * 1)
+      .limit(options.limit)
       .skip((options.page - 1) * options.limit)
       .sort(options.sort);
-      
+
     const total = await Sale.countDocuments(query);
-    
+
     res.json({
       sales,
       totalPages: Math.ceil(total / options.limit),
       currentPage: options.page,
       total
     });
+
   } catch (error) {
+    console.error('❌ Error al obtener ventas:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Export sales to Excel (with same filtering as GET /)
-router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/export', authenticate, applyFranchiseFilter, applyRoleDataFilter, async (req, res) => {
   try {
     const { description, finance, franchiseLocation, startDate, endDate } = req.query;
     const query = {};
@@ -128,11 +134,13 @@ router.get('/export', authenticate, applyFranchiseFilter, async (req, res) => {
       }
     }
     
-    // Date filtering
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+    // Date filtering (disabled for Cajero/Vendedor)
+    if (!['Cajero', 'Vendedor'].includes(req.user.role)) {
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) query.createdAt.$gte = new Date(startDate);
+        if (endDate) query.createdAt.$lte = new Date(endDate);
+      }
     }
     
     // Apply franchise location filtering
@@ -430,9 +438,9 @@ router.delete('/:id', authenticate, async (req, res) => {
 });
 
 // Get sales statistics (with franchise filtering)
-router.get('/stats/summary', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/stats/summary', authenticate, applyFranchiseFilter, applyRoleDataFilter, async (req, res) => {
   try {
-    let matchQuery = {};
+    let matchQuery = req.roleFilter ? { ...req.roleFilter } : {};
     
     // Apply franchise location filtering
     if (req.user.role !== 'Master admin') {

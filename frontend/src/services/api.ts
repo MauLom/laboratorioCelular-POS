@@ -9,7 +9,10 @@ import {
   UserPaginatedResponse,
   FranchiseLocation,
   LocationPaginatedResponse,
-  CashSessionOpenRequest
+  CashSessionOpenRequest,
+  CashSessionCloseRequest,
+  CashSessionStatusResponse,
+  CashSession
 } from '../types';
 
 // Environment validation
@@ -38,7 +41,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -55,8 +58,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -171,37 +174,21 @@ export const salesApi = {
     return response.data;
   },
 
-  // Get today's sales for a specific franchise location
-  getTodaysByFranchise: async (franchiseLocationId: string): Promise<Sale[]> => {
+  // Get today's sales by franchise (for cash closing)
+  getTodaysByFranchise: async (franchiseId: string): Promise<Sale[]> => {
     const today = new Date();
-    const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).toISOString();
-    const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
     
-    // Primero intentar con filtro de fechas
-    let response = await api.get('/sales', {
-      params: {
-        franchiseLocation: franchiseLocationId,
-        startDate,
-        endDate,
-        limit: 1000 // Obtener todas las ventas del día
-      }
+    const response = await api.get('/sales', { 
+      params: { 
+        franchiseLocation: franchiseId,
+        startDate: startOfDay,
+        endDate: endOfDay,
+        limit: 1000 // Get all sales for today
+      } 
     });
-    
-    // El backend devuelve { sales: [...] } según el ejemplo proporcionado
-    let sales = response.data.sales || response.data.items || [];
-    
-    // Si no hay ventas con filtro de fechas, intentar obtener todas las ventas de la franquicia
-    if (sales.length === 0) {
-      response = await api.get('/sales', {
-        params: {
-          franchiseLocation: franchiseLocationId,
-          limit: 1000
-        }
-      });
-      sales = response.data.sales || response.data.items || [];
-    }
-
-    return sales;
+    return response.data.sales || response.data.items || [];
   },
 };
 
@@ -443,20 +430,37 @@ export const catalogsApi = {
   }
 };
 
+// Cash Session API
 export const cashSessionApi = {
-  open: async (data: CashSessionOpenRequest) => {
+  // Open cash session
+  open: async (data: CashSessionOpenRequest): Promise<{ message: string; session: CashSession }> => {
     const response = await api.post('/cash-session/open', data);
     return response.data;
   },
-  checkTodaySession: async (franchiseLocationId: string) => {
-    const response = await api.get(`/cash-session/status/${franchiseLocationId}`);
+
+  // Close cash session
+  close: async (franchiseId: string, data: Omit<CashSessionCloseRequest, 'franchiseLocationId'>): Promise<{ message: string; session: CashSession }> => {
+    const response = await api.post('/cash-session/close', {
+      ...data,
+      franchiseLocationId: franchiseId
+    });
     return response.data;
   },
-  close: async (franchiseLocationId: string, closeData: any) => {
-    const response = await api.post('/cash-session/close', {
-      franchiseLocationId,
-      ...closeData
-    });
+
+  // Check today's session status
+  checkTodaySession: async (franchiseId: string): Promise<CashSessionStatusResponse> => {
+    const response = await api.get(`/cash-session/status/${franchiseId}`);
+    return response.data;
+  },
+
+  // Get session history
+  getHistory: async (franchiseId: string, params?: { page?: number; limit?: number }): Promise<{
+    sessions: CashSession[];
+    totalPages: number;
+    currentPage: number;
+    total: number;
+  }> => {
+    const response = await api.get(`/cash-session/history/${franchiseId}`, { params });
     return response.data;
   }
 };

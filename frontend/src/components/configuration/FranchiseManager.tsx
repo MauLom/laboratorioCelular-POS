@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { FranchiseLocation, User } from '../../types';
 import { franchiseLocationsApi, usersApi } from '../../services/api';
-import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import { useAlert } from '../../hooks/useAlert';
 
 const Button = styled.button.withConfig({
@@ -202,15 +201,6 @@ const FormRowSingle = styled.div`
   grid-template-columns: 1fr;
 `;
 
-const FormRowThree = styled.div`
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
-`;
 
 const InputGroup = styled.div`
   display: flex;
@@ -247,22 +237,6 @@ const Select = styled.select`
   border: 2px solid #ecf0f1;
   border-radius: 6px;
   font-size: 14px;
-  transition: border-color 0.2s;
-
-  &:focus {
-    outline: none;
-    border-color: #3498db;
-  }
-`;
-
-const TextArea = styled.textarea`
-  padding: 12px;
-  border: 2px solid #ecf0f1;
-  border-radius: 6px;
-  font-size: 14px;
-  resize: vertical;
-  min-height: 60px;
-  max-height: 120px;
   transition: border-color 0.2s;
 
   &:focus {
@@ -463,7 +437,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
     } finally {
       setLoading(false);
     }
-  }, [currentPage, onError]);
+  }, [currentPage, onError, showError]);
 
   useEffect(() => {
     fetchLocations();
@@ -553,12 +527,33 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
       setIdentifyingMac(true);
       setError(null);
       
-      const systemGuid = await deviceTrackerApi.getSystemGuid();
+      // Get WIN_SERVICE_URL from environment variable
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
       
-      if (systemGuid) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      const response = await fetch(`${winServiceUrl}/api/system/guid`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.guid || data.systemGuid) {
+        const guidValue = data.guid || data.systemGuid;
         setFormData(prev => ({
           ...prev,
-          guid: systemGuid
+          guid: guidValue
         }));
         
         const successMsg = 'GUID del sistema identificado correctamente';
@@ -569,7 +564,16 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         throw new Error('No se recibió GUID del servicio');
       }
     } catch (error: any) {
-      const errorMsg = `Error al identificar sucursal: ${error.message}`;
+      let errorMsg: string;
+      
+      if (error.name === 'AbortError') {
+        errorMsg = 'Timeout: la identificación tardó demasiado (3s)';
+      } else if (error.message.includes('Failed to fetch') || error.code === 'ECONNREFUSED') {
+        errorMsg = 'Servicio de identificación no disponible. Verifica que esté ejecutándose en el puerto 5005.';
+      } else {
+        errorMsg = `Error al identificar sucursal: ${error.message}`;
+      }
+      
       setError(errorMsg);
       showError(errorMsg);
       if (onError) onError(errorMsg);

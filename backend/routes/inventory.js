@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
-const { authenticate, applyFranchiseFilter } = require('../middleware/auth');
+const { authenticate, authorize, applyFranchiseFilter } = require('../middleware/auth');
 const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
 
 // Helper function to get accessible franchise locations for a user
@@ -28,7 +28,7 @@ const getAccessibleLocations = async (user) => {
 };
 
 // Get all inventory items (with franchise filtering)
-router.get('/', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/', authenticate, authorize(['Master admin', 'Supervisor de sucursales', 'Supervisor de oficina']), applyFranchiseFilter, async (req, res) => {
   try {
     const { state, franchiseLocation, page = 1, limit = 10 } = req.query;
     const query = {};

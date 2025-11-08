@@ -149,4 +149,44 @@ router.post('/logout', authenticate, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+// ⚙️ Ruta temporal para asignar sucursal a un usuario
+const FranchiseLocation = require('../models/FranchiseLocation');
+
+router.post('/assign-location', async (req, res) => {
+  try {
+    const { username, franchiseLocationId } = req.body;
+
+    if (!username || !franchiseLocationId) {
+      return res.status(400).json({ error: 'Username y franchiseLocationId son requeridos.' });
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    // Verificar que la sucursal exista
+    const location = await FranchiseLocation.findById(franchiseLocationId);
+    if (!location) {
+      return res.status(404).json({ error: 'Sucursal no encontrada.' });
+    }
+
+    // Asignar la sucursal al usuario
+    user.franchiseLocation = location._id;
+    await user.save();
+
+    // Devolver usuario actualizado con populate
+    const updatedUser = await User.findById(user._id).populate('franchiseLocation');
+
+    res.json({
+      message: 'Sucursal asignada correctamente ✅',
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error('Error al asignar sucursal:', error);
+    res.status(500).json({ error: 'Error al asignar sucursal.' });
+  }
+});
+
 module.exports = router;

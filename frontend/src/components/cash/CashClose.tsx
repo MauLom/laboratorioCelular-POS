@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Heading, Text, Button, Flex, Input, SimpleGrid } from '@chakra-ui/react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Text, Button, Flex, Input, SimpleGrid, VStack } from '@chakra-ui/react';
 import Navigation from '../common/Navigation';
 import { franchiseLocationsApi, cashSessionApi, salesApi } from '../../services/api';
+import { listExpenses } from '../../services/expenses';
+import type { Expense } from '../../types/expense';
 import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../hooks/useAlert';
@@ -35,8 +37,10 @@ const CashClose: React.FC = () => {
   const [dolar, setDolar] = useState('');
   const [salida, setSalida] = useState('');
   
-  // Estado para el tipo de cambio
   const [exchangeRate, setExchangeRate] = useState<number>(1);
+  
+  const [dailyExpenses, setDailyExpenses] = useState<Expense[]>([]);
+  const [totalExpenses, setTotalExpenses] = useState<number>(0);
 
   const getCurrentFranchise = async () => {
     try {
@@ -65,7 +69,7 @@ const CashClose: React.FC = () => {
   };
 
   // Función para calcular los montos del día
-  const loadTodaysSalesData = async () => {
+  const loadTodaysSalesData = useCallback(async () => {
     if (!franchiseId) return;
 
     try {
@@ -85,8 +89,6 @@ const CashClose: React.FC = () => {
 
       // Filtrar ventas del día actual en el cliente como respaldo
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       
       const todaysSales = allSales.filter(sale => {
         if (!sale.createdAt) {
@@ -167,13 +169,33 @@ const CashClose: React.FC = () => {
       setTarjeta(totalCard.toFixed(2));
       setDolar(totalUSD.toFixed(2));
 
+      // Obtener gastos del día
+      try {
+        const today = new Date();
+        const localDate = today.toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
+        const expenses = await listExpenses({ from: localDate, to: localDate });
+        
+        setDailyExpenses(expenses);
+        
+        // Calcular total de gastos
+        const expensesTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+        setTotalExpenses(expensesTotal);
+        
+        console.log(`💸 Total de gastos del día: $${expensesTotal.toFixed(2)} (${expenses.length} gastos)`);
+      } catch (expError) {
+        console.error('Error cargando gastos del día:', expError);
+        // No fallar si no se pueden cargar los gastos
+        setDailyExpenses([]);
+        setTotalExpenses(0);
+      }
+
     } catch (error: any) {
       console.error('Error cargando datos de ventas del día:', error);
       alertError('Error al cargar los datos de ventas del día');
     } finally {
       setLoadingSalesData(false);
     }
-  };
+  }, [franchiseId, alertError]);
 
   useEffect(() => {
     getCurrentFranchise();
@@ -184,7 +206,7 @@ const CashClose: React.FC = () => {
     if (franchiseId) {
       loadTodaysSalesData();
     }
-  }, [franchiseId]);
+  }, [franchiseId, loadTodaysSalesData]);
 
   // Función para validar números con hasta 2 decimales
   const handleNumericInput = (value: string, setter: (value: string) => void) => {
@@ -319,6 +341,32 @@ const CashClose: React.FC = () => {
                   <Box bg="blue.50" p={3} rounded="md" border="1px" borderColor="blue.200" mb={4}>
                     <Text fontSize="sm" color="blue.700">
                       Tipo de cambio USD → MXN: <strong>${exchangeRate.toFixed(2)}</strong>
+                    </Text>
+                  </Box>
+                )}
+                
+                {/* Resumen de Gastos del Día */}
+                {dailyExpenses.length > 0 && (
+                  <Box bg="orange.50" p={4} rounded="md" border="1px" borderColor="orange.200" mb={4}>
+                    <Flex justify="space-between" align="center" mb={2}>
+                      <Text fontSize="md" fontWeight="semibold" color="orange.800">
+                        Gastos del Día
+                      </Text>
+                      <Text fontSize="lg" fontWeight="bold" color="orange.700">
+                        ${totalExpenses.toFixed(2)} MXN
+                      </Text>
+                    </Flex>
+                    <Box my={2} borderBottom="1px" borderColor="orange.300" />
+                    <VStack align="stretch" gap={1} maxH="150px" overflowY="auto">
+                      {dailyExpenses.map((expense, idx) => (
+                        <Flex key={idx} justify="space-between" fontSize="sm" color="gray.700">
+                          <Text>{expense.reason}</Text>
+                          <Text fontWeight="medium">${expense.amount.toFixed(2)}</Text>
+                        </Flex>
+                      ))}
+                    </VStack>
+                    <Text fontSize="xs" color="orange.600" mt={2} fontStyle="italic">
+                      Los gastos se restan del efectivo final al cerrar la caja
                     </Text>
                   </Box>
                 )}

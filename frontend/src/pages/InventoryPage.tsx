@@ -7,7 +7,6 @@ import {
   Button,
   chakra,
 } from '@chakra-ui/react';
-import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import InventoryForm from '../components/inventory/InventoryForm';
 import InventoryList from '../components/inventory/InventoryList';
@@ -54,7 +53,7 @@ const InventoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, error]);
 
   useEffect(() => {
     fetchItems();

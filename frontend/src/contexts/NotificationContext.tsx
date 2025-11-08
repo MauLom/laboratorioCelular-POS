@@ -44,6 +44,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
+  const removeNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  }, []);
+
   const notify = useCallback((notification: Omit<Notification, 'id'>) => {
     const id = generateId();
     const newNotification: Notification = {
@@ -60,7 +64,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         removeNotification(id);
       }, newNotification.duration);
     }
-  }, []);
+  }, [removeNotification]);
 
   const notifySuccess = useCallback((title: string, message?: string) => {
     notify({ type: 'success', title, message });
@@ -77,10 +81,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const notifyInfo = useCallback((title: string, message?: string) => {
     notify({ type: 'info', title, message });
   }, [notify]);
-
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  }, []);
 
   const clearAll = useCallback(() => {
     setNotifications([]);

@@ -9,12 +9,10 @@ import {
   chakra,
   Input,
 } from '@chakra-ui/react';
-import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import SalesForm from '../components/sales/SalesForm';
 import { SalesArticle } from '../components/sales/SalesArticles';
 import { salesApi } from '../services/api';
-import { deviceTrackerApi } from '../services/deviceTrackerApi';
 import { Sale, PaginatedResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../hooks/useAlert';
@@ -93,16 +91,6 @@ const SalesPage: React.FC = () => {
   const [defaultPrinter, setDefaultPrinter] = useState<string>('');
   const [pendingSale, setPendingSale] = useState<Sale | null>(null);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
-
-  // Helper function to safely extract printer name
-  const extractPrinterName = (printer: any, fallback: string = 'Impresora desconocida'): string => {
-    if (typeof printer.name === 'string') {
-      return printer.name;
-    } else if (printer.name && typeof printer.name === 'object' && typeof printer.name.name === 'string') {
-      return printer.name.name;
-    }
-    return fallback;
-  };
 
   // Ticket modal states
   const [showTicketModal, setShowTicketModal] = useState(false);
@@ -184,7 +172,7 @@ const SalesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateFilters]);
+  }, [dateFilters, error]);
 
   useEffect(() => {
     fetchFranchiseLocations();
@@ -197,40 +185,54 @@ const SalesPage: React.FC = () => {
   // Load default printer from localStorage
   useEffect(() => {
     const savedPrinter = localStorage.getItem('defaultPrinter');
-    console.log(savedPrinter);  
     if (savedPrinter) {
       setDefaultPrinter(savedPrinter);
     }
   }, []);
 
   // Fetch available printers
-  const fetchAvailablePrinters = async (): Promise<Printer[]> => {
+  const fetchAvailablePrinters = async () => {
     setLoadingPrinters(true);
     try {
-      const printers = await deviceTrackerApi.getPrinterList();
-      
-      // La API ya devuelve objetos {name, isDefault}, no strings
-      let printersArray: Printer[];
-      if (Array.isArray(printers) && printers.length > 0 && typeof printers[0] === 'object') {
-        // API devuelve objetos - usar directamente
-        printersArray = printers as unknown as Printer[];
-      } else {
-        // API devuelve strings - convertir a objetos
-        printersArray = (printers as string[]).map(name => ({ name, isDefault: false }));
-      }
-      
-      setAvailablePrinters(printersArray);
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
 
-      // Si hay una impresora guardada como default, mantenerla
-      if (printersArray.length > 0 && !defaultPrinter) {
-        setDefaultPrinter(extractPrinterName(printersArray[0])); // Extraer nombre seguro
+      // Crear controlador para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch(`${winServiceUrl}/api/printer/list`, {
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        const printers = data.printers || [];
+        setAvailablePrinters(printers);
+
+        // Si hay una impresora marcada como default y no tenemos una predeterminada, usarla
+        const defaultPrinterFromAPI = printers.find((p: Printer) => p.isDefault);
+        if (defaultPrinterFromAPI && !defaultPrinter) {
+          setDefaultPrinter(defaultPrinterFromAPI.name);
+        }
+
+        return printers;
+      } else {
+        throw new Error('Failed to fetch printers');
       }
-      
-      return printersArray;
     } catch (err: any) {
       console.error('Failed to fetch printers:', err);
-      error('No se pudieron cargar las impresoras disponibles');
-      setAvailablePrinters([]);
+
+      let errorMsg = 'No se pudieron cargar las impresoras disponibles';
+
+      if (err.name === 'AbortError') {
+        errorMsg = 'Timeout: la carga de impresoras tardó demasiado (3s)';
+      } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
+        errorMsg = 'Servicio de impresión no disponible. Verifica que esté ejecutándose en el puerto 5005.';
+      }
+
+      error(errorMsg);
       return [];
     } finally {
       setLoadingPrinters(false);
@@ -361,24 +363,38 @@ const SalesPage: React.FC = () => {
     }
 
     try {
+      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+
       const ticketData = {
-        printerName: printerName || defaultPrinter || '',
-        content: JSON.stringify({
-          address: address,
-          phone: phone,
-          seller: user?.firstName && user?.lastName
-            ? `${user.firstName} ${user.lastName}`
-            : user?.username || "Vendedor",
-          folio: (sale.folio?.toString()) || "N/A",
-          products: products,
-          paymentAmount: sale.paymentAmount || sale.amount || 0,
-        })
+        address: address,
+        phone: phone,
+        seller: user?.firstName && user?.lastName
+          ? `${user.firstName} ${user.lastName}`
+          : user?.username || "Vendedor",
+        folio: (sale.folio?.toString()) || "N/A",
+        products: products,
+        paymentAmount: sale.paymentAmount || sale.amount || 0,
+        // Incluir impresora si se especificó
+        ...(printerName && { printerName: printerName })
       };
 
-      const printSuccess = await deviceTrackerApi.printTicket(ticketData);
-      
-      if (!printSuccess) {
-        throw new Error('Error en impresión');
+      // Crear controlador para timeout personalizado
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`${winServiceUrl}/api/printer/ticket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ticketData),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Error en impresión: ${response.status}`);
       }
 
       success('¡Ticket enviado a impresora!');
@@ -436,8 +452,7 @@ const SalesPage: React.FC = () => {
 
     // Si solo hay una impresora, úsala directamente
     if (printers.length === 1) {
-      // Extraer nombre seguro del primer printer usando helper
-      const printerName = extractPrinterName(printers[0]);
+      const printerName = printers[0].name;
       saveDefaultPrinter(printerName);
       await printTicket(sale, printerName);
       return;
@@ -930,8 +945,7 @@ const SalesPage: React.FC = () => {
                   ) : (
                     <VStack gap={3} align="stretch">
                       {availablePrinters.map((printer, index) => {
-                        // Extraer nombre seguro usando helper
-                        const printerName = extractPrinterName(printer);
+                        const printerName = printer.name;
                         return (
                           <Box
                             key={index}

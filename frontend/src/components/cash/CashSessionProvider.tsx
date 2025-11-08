@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cashSessionApi, franchiseLocationsApi } from '../../services/api';
 import { deviceTrackerApi } from '../../services/deviceTrackerApi';
@@ -13,17 +13,14 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   const [showCashModal, setShowCashModal] = useState(false);
   const [franchiseName, setFranchiseName] = useState('');
   const [franchiseId, setFranchiseId] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
   const [isValidFranchise, setIsValidFranchise] = useState(false);
-  const [activeCashSession, setActiveCashSession] = useState<any>(null);
   
   // Flags para evitar múltiples ejecuciones simultáneas
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   
   // Función para determinar si el usuario necesita sesión de caja
-  const userNeedsCashSession = (): boolean => {
+  const userNeedsCashSession = useCallback((): boolean => {
     if (!user) return false;
     
     // Roles administrativos que NO necesitan abrir caja
@@ -36,7 +33,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     
     // Si el usuario tiene un rol administrativo, no necesita abrir caja
     return !administrativeRoles.includes(user.role);
-  };
+  }, [user]);
   
   const getCurrentFranchise = async () => {
     try {
@@ -78,7 +75,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     }
   };
 
-  const checkCashSession = async () => {
+  const checkCashSession = useCallback(async () => {
     if (!isAuthenticated || !user || isCheckingSession) {
       return;
     }
@@ -87,12 +84,10 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     if (!userNeedsCashSession()) {
       console.log(`Usuario con rol administrativo '${user.role}' - omitiendo verificación de caja`);
       setShowCashModal(false);
-      setActiveCashSession(null);
       return;
     }
     
     setIsCheckingSession(true);
-    setLoading(true);
     
     try {
       const franchiseIdToCheck = await getCurrentFranchise();
@@ -106,31 +101,32 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
           // Si no hay sesión activa hoy, mostrar modal
           if (!sessionStatus.hasSession) {
             setShowCashModal(true);
-            setActiveCashSession(null);
           } else {
             setShowCashModal(false);
-            setActiveCashSession(sessionStatus.session);
           }
         } catch (apiError) {
           console.error('Error checking session:', apiError);
           setShowCashModal(true);
-          setActiveCashSession(null);
         }
       } else {
         // Mostrar modal incluso sin franquicia válida para informar al usuario
         setShowCashModal(true);
-        setActiveCashSession(null);
       }
     } catch (error) {
       console.error('Error in checkCashSession:', error);
       // Solo mostrar modal si el usuario necesita sesión de caja
       setShowCashModal(userNeedsCashSession());
-      setActiveCashSession(null);
     } finally {
-      setLoading(false);
       setIsCheckingSession(false);
     }
-  };
+  }, [isAuthenticated, user, isCheckingSession, userNeedsCashSession]);
+
+  // Función para forzar verificación desde componentes externos
+  const forceCheckCashSession = useCallback(() => {
+    if (isAuthenticated && user && !isCheckingSession) {
+      checkCashSession();
+    }
+  }, [isAuthenticated, user, isCheckingSession, checkCashSession]);
 
   useEffect(() => {
     if (isAuthenticated && user && !hasInitialized) {
@@ -153,14 +149,8 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
 
-  }, [isAuthenticated, user, hasInitialized, isCheckingSession]);
+  }, [isAuthenticated, user, hasInitialized, isCheckingSession, checkCashSession]);
 
-  // Función para forzar verificación desde componentes externos
-  const forceCheckCashSession = () => {
-    if (isAuthenticated && user && !isCheckingSession) {
-      checkCashSession();
-    }
-  };
 
   // Exponer la función globalmente para que otros componentes puedan usarla
   React.useEffect(() => {
@@ -172,7 +162,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
         delete (window as any).forceCheckCashSession;
       }
     };
-  }, [isAuthenticated, user, isCheckingSession]);
+  }, [isAuthenticated, user, forceCheckCashSession]);
 
   const handleCashModalClose = () => {
     setShowCashModal(false);

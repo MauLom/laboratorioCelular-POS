@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema({
     required: true,
     enum: [
       'Cajero',
+      'Vendedor',
       'Supervisor de sucursal', 
       'Supervisor de sucursales',
       'Oficina',

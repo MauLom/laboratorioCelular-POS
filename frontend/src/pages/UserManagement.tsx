@@ -192,16 +192,6 @@ const ErrorMessage = styled.div`
   border-radius: 6px;
   margin-bottom: 16px;
 `;
-
-const LoadingSpinner = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-  font-size: 16px;
-  color: #666;
-`;
-
 interface UserFormData {
   username: string;
   email: string;
@@ -215,7 +205,6 @@ interface UserFormData {
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<FranchiseLocation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -250,7 +239,6 @@ const UserManagement: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const [usersResponse, locationsResponse] = await Promise.all([
         usersApi.getAll(),
         franchiseLocationsApi.getActive()
@@ -259,8 +247,8 @@ const UserManagement: React.FC = () => {
       setLocations(locationsResponse);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Error loading data');
-    } finally {
-      setLoading(false);
+    } finally { 
+      // setLoading(false);
     }
   };
 
@@ -361,9 +349,6 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  // if (loading) {
-  //   return <LoadingSpinner>Cargando usuarios...</LoadingSpinner>;
-  // }
 
   return (
     <Container>
