@@ -31,7 +31,6 @@ export default function ExpensesPage() {
     localStorage.getItem('username') ||
     'Usuario Actual';
 
-  const today = new Date();
   const localDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
 
   const emptyExpense: Expense = {
@@ -95,17 +94,17 @@ export default function ExpensesPage() {
     try {
       if (editingId) {
         await updateExpense(editingId, form);
-        toast.error('Gasto acualizado correctamente.');
+        toast.success('Gasto actualizado correctamente.');
       } else {
         await createExpense(form);
-        toast.error('Gasto registrado correctamente.');
+        toast.success('Gasto registrado correctamente.');
       }
       setForm(emptyExpense);
       setEditingId(null);
       await load();
     } catch (error) {
       console.error(error);
-      toast.error('Ocurrio un error al guardar gastos.');
+      toast.error('Ocurrió un error al guardar gastos.');
     } finally {
       setLoading(false);
     }
@@ -127,10 +126,10 @@ export default function ExpensesPage() {
     setLoading(true);
     try {
       await deleteExpense(id);
+      toast.success('Gasto eliminado correctamente.');
       await load();
-      toast.error('No se pudieron cargar los gastos.');
     } catch {
-      toast.error('No se pudieron cargar los gastos.');
+      toast.error('No se pudo eliminar el gasto.');
     } finally {
       setLoading(false);
     }

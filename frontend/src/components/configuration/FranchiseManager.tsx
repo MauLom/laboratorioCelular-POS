@@ -589,7 +589,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
         throw new Error('No se recibió GUID del servicio');
       }
     } catch (error: any) {
-      let errorMsg = 'Error al identificar sucursal';
+      let errorMsg: string;
       
       if (error.name === 'AbortError') {
         errorMsg = 'Timeout: la identificación tardó demasiado (3s)';

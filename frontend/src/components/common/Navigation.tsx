@@ -88,6 +88,24 @@ const Navigation: React.FC = () => {
             Gastos
           </ChakraLink>
 
+          {/* Corte del Día: visible para cajeros y admin/supervisores */}
+          {showDaily && (
+            <ChakraLink
+              to="/cash-close"
+              color="gray.100"
+              px={4}
+              py={2}
+              rounded="md"
+              transition="all 0.2s"
+              bg={isActive('/cash-close') ? 'brand.400' : 'transparent'}
+              _hover={{ bg: isActive('/cash-close') ? 'brand.500' : 'dark.400' }}
+              fontWeight="medium"
+              textDecoration="none"
+            >
+              Corte del Día
+            </ChakraLink>
+          )}
+
           {/* Usuarios y Configuración: solo admin/supervisores */}
           {isAdmin() && (
             <>

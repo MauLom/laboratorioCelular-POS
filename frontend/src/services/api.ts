@@ -8,7 +8,11 @@ import {
   LoginResponse,
   UserPaginatedResponse,
   FranchiseLocation,
-  LocationPaginatedResponse
+  LocationPaginatedResponse,
+  CashSessionOpenRequest,
+  CashSessionCloseRequest,
+  CashSessionStatusResponse,
+  CashSession
 } from '../types';
 
 // Environment validation
@@ -168,6 +172,23 @@ export const salesApi = {
       responseType: 'blob' 
     });
     return response.data;
+  },
+
+  // Get today's sales by franchise (for cash closing)
+  getTodaysByFranchise: async (franchiseId: string): Promise<Sale[]> => {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
+    
+    const response = await api.get('/sales', { 
+      params: { 
+        franchiseLocation: franchiseId,
+        startDate: startOfDay,
+        endDate: endOfDay,
+        limit: 1000 // Get all sales for today
+      } 
+    });
+    return response.data.sales || response.data.items || [];
   },
 };
 
@@ -405,6 +426,41 @@ export const catalogsApi = {
   },
   createCharacteristicValue: async (characteristicId: string, payload: { brandId: string; value: string; displayName: string; hexColor?: string }) => {
     const response = await api.post(`/characteristics/${characteristicId}/values`, payload);
+    return response.data;
+  }
+};
+
+// Cash Session API
+export const cashSessionApi = {
+  // Open cash session
+  open: async (data: CashSessionOpenRequest): Promise<{ message: string; session: CashSession }> => {
+    const response = await api.post('/cash-session/open', data);
+    return response.data;
+  },
+
+  // Close cash session
+  close: async (franchiseId: string, data: Omit<CashSessionCloseRequest, 'franchiseLocationId'>): Promise<{ message: string; session: CashSession }> => {
+    const response = await api.post('/cash-session/close', {
+      ...data,
+      franchiseLocationId: franchiseId
+    });
+    return response.data;
+  },
+
+  // Check today's session status
+  checkTodaySession: async (franchiseId: string): Promise<CashSessionStatusResponse> => {
+    const response = await api.get(`/cash-session/status/${franchiseId}`);
+    return response.data;
+  },
+
+  // Get session history
+  getHistory: async (franchiseId: string, params?: { page?: number; limit?: number }): Promise<{
+    sessions: CashSession[];
+    totalPages: number;
+    currentPage: number;
+    total: number;
+  }> => {
+    const response = await api.get(`/cash-session/history/${franchiseId}`, { params });
     return response.data;
   }
 };
