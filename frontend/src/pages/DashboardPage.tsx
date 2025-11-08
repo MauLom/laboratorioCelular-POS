@@ -11,7 +11,6 @@ import {
   SkeletonText,
   Box,
 } from '@chakra-ui/react';
-import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import { inventoryApi, salesApi } from '../services/api';
 import styled from 'styled-components';

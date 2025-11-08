@@ -437,7 +437,7 @@ const FranchiseManager: React.FC<FranchiseManagerProps> = ({ onError, onSuccess 
     } finally {
       setLoading(false);
     }
-  }, [currentPage, onError]);
+  }, [currentPage, onError, showError]);
 
   useEffect(() => {
     fetchLocations();

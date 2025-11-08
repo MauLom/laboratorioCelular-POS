@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
@@ -69,22 +69,6 @@ const Select = styled.select`
   }
 `;
 
-const TextArea = styled.textarea`
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  min-height: 100px;
-  resize: vertical;
-  
-  &:focus {
-    outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-  }
-`;
-
 const Button = styled.button`
   background-color: #27ae60;
   color: white;
@@ -110,16 +94,6 @@ const ErrorMessage = styled.span`
   font-size: 0.875rem;
   margin-top: 0.25rem;
   display: block;
-`;
-
-const InfoMessage = styled.div`
-  background: #e8f4fd;
-  color: #0066cc;
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-  border: 1px solid #b3d9ff;
 `;
 
 const FormRow = styled.div`
@@ -231,7 +205,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const [locationLocked, setLocationLocked] = useState<boolean>(false);
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentType, setPaymentType] = useState<string>('');
+  // const [paymentType, setPaymentType] = useState<string>('');
   
   // Estados para múltiples métodos de pago
   const [paymentMethods, setPaymentMethods] = useState<Array<{
@@ -246,7 +220,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
     if (showPaymentModal && paymentMethods.length === 0) {
       addPaymentMethod();
     }
-  }, [showPaymentModal]);
+  }, [showPaymentModal, paymentMethods.length]);
 
   // Load configurations for concepts and finance types
   const { getLabels: getConceptsLabels, loading: conceptsLoading } = useConfiguration('concepts_concepts');
@@ -367,7 +341,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
   // Estados para formateo de montos
   const [formattedAmount, setFormattedAmount] = useState('');
-  const [formattedPaymentAmount, setFormattedPaymentAmount] = useState('');
 
   // Funciones de utilidad para formateo de monedas
   const formatCurrency = (value: number | string): string => {
@@ -427,44 +400,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
     if (currentValue) {
       const numValue = parseCurrency(currentValue);
       setFormattedAmount(numValue > 0 ? numValue.toString() : '');
-    }
-  };
-
-  const handlePaymentAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    
-    // Permitir solo números y punto decimal durante la escritura
-    const sanitized = inputValue.replace(/[^\d.]/g, '');
-    
-    // Validar formato decimal (máximo 2 decimales)
-    const decimalParts = sanitized.split('.');
-    if (decimalParts.length > 2) return; // Más de un punto decimal
-    if (decimalParts[1] && decimalParts[1].length > 2) return; // Más de 2 decimales
-    
-    // Durante la escritura, mostrar el valor sin formato
-    setFormattedPaymentAmount(sanitized);
-    
-    // Actualizar el valor numérico
-    const numValue = parseFloat(sanitized) || 0;
-    setPaymentAmount(numValue);
-  };
-
-  const handlePaymentAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    const numValue = parseFloat(inputValue) || 0;
-    
-    // Aplicar formato al salir del campo
-    const formatted = formatCurrency(numValue);
-    setFormattedPaymentAmount(formatted);
-    setPaymentAmount(numValue);
-  };
-
-  const handlePaymentAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Al enfocar el campo, mostrar el valor sin formato para facilitar la edición
-    const currentValue = e.target.value;
-    if (currentValue) {
-      const numValue = parseCurrency(currentValue);
-      setFormattedPaymentAmount(numValue > 0 ? numValue.toString() : '');
     }
   };
 
@@ -719,9 +654,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
     };
 
     setShowPaymentModal(false);
-    setFormattedPaymentAmount('');
     setPaymentAmount(0);
-    setPaymentType('');
+    // setPaymentType('');
     setPaymentMethods([]);
     await onSubmit(saleData);
   };
@@ -990,9 +924,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
       {showPaymentModal && (
         <Modal onClick={() => {
           setShowPaymentModal(false);
-          setFormattedPaymentAmount('');
           setPaymentAmount(0);
-          setPaymentType('');
+          // setPaymentType('');
           setPaymentMethods([]);
         }}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
@@ -1145,9 +1078,8 @@ const SalesForm: React.FC<SalesFormProps> = ({
             <ModalButtons>
               <CancelButton type="button" onClick={() => {
                 setShowPaymentModal(false);
-                setFormattedPaymentAmount('');
                 setPaymentAmount(0);
-                setPaymentType('');
+                // setPaymentType('');
                 setPaymentMethods([]);
               }}>
                 Cancelar

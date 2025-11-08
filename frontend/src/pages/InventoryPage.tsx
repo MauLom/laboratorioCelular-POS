@@ -53,7 +53,7 @@ const InventoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, error]);
 
   useEffect(() => {
     fetchItems();

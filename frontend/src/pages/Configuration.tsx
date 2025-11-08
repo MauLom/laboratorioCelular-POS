@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import Navigation from '../components/common/Navigation';
-import { franchiseLocationsApi, catalogsApi } from '../services/api';
-import { FranchiseLocation } from '../types';
+import { catalogsApi } from '../services/api';
 import FranchiseManager from '../components/configuration/FranchiseManager';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -128,7 +127,6 @@ const ConfigurationPage: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const locs = await franchiseLocationsApi.getActive();
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
         const chars = await catalogsApi.getCharacteristics();

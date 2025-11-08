@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -20,11 +20,11 @@ import { CustomToast } from '../components/common/CustomToast';
 
 export default function ExpensesPage() {
   const [toastData, setToastData] = useState<{ message: string; status: string } | null>(null);
-  const toast = {
+  const toast = useMemo(() => ({
     success: (msg: string) => setToastData({ message: msg, status: 'success' }),
     error: (msg: string) => setToastData({ message: msg, status: 'error' }),
     info: (msg: string) => setToastData({ message: msg, status: 'info' }),
-  }; 
+  }), []); 
 
   const currentUser =
     localStorage.getItem('userName') ||
@@ -50,7 +50,7 @@ export default function ExpensesPage() {
   const [to, setTo] = useState('');
   const [userFilter, setUserFilter] = useState('');
 
-  async function load(filters?: { q?: string; from?: string; to?: string; user?: string }) {
+  const load = useCallback(async (filters?: { q?: string; from?: string; to?: string; user?: string }) => {
     setLoading(true);
     try {
       const res = await listExpenses(filters);
@@ -60,7 +60,7 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
