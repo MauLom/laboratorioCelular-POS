@@ -84,7 +84,6 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     if (!userNeedsCashSession()) {
       console.log(`Usuario con rol administrativo '${user.role}' - omitiendo verificación de caja`);
       setShowCashModal(false);
-      setActiveCashSession(null);
       return;
     }
     
@@ -117,7 +116,6 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       console.error('Error in checkCashSession:', error);
       // Solo mostrar modal si el usuario necesita sesión de caja
       setShowCashModal(userNeedsCashSession());
-      setActiveCashSession(null);
     } finally {
       setIsCheckingSession(false);
     }
