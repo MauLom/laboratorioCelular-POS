@@ -9,7 +9,6 @@ import {
   chakra,
   Input,
 } from '@chakra-ui/react';
-import Layout from '../components/common/Layout';
 import Navigation from '../components/common/Navigation';
 import SalesForm from '../components/sales/SalesForm';
 import { SalesArticle } from '../components/sales/SalesArticles';
@@ -173,7 +172,7 @@ const SalesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateFilters]);
+  }, [dateFilters, error]);
 
   useEffect(() => {
     fetchFranchiseLocations();

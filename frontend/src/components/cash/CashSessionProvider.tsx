@@ -161,7 +161,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
         delete (window as any).forceCheckCashSession;
       }
     };
-  }, [isAuthenticated, user, isCheckingSession]);
+  }, [isAuthenticated, user]);
 
   const handleCashModalClose = () => {
     setShowCashModal(false);

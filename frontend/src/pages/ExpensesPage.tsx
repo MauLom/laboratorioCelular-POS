@@ -82,7 +82,7 @@ export default function ExpensesPage() {
 
     // Si ya hay un token, carga inmediatamente
     load();
-  }, []);
+  }, [load]);
 
   const handleChange = (key: keyof Expense, value: any) => {
     setForm(prev => ({ ...prev, [key]: value }));

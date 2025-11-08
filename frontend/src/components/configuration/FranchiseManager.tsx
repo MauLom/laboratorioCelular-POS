@@ -201,15 +201,6 @@ const FormRowSingle = styled.div`
   grid-template-columns: 1fr;
 `;
 
-const FormRowThree = styled.div`
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
-`;
 
 const InputGroup = styled.div`
   display: flex;
@@ -246,22 +237,6 @@ const Select = styled.select`
   border: 2px solid #ecf0f1;
   border-radius: 6px;
   font-size: 14px;
-  transition: border-color 0.2s;
-
-  &:focus {
-    outline: none;
-    border-color: #3498db;
-  }
-`;
-
-const TextArea = styled.textarea`
-  padding: 12px;
-  border: 2px solid #ecf0f1;
-  border-radius: 6px;
-  font-size: 14px;
-  resize: vertical;
-  min-height: 60px;
-  max-height: 120px;
   transition: border-color 0.2s;
 
   &:focus {

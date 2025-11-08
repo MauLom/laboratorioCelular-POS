@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import Navigation from '../components/common/Navigation';
-import { franchiseLocationsApi, catalogsApi, configurationsApi } from '../services/api';
+import { franchiseLocationsApi, catalogsApi } from '../services/api';
 import { FranchiseLocation } from '../types';
 import FranchiseManager from '../components/configuration/FranchiseManager';
 import { useNotification } from '../contexts/NotificationContext';
@@ -99,32 +99,11 @@ const Small = styled.div`
   color: #7f8c8d;
 `;
 
-const ErrorMessage = styled.div`
-  background: #ffe6e6;
-  color: #e74c3c;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  border: 1px solid #ffcdd2;
-`;
-
-const SuccessMessage = styled.div`
-  background: #e8f5e8;
-  color: #27ae60;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  border: 1px solid #c8e6c9;
-`;
-
 const ConfigurationPage: React.FC = () => {
   const { notifySuccess, notifyError } = useNotification();
   const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics' | 'equipment'>('franchises');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // franchises
-  const [locations, setLocations] = useState<FranchiseLocation[]>([]);
 
   // brands
   const [brands, setBrands] = useState<any[]>([]);
@@ -150,14 +129,12 @@ const ConfigurationPage: React.FC = () => {
     const load = async () => {
       try {
         const locs = await franchiseLocationsApi.getActive();
-        setLocations(locs || []);
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
         const chars = await catalogsApi.getCharacteristics();
         setCharacteristics(chars || []);
       } catch (err) {
         console.error(err);
-        setError('Error loading configuration data');
       }
     };
     load();
@@ -320,13 +297,11 @@ const ConfigurationPage: React.FC = () => {
   };
 
   const handleError = (message: string) => {
-    setError(message);
-    setTimeout(() => setError(null), 5000);
+    notifyError(message);
   };
-
+    
   const handleSuccess = (message: string) => {
-    setSuccess(message);
-    setTimeout(() => setSuccess(null), 5000);
+    notifySuccess(message);
   };
 
   return (

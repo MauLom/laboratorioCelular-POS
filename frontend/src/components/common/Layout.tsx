@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Heading, Container } from '@chakra-ui/react';
+import { Box, Container } from '@chakra-ui/react';
 import Navigation from './Navigation';
 
 interface LayoutProps {
