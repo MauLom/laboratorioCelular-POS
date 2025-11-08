@@ -177,3 +177,47 @@ export interface Configuration {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Cash Session Types
+export interface CashSession {
+  _id?: string;
+  franchiseLocation: string | FranchiseLocation;
+  user: string | User;
+  openDateTime: string;
+  closeDateTime?: string | null;
+  opening_cash_mxn: number;
+  opening_cash_usd: number;
+  closing_cash_mxn?: number | null;
+  closing_cash_usd?: number | null;
+  card_amount?: number;
+  withdrawn_amount?: number;
+  exchange_rate_usd_mxn: number;
+  status: 'open' | 'closed';
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CashSessionOpenRequest {
+  franchiseLocationId: string;
+  opening_cash_mxn: number;
+  opening_cash_usd: number;
+  exchange_rate_usd_mxn: number;
+  notes?: string;
+}
+
+export interface CashSessionCloseRequest {
+  franchiseLocationId: string;
+  closing_cash_mxn: number;
+  closing_cash_usd: number;
+  card_amount?: number;
+  withdrawn_amount?: number;
+  notes?: string;
+}
+
+export interface CashSessionStatusResponse {
+  hasSession: boolean;
+  status?: 'open' | 'closed';
+  message?: string;
+  session?: CashSession;
+}

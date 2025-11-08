@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
-const { authenticate, authorize, applyFranchiseFilter, applyRoleDataFilter } = require('../middleware/auth');
+const { authenticate, authorize, applyFranchiseFilter } = require('../middleware/auth');
 const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
 
 // Helper function to get accessible franchise locations for a user
