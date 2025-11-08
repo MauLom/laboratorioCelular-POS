@@ -37,7 +37,6 @@ async function getOrCreateFranchiseLocationFromBranch(branchName, createdBy) {
     
     return location._id;
   } catch (error) {
-    console.error('Error handling branch to franchise location mapping:', error);
     return null;
   }
 }
@@ -61,7 +60,6 @@ const handleBranchToFranchiseLocationConversion = async (req, res, next) => {
     
     next();
   } catch (error) {
-    console.error('Branch conversion middleware error:', error);
     next();
   }
 };

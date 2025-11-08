@@ -11,7 +11,6 @@ router.get('/', authenticate, async (req, res) => {
     const brands = await Brand.find({ isActive: true }).sort({ name: 1 });
     res.json(brands);
   } catch (error) {
-    console.error('Get brands error:', error);
     res.status(500).json({ error: 'Error al obtener las marcas' });
   }
 });
@@ -26,7 +25,6 @@ router.get('/:id', authenticate, async (req, res) => {
 
     res.json({ brand, characteristics });
   } catch (error) {
-    console.error('Get brand error:', error);
     res.status(500).json({ error: 'Error al obtener la marca' });
   }
 });
@@ -47,7 +45,6 @@ router.post('/', authenticate, async (req, res) => {
     await brand.save();
     res.status(201).json(brand);
   } catch (error) {
-    console.error('Create brand error:', error);
     res.status(500).json({ error: 'Error al crear la marca' });
   }
 });
@@ -69,7 +66,6 @@ router.put('/:id', authenticate, async (req, res) => {
 
     res.json(brand);
   } catch (error) {
-    console.error('Update brand error:', error);
     res.status(500).json({ error: 'Error al actualizar la marca' });
   }
 });
@@ -87,7 +83,6 @@ router.delete('/:id', authenticate, async (req, res) => {
 
     res.json({ message: 'Marca eliminada exitosamente' });
   } catch (error) {
-    console.error('Delete brand error:', error);
     res.status(500).json({ error: 'Error al eliminar la marca' });
   }
 });

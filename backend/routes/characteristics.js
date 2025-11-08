@@ -11,7 +11,6 @@ router.get('/', authenticate, async (req, res) => {
     const chars = await Characteristic.find({ isActive: true }).sort({ name: 1 });
     res.json(chars);
   } catch (error) {
-    console.error('Get characteristics error:', error);
     res.status(500).json({ error: 'Error al obtener las características' });
   }
 });
@@ -28,7 +27,6 @@ router.get('/:characteristicId/values', authenticate, async (req, res) => {
     const values = await CharacteristicValue.find(query).populate('brand', 'name').sort({ displayName: 1 });
     res.json(values);
   } catch (error) {
-    console.error('Get characteristic values error:', error);
     res.status(500).json({ error: 'Error al obtener los valores de la característica' });
   }
 });
@@ -49,7 +47,6 @@ router.post('/', authenticate, async (req, res) => {
     await char.save();
     res.status(201).json(char);
   } catch (error) {
-    console.error('Create characteristic error:', error);
     res.status(500).json({ error: 'Error al crear la característica' });
   }
 });
@@ -75,7 +72,6 @@ router.post('/:characteristicId/values', authenticate, async (req, res) => {
     await charValue.save();
     res.status(201).json(charValue);
   } catch (error) {
-    console.error('Create characteristic value error:', error);
     res.status(500).json({ error: 'Error al crear el valor de la característica' });
   }
 });
@@ -97,7 +93,6 @@ router.put('/:id', authenticate, async (req, res) => {
 
     res.json(char);
   } catch (error) {
-    console.error('Update characteristic error:', error);
     res.status(500).json({ error: 'Error al actualizar la característica' });
   }
 });
@@ -115,7 +110,6 @@ router.delete('/:id', authenticate, async (req, res) => {
 
     res.json({ message: 'Característica eliminada exitosamente' });
   } catch (error) {
-    console.error('Delete characteristic error:', error);
     res.status(500).json({ error: 'Error al eliminar la característica' });
   }
 });

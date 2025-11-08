@@ -92,7 +92,6 @@ const CashClose: React.FC = () => {
       
       const todaysSales = allSales.filter(sale => {
         if (!sale.createdAt) {
-          console.log('❌ Venta sin createdAt:', sale.folio);
           return false;
         }
         
@@ -125,7 +124,6 @@ const CashClose: React.FC = () => {
         if (sale.paymentMethods && Array.isArray(sale.paymentMethods)) {
           sale.paymentMethods.forEach(payment => {
             const amount = payment.amount || 0;
-            console.log(`💰 Método de pago: ${payment.type} - $${amount}`);
             
             switch (payment.type?.toLowerCase()) {
               case 'tarjeta':
@@ -146,7 +144,6 @@ const CashClose: React.FC = () => {
               default:
                 // Si no se especifica tipo, asumir que es efectivo
                 totalCash += amount;
-                console.log(`⚠️ Tipo de pago no reconocido: ${payment.type}, asignado a efectivo`);
                 break;
             }
           });
@@ -171,26 +168,16 @@ const CashClose: React.FC = () => {
         
         setDailyExpenses(expenses);
         
-        // Calcular total de gastos
         const expensesTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
         setTotalExpenses(expensesTotal);
         
-        console.log(`💸 Total de gastos del día: $${expensesTotal.toFixed(2)} (${expenses.length} gastos)`);
-        
-        // Establecer valores calculados DESPUÉS de obtener gastos
-        // El efectivo final debe reflejar las ventas menos los gastos del día
         const adjustedCash = totalCash - expensesTotal;
         setCorte(totalAmount.toFixed(2));
         setFeria(adjustedCash.toFixed(2));
         setTarjeta(totalCard.toFixed(2));
         setDolar(totalUSD.toFixed(2));
         
-        console.log(`💰 Efectivo de ventas: $${totalCash.toFixed(2)}`);
-        console.log(`💸 Gastos del día: $${expensesTotal.toFixed(2)}`);
-        console.log(`✅ Efectivo ajustado (ventas - gastos): $${adjustedCash.toFixed(2)}`);
       } catch (expError) {
-        console.error('Error cargando gastos del día:', expError);
-        // No fallar si no se pueden cargar los gastos
         setDailyExpenses([]);
         setTotalExpenses(0);
         
@@ -202,7 +189,6 @@ const CashClose: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error('Error cargando datos de ventas del día:', error);
       alertError('Error al cargar los datos de ventas del día');
     } finally {
       setLoadingSalesData(false);
@@ -285,7 +271,6 @@ const CashClose: React.FC = () => {
       }, 2000); // Esperar 2 segundos para que el usuario vea el mensaje
 
     } catch (error: any) {
-      console.error('Error cerrando caja:', error);
       alertError(error.message || 'Error al cerrar la caja');
     } finally {
       setClosingCash(false);

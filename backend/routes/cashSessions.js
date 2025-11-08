@@ -67,7 +67,6 @@ router.post('/open', authenticate, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error opening cash session:', error);
     
     if (error.message.includes('Ya existe una sesión')) {
       return res.status(400).json({ error: error.message });
@@ -142,7 +141,6 @@ router.post('/close', authenticate, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error closing cash session:', error);
     res.status(500).json({ 
       error: 'Error interno del servidor al cerrar la sesión de caja' 
     });
@@ -191,7 +189,6 @@ router.get('/status/:franchiseId', authenticate, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error checking cash session status:', error);
     res.status(500).json({ 
       error: 'Error interno del servidor al verificar el estado de la sesión' 
     });
@@ -224,8 +221,7 @@ router.get('/history/:franchiseId', authenticate, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error getting cash session history:', error);
-    res.status(500).json({ 
+s    res.status(500).json({ 
       error: 'Error interno del servidor al obtener el historial' 
     });
   }

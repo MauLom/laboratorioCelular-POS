@@ -82,7 +82,6 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     
     // Si el usuario no necesita sesión de caja, no mostrar el modal
     if (!userNeedsCashSession()) {
-      console.log(`Usuario con rol administrativo '${user.role}' - omitiendo verificación de caja`);
       setShowCashModal(false);
       return;
     }
@@ -96,9 +95,6 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
         try {
           const sessionStatus = await cashSessionApi.checkTodaySession(franchiseIdToCheck);
           
-          console.log('Session status:', sessionStatus);
-          
-          // Si no hay sesión activa hoy, mostrar modal
           if (!sessionStatus.hasSession) {
             setShowCashModal(true);
           } else {
@@ -109,12 +105,10 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
           setShowCashModal(true);
         }
       } else {
-        // Mostrar modal incluso sin franquicia válida para informar al usuario
         setShowCashModal(true);
       }
     } catch (error) {
       console.error('Error in checkCashSession:', error);
-      // Solo mostrar modal si el usuario necesita sesión de caja
       setShowCashModal(userNeedsCashSession());
     } finally {
       setIsCheckingSession(false);
