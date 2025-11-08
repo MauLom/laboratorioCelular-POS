@@ -88,11 +88,10 @@ const franchiseLocationSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-franchiseLocationSchema.index({ code: 1 });
+// Note: code and guid indexes are automatically created by unique: true
 franchiseLocationSchema.index({ name: 1 });
 franchiseLocationSchema.index({ type: 1 });
 franchiseLocationSchema.index({ isActive: 1 });
-franchiseLocationSchema.index({ guid: 1 }, { sparse: true });
 
 // Virtual to get full address
 franchiseLocationSchema.virtual('fullAddress').get(function() {

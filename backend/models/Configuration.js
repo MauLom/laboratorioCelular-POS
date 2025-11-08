@@ -34,7 +34,7 @@ const configurationSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-configurationSchema.index({ key: 1 });
+// Note: key index is automatically created by unique: true
 configurationSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('Configuration', configurationSchema);

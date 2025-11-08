@@ -44,7 +44,7 @@ const inventoryItemSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-inventoryItemSchema.index({ imei: 1 });
+// Note: imei index is automatically created by unique: true
 inventoryItemSchema.index({ state: 1 });
 inventoryItemSchema.index({ franchiseLocation: 1 });
 
