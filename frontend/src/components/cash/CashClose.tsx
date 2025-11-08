@@ -163,13 +163,7 @@ const CashClose: React.FC = () => {
         }
       });
 
-      // Establecer valores calculados
-      setCorte(totalAmount.toFixed(2));
-      setFeria(totalCash.toFixed(2));
-      setTarjeta(totalCard.toFixed(2));
-      setDolar(totalUSD.toFixed(2));
-
-      // Obtener gastos del día
+      // Obtener gastos del día primero para poder ajustar el efectivo
       try {
         const today = new Date();
         const localDate = today.toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
@@ -182,11 +176,29 @@ const CashClose: React.FC = () => {
         setTotalExpenses(expensesTotal);
         
         console.log(`💸 Total de gastos del día: $${expensesTotal.toFixed(2)} (${expenses.length} gastos)`);
+        
+        // Establecer valores calculados DESPUÉS de obtener gastos
+        // El efectivo final debe reflejar las ventas menos los gastos del día
+        const adjustedCash = totalCash - expensesTotal;
+        setCorte(totalAmount.toFixed(2));
+        setFeria(adjustedCash.toFixed(2));
+        setTarjeta(totalCard.toFixed(2));
+        setDolar(totalUSD.toFixed(2));
+        
+        console.log(`💰 Efectivo de ventas: $${totalCash.toFixed(2)}`);
+        console.log(`💸 Gastos del día: $${expensesTotal.toFixed(2)}`);
+        console.log(`✅ Efectivo ajustado (ventas - gastos): $${adjustedCash.toFixed(2)}`);
       } catch (expError) {
         console.error('Error cargando gastos del día:', expError);
         // No fallar si no se pueden cargar los gastos
         setDailyExpenses([]);
         setTotalExpenses(0);
+        
+        // Si no se pueden cargar gastos, usar valores sin ajustar
+        setCorte(totalAmount.toFixed(2));
+        setFeria(totalCash.toFixed(2));
+        setTarjeta(totalCard.toFixed(2));
+        setDolar(totalUSD.toFixed(2));
       }
 
     } catch (error: any) {
@@ -371,6 +383,30 @@ const CashClose: React.FC = () => {
                   </Box>
                 )}
                 
+                {/* Resumen de Cálculo de Efectivo */}
+                {dailyExpenses.length > 0 && parseFloat(feria) > 0 && (
+                  <Box bg="blue.50" p={4} rounded="md" border="1px" borderColor="blue.200" mb={4}>
+                    <Text fontSize="md" fontWeight="semibold" color="blue.800" mb={2}>
+                      💵 Cálculo de Efectivo Final
+                    </Text>
+                    <VStack align="stretch" gap={1} fontSize="sm">
+                      <Flex justify="space-between" color="gray.700">
+                        <Text>Efectivo de ventas:</Text>
+                        <Text fontWeight="medium">+${(parseFloat(feria) + totalExpenses).toFixed(2)}</Text>
+                      </Flex>
+                      <Flex justify="space-between" color="orange.700">
+                        <Text>Gastos del día:</Text>
+                        <Text fontWeight="medium">-${totalExpenses.toFixed(2)}</Text>
+                      </Flex>
+                      <Box my={1} borderBottom="1px" borderColor="blue.300" />
+                      <Flex justify="space-between" color="blue.800" fontWeight="bold">
+                        <Text>Efectivo esperado en caja:</Text>
+                        <Text>=  ${parseFloat(feria).toFixed(2)}</Text>
+                      </Flex>
+                    </VStack>
+                  </Box>
+                )}
+                
                 {/* Inputs para cierre de caja */}
                 <SimpleGrid columns={2} gap={4}>
                   <Box>
@@ -392,8 +428,13 @@ const CashClose: React.FC = () => {
                   <Box>
                     <Flex justify="space-between" align="center" mb={2}>
                       <Text fontSize="sm" fontWeight="medium" color="gray.700">
-                        Efectivo (MXN):
+                        Efectivo Final (MXN):
                       </Text>
+                      {dailyExpenses.length > 0 && (
+                        <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                          (ya con gastos restados)
+                        </Text>
+                      )}
                     </Flex>
                     <Input
                       type="text"
