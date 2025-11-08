@@ -37,10 +37,8 @@ const CashClose: React.FC = () => {
   const [dolar, setDolar] = useState('');
   const [salida, setSalida] = useState('');
   
-  // Estado para el tipo de cambio
   const [exchangeRate, setExchangeRate] = useState<number>(1);
   
-  // Estado para gastos del día
   const [dailyExpenses, setDailyExpenses] = useState<Expense[]>([]);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
 
@@ -91,8 +89,6 @@ const CashClose: React.FC = () => {
 
       // Filtrar ventas del día actual en el cliente como respaldo
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       
       const todaysSales = allSales.filter(sale => {
         if (!sale.createdAt) {

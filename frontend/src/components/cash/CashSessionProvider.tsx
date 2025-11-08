@@ -13,10 +13,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   const [showCashModal, setShowCashModal] = useState(false);
   const [franchiseName, setFranchiseName] = useState('');
   const [franchiseId, setFranchiseId] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
   const [isValidFranchise, setIsValidFranchise] = useState(false);
-  const [activeCashSession, setActiveCashSession] = useState<any>(null);
   
   // Flags para evitar múltiples ejecuciones simultáneas
   const [isCheckingSession, setIsCheckingSession] = useState(false);
@@ -87,12 +84,10 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     if (!userNeedsCashSession()) {
       console.log(`Usuario con rol administrativo '${user.role}' - omitiendo verificación de caja`);
       setShowCashModal(false);
-      setActiveCashSession(null);
       return;
     }
     
     setIsCheckingSession(true);
-    setLoading(true);
     
     try {
       const franchiseIdToCheck = await getCurrentFranchise();
@@ -106,28 +101,21 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
           // Si no hay sesión activa hoy, mostrar modal
           if (!sessionStatus.hasSession) {
             setShowCashModal(true);
-            setActiveCashSession(null);
           } else {
             setShowCashModal(false);
-            setActiveCashSession(sessionStatus.session);
           }
         } catch (apiError) {
           console.error('Error checking session:', apiError);
           setShowCashModal(true);
-          setActiveCashSession(null);
         }
       } else {
         // Mostrar modal incluso sin franquicia válida para informar al usuario
         setShowCashModal(true);
-        setActiveCashSession(null);
       }
     } catch (error) {
-      console.error('Error in checkCashSession:', error);
       // Solo mostrar modal si el usuario necesita sesión de caja
       setShowCashModal(userNeedsCashSession());
-      setActiveCashSession(null);
     } finally {
-      setLoading(false);
       setIsCheckingSession(false);
     }
   };
@@ -153,7 +141,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
 
-  }, [isAuthenticated, user, hasInitialized, isCheckingSession]);
+  }, [isAuthenticated, user, hasInitialized, isCheckingSession, checkCashSession]);
 
   // Función para forzar verificación desde componentes externos
   const forceCheckCashSession = () => {
