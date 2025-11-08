@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Heading, Text, Button, Flex, Input, SimpleGrid, VStack, Divider } from '@chakra-ui/react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Text, Button, Flex, Input, SimpleGrid, VStack } from '@chakra-ui/react';
 import Navigation from '../common/Navigation';
 import { franchiseLocationsApi, cashSessionApi, salesApi } from '../../services/api';
 import { listExpenses } from '../../services/expenses';
@@ -71,7 +71,7 @@ const CashClose: React.FC = () => {
   };
 
   // Función para calcular los montos del día
-  const loadTodaysSalesData = async () => {
+  const loadTodaysSalesData = useCallback(async () => {
     if (!franchiseId) return;
 
     try {
@@ -199,7 +199,7 @@ const CashClose: React.FC = () => {
     } finally {
       setLoadingSalesData(false);
     }
-  };
+  }, [franchiseId, alertError]);
 
   useEffect(() => {
     getCurrentFranchise();
@@ -210,7 +210,7 @@ const CashClose: React.FC = () => {
     if (franchiseId) {
       loadTodaysSalesData();
     }
-  }, [franchiseId]);
+  }, [franchiseId, loadTodaysSalesData]);
 
   // Función para validar números con hasta 2 decimales
   const handleNumericInput = (value: string, setter: (value: string) => void) => {
@@ -360,7 +360,7 @@ const CashClose: React.FC = () => {
                         ${totalExpenses.toFixed(2)} MXN
                       </Text>
                     </Flex>
-                    <Divider my={2} borderColor="orange.300" />
+                    <Box my={2} borderBottom="1px" borderColor="orange.300" />
                     <VStack align="stretch" gap={1} maxH="150px" overflowY="auto">
                       {dailyExpenses.map((expense, idx) => (
                         <Flex key={idx} justify="space-between" fontSize="sm" color="gray.700">
