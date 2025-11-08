@@ -245,6 +245,9 @@ export default function ExpensesPage() {
       </Box>
 
       {/* Filtros */}
+      {['Master admin', 'Administrador', 'Admin', 'Supervisor de sucursales', 'Supervisor de oficina'].includes(
+        localStorage.getItem('userRole') || localStorage.getItem('role') || ''
+      ) && (
       <Box bg="white" mt="20px" p="20px" borderRadius="8px" boxShadow="md">
         <Heading as="h3" size="sm" mb="4">
           Búsqueda y Filtros
@@ -297,6 +300,7 @@ export default function ExpensesPage() {
           </Button>
         </Flex>
       </Box>
+     )} 
 
       {/* Tabla de resultados */}
       <Box bg="white" mt="20px" p="20px" borderRadius="8px" boxShadow="md">
