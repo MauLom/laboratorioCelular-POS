@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
 import { Sale, FranchiseLocation, InventoryItem, PaymentMethod } from '../../types';
-import { franchiseLocationsApi, inventoryApi } from '../../services/api';
+import { franchiseLocationsApi, inventoryApi, cashSessionApi } from '../../services/api';
+import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfiguration } from '../../hooks/useConfigurations';
 import SalesArticles, { SalesArticle } from './SalesArticles';
@@ -69,6 +71,22 @@ const Select = styled.select`
   }
 `;
 
+const TextArea = styled.textarea`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  min-height: 100px;
+  resize: vertical;
+  
+  &:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  }
+`;
+
 const Button = styled.button`
   background-color: #27ae60;
   color: white;
@@ -94,6 +112,16 @@ const ErrorMessage = styled.span`
   font-size: 0.875rem;
   margin-top: 0.25rem;
   display: block;
+`;
+
+const InfoMessage = styled.div`
+  background: #e8f4fd;
+  color: #0066cc;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  border: 1px solid #b3d9ff;
 `;
 
 const FormRow = styled.div`
@@ -198,14 +226,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
   resetLocationLock = false,
 }) => {
   const { user } = useAuth();
-  const userLocationId = user?.franchiseLocation?._id || '';
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [systemGuid, setSystemGuid] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<FranchiseLocation | null>(null);
   const [locationLocked, setLocationLocked] = useState<boolean>(false);
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  // const [paymentType, setPaymentType] = useState<string>('');
+  const [paymentType, setPaymentType] = useState<string>('');
+  const [exchangeRate, setExchangeRate] = useState<number>(1);
   
   // Estados para múltiples métodos de pago
   const [paymentMethods, setPaymentMethods] = useState<Array<{
@@ -220,7 +248,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
     if (showPaymentModal && paymentMethods.length === 0) {
       addPaymentMethod();
     }
-  }, [showPaymentModal, paymentMethods.length]);
+  }, [showPaymentModal]);
 
   // Load configurations for concepts and finance types
   const { getLabels: getConceptsLabels, loading: conceptsLoading } = useConfiguration('concepts_concepts');
@@ -239,35 +267,14 @@ const SalesForm: React.FC<SalesFormProps> = ({
         
         // Try to get system GUID (optional service)
         try {
-          const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-          
-          const guidResponse = await fetch(`${winServiceUrl}/api/system/guid`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-
-          if (guidResponse.ok) {
-            const guidData = await guidResponse.json();
-            currentGuid = guidData.guid || guidData.systemGuid || '';
+          const systemGuid = await deviceTrackerApi.getSystemGuid();
+          if (systemGuid) {
+            currentGuid = systemGuid;
             setSystemGuid(currentGuid);
-          } else {
-            console.warn('System GUID service responded with error:', guidResponse.status);
+            console.log('System GUID loaded:', currentGuid);
           }
         } catch (guidError: any) {
-          if (guidError.name === 'AbortError') {
-            console.debug('System GUID request timeout (2s) - service not available');
-          } else if (guidError.message.includes('Failed to fetch') || guidError.code === 'ECONNREFUSED') {
-            console.debug('System GUID service not available (connection refused)');
-          } else {
-            console.debug('Error fetching system GUID:', guidError.message);
-          }
+          console.debug('Error fetching system GUID:', guidError.message);
           // Continue without GUID - this is optional functionality
         }
 
@@ -308,18 +315,30 @@ const SalesForm: React.FC<SalesFormProps> = ({
     initializeData();
   }, [canSelectLocation]);
 
-  // Autoasignar sucursal al usuario de ventas o cajero
-  useEffect(() => {
-    if (user && !canSelectLocation) {
-      const assigned = user.franchiseLocation;
-      if (assigned && assigned._id) {
-        setSelectedLocation(assigned);
-        console.log("🏪 Sucursal asignada automáticamente para usuario de ventas:", assigned.name);
+  // Función para obtener el tipo de cambio
+  const fetchExchangeRate = async (franchiseLocationId: string) => {
+    try {
+      const sessionStatus = await cashSessionApi.checkTodaySession(franchiseLocationId);
+      if (sessionStatus.hasSession && sessionStatus.session?.exchange_rate_usd_mxn) {
+        const rate = sessionStatus.session.exchange_rate_usd_mxn;
+        setExchangeRate(rate);
+        console.log(`💱 Tipo de cambio cargado: $${rate} MXN por USD`);
       } else {
-        console.warn("⚠️ Usuario sin sucursal asignada en backend o aún no cargada.");
+        console.warn('⚠️ No se encontró tipo de cambio en la sesión de caja, usando valor por defecto');
+        setExchangeRate(1);
       }
+    } catch (error) {
+      console.error('Error obteniendo tipo de cambio:', error);
+      setExchangeRate(1);
     }
-  }, [user, canSelectLocation]);
+  };
+
+  // Obtener tipo de cambio cuando se selecciona una ubicación
+  useEffect(() => {
+    if (selectedLocation?._id) {
+      fetchExchangeRate(selectedLocation._id);
+    }
+  }, [selectedLocation]);
 
   // Resetear el bloqueo de ubicación cuando se indique desde el padre
   useEffect(() => {
@@ -338,6 +357,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
   // Estados para formateo de montos
   const [formattedAmount, setFormattedAmount] = useState('');
+  const [formattedPaymentAmount, setFormattedPaymentAmount] = useState('');
 
   // Funciones de utilidad para formateo de monedas
   const formatCurrency = (value: number | string): string => {
@@ -400,6 +420,44 @@ const SalesForm: React.FC<SalesFormProps> = ({
     }
   };
 
+  const handlePaymentAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    
+    // Permitir solo números y punto decimal durante la escritura
+    const sanitized = inputValue.replace(/[^\d.]/g, '');
+    
+    // Validar formato decimal (máximo 2 decimales)
+    const decimalParts = sanitized.split('.');
+    if (decimalParts.length > 2) return; // Más de un punto decimal
+    if (decimalParts[1] && decimalParts[1].length > 2) return; // Más de 2 decimales
+    
+    // Durante la escritura, mostrar el valor sin formato
+    setFormattedPaymentAmount(sanitized);
+    
+    // Actualizar el valor numérico
+    const numValue = parseFloat(sanitized) || 0;
+    setPaymentAmount(numValue);
+  };
+
+  const handlePaymentAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    const numValue = parseFloat(inputValue) || 0;
+    
+    // Aplicar formato al salir del campo
+    const formatted = formatCurrency(numValue);
+    setFormattedPaymentAmount(formatted);
+    setPaymentAmount(numValue);
+  };
+
+  const handlePaymentAmountFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Al enfocar el campo, mostrar el valor sin formato para facilitar la edición
+    const currentValue = e.target.value;
+    if (currentValue) {
+      const numValue = parseCurrency(currentValue);
+      setFormattedPaymentAmount(numValue > 0 ? numValue.toString() : '');
+    }
+  };
+
   // Funciones para múltiples métodos de pago
   const addPaymentMethod = () => {
     const newPaymentMethod = {
@@ -425,7 +483,20 @@ const SalesForm: React.FC<SalesFormProps> = ({
     setPaymentMethods(prev => {
       const updated = prev.map(pm => {
         if (pm.id === id) {
-          return { ...pm, [field]: value };
+          let updatedPm = { ...pm, [field]: value };
+          
+          // Si se está cambiando el tipo de pago a "dolar", calcular automáticamente
+          if (field === 'type' && value === 'dolar') {
+            const totalSale = articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0);
+            const amountInUSD = totalSale / exchangeRate;
+            
+            updatedPm.amount = parseFloat(amountInUSD.toFixed(2));
+            updatedPm.formattedAmount = amountInUSD.toFixed(2);
+            
+            console.log(`💰 Conversión automática a USD: $${totalSale} MXN ÷ ${exchangeRate} = $${amountInUSD.toFixed(2)} USD`);
+          }
+          
+          return updatedPm;
         }
         return pm;
       });
@@ -467,6 +538,20 @@ const SalesForm: React.FC<SalesFormProps> = ({
       const numValue = parseCurrency(currentValue);
       updatePaymentMethod(id, 'formattedAmount', numValue > 0 ? numValue.toString() : '');
     }
+  };
+
+  // Función para calcular el total recibido considerando conversión de dólares
+  const calculateTotalReceivedInPesos = (): number => {
+    return paymentMethods.reduce((total, pm) => {
+      if (pm.type === 'dolar' && pm.amount > 0) {
+        // Convertir dólares a pesos
+        return total + (pm.amount * exchangeRate);
+      } else if (pm.amount > 0) {
+        // Otros métodos de pago ya están en pesos
+        return total + pm.amount;
+      }
+      return total;
+    }, 0);
   };
 
 
@@ -644,15 +729,16 @@ const SalesForm: React.FC<SalesFormProps> = ({
       amount: articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0),
       paymentAmount: paymentAmount,
       paymentMethods: finalPaymentMethods, // Incluir métodos de pago
-      branch: selectedLocation?._id || userLocationId,
+      branch: selectedLocation?._id || '',
       notes: paymentNotes,
       imei: articles.find(a => a.imei)?.imei || undefined, // Primer IMEI encontrado
       articles: saleArticles, // Incluir todos los artículos
     };
 
     setShowPaymentModal(false);
+    setFormattedPaymentAmount('');
     setPaymentAmount(0);
-    // setPaymentType('');
+    setPaymentType('');
     setPaymentMethods([]);
     await onSubmit(saleData);
   };
@@ -921,15 +1007,23 @@ const SalesForm: React.FC<SalesFormProps> = ({
       {showPaymentModal && (
         <Modal onClick={() => {
           setShowPaymentModal(false);
+          setFormattedPaymentAmount('');
           setPaymentAmount(0);
-          // setPaymentType('');
+          setPaymentType('');
           setPaymentMethods([]);
         }}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalTitle>💰 Finalizar Venta</ModalTitle>
             
             <div style={{ marginBottom: '1rem' }}>
-              <strong>Total a cobrar: ${articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0).toFixed(2)}</strong>
+              <strong>Total a cobrar: ${articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0).toFixed(2)} MXN</strong>
+              {exchangeRate > 1 && (
+                <div style={{ fontSize: '0.85rem', color: '#6c757d', marginTop: '0.25rem' }}>
+                  Tipo de cambio: ${exchangeRate.toFixed(2)} MXN por USD
+                  {' • '}
+                  Equivalente: ${(articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) / exchangeRate).toFixed(2)} USD
+                </div>
+              )}
             </div>
             
             {/* Métodos de Pago */}
@@ -1014,16 +1108,36 @@ const SalesForm: React.FC<SalesFormProps> = ({
                     </FormGroup>
                     
                     <FormGroup style={{ marginBottom: '0.3rem' }}>
-                      <Label style={{ fontSize: '0.8rem', marginBottom: '0.2rem' }}>Monto</Label>
-                      <Input
-                        type="text"
-                        placeholder="0.00"
-                        value={pm.formattedAmount}
-                        onChange={(e) => handlePaymentMethodAmountChange(pm.id, e.target.value)}
-                        onFocus={() => handlePaymentMethodAmountFocus(pm.id, pm.formattedAmount)}
-                        onBlur={(e) => handlePaymentMethodAmountBlur(pm.id, e.target.value)}
-                        style={{ textAlign: 'right', fontSize: '0.9rem', padding: '0.4rem' }}
-                      />
+                      <Label style={{ fontSize: '0.8rem', marginBottom: '0.2rem' }}>
+                        Monto {pm.type === 'dolar' && <span style={{ color: '#28a745', fontWeight: 'bold' }}>(USD)</span>}
+                      </Label>
+                      <div style={{ position: 'relative' }}>
+                        <Input
+                          type="text"
+                          placeholder="0.00"
+                          value={pm.formattedAmount}
+                          onChange={(e) => handlePaymentMethodAmountChange(pm.id, e.target.value)}
+                          onFocus={() => handlePaymentMethodAmountFocus(pm.id, pm.formattedAmount)}
+                          onBlur={(e) => handlePaymentMethodAmountBlur(pm.id, e.target.value)}
+                          style={{ 
+                            textAlign: 'right', 
+                            fontSize: '0.9rem', 
+                            padding: '0.4rem',
+                            backgroundColor: pm.type === 'dolar' ? '#f8fff9' : 'white',
+                            borderColor: pm.type === 'dolar' ? '#28a745' : '#ddd'
+                          }}
+                        />
+                        {pm.type === 'dolar' && pm.amount > 0 && (
+                          <div style={{ 
+                            fontSize: '0.7rem', 
+                            color: '#6c757d', 
+                            marginTop: '0.2rem',
+                            textAlign: 'right'
+                          }}>
+                            ≈ ${(pm.amount * exchangeRate).toFixed(2)} MXN
+                          </div>
+                        )}
+                      </div>
                     </FormGroup>
                   </FormRow>
                 </div>
@@ -1038,7 +1152,10 @@ const SalesForm: React.FC<SalesFormProps> = ({
                 borderLeft: '4px solid #2196f3'
               }}>
                 <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1976d2', marginBottom: '0.3rem' }}>
-                  Total recibido: ${paymentAmount.toFixed(2)}
+                  Total recibido: ${calculateTotalReceivedInPesos().toFixed(2)} MXN
+                </div>
+                <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1976d2', marginBottom: '0.3rem' }}>
+                  Monto restante: ${(articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) - calculateTotalReceivedInPesos()).toFixed(2)} MXN
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#1565c0' }}>
                   {paymentMethods.filter(pm => pm.type && pm.amount > 0).length} método(s) de pago
@@ -1046,37 +1163,46 @@ const SalesForm: React.FC<SalesFormProps> = ({
               </div>
             </div>
             
-            {paymentAmount > 0 && paymentAmount >= articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) && (
-              <div style={{ 
-                background: '#d4edda', 
-                color: '#155724', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                marginTop: '0.5rem',
-                fontSize: '0.9rem'
-              }}>
-                💡 Cambio a devolver: ${(paymentAmount - articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0)).toFixed(2)}
-              </div>
-            )}
+            {(() => {
+              const totalReceived = calculateTotalReceivedInPesos();
+              const totalSale = articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0);
+              return totalReceived > 0 && totalReceived >= totalSale && (
+                <div style={{ 
+                  background: '#d4edda', 
+                  color: '#155724', 
+                  padding: '0.5rem', 
+                  borderRadius: '4px',
+                  marginTop: '0.5rem',
+                  fontSize: '0.9rem'
+                }}>
+                  Cambio a devolver: ${(totalReceived - totalSale).toFixed(2)} MXN
+                </div>
+              );
+            })()}
             
-            {paymentAmount > 0 && paymentAmount < articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0) && (
-              <div style={{ 
-                background: '#f8d7da', 
-                color: '#721c24', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                marginTop: '0.5rem',
-                fontSize: '0.9rem'
-              }}>
-                ⚠️ El monto recibido es menor al total de la venta
-              </div>
-            )}
+            {(() => {
+              const totalReceived = calculateTotalReceivedInPesos();
+              const totalSale = articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0);
+              return totalReceived > 0 && totalReceived < totalSale && (
+                <div style={{ 
+                  background: '#f8d7da', 
+                  color: '#721c24', 
+                  padding: '0.5rem', 
+                  borderRadius: '4px',
+                  marginTop: '0.5rem',
+                  fontSize: '0.9rem'
+                }}>
+                  ⚠️ El monto recibido (${totalReceived.toFixed(2)} MXN) es menor al total de la venta (${totalSale.toFixed(2)} MXN)
+                </div>
+              );
+            })()}
 
             <ModalButtons>
               <CancelButton type="button" onClick={() => {
                 setShowPaymentModal(false);
+                setFormattedPaymentAmount('');
                 setPaymentAmount(0);
-                // setPaymentType('');
+                setPaymentType('');
                 setPaymentMethods([]);
               }}>
                 Cancelar
@@ -1084,11 +1210,15 @@ const SalesForm: React.FC<SalesFormProps> = ({
               <Button 
                 type="button" 
                 onClick={handlePaymentSubmit}
-                disabled={
-                  paymentAmount <= 0 || 
-                  paymentMethods.filter(pm => pm.type && pm.amount > 0).length === 0 || 
-                  paymentAmount < articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0)
-                }
+                disabled={(() => {
+                  const totalReceived = calculateTotalReceivedInPesos();
+                  const totalSale = articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0);
+                  return (
+                    totalReceived <= 0 || 
+                    paymentMethods.filter(pm => pm.type && pm.amount > 0).length === 0 || 
+                    totalReceived < totalSale
+                  );
+                })()}
               >
                 Procesar Venta
               </Button>
