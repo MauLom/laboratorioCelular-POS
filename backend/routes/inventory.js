@@ -86,11 +86,12 @@ router.get('/search', authenticate, applyFranchiseFilter, async (req, res) => {
     // Construir query con filtro de franquicia
     const query = { imei: { $regex: imei, $options: 'i' } };
     if (req.franchiseFilter) {
-      query.franchiseLocation = req.franchiseFilter;
+      query.franchiseLocation = req.franchiseFilter.franchiseLocation;
     }
     const items = await InventoryItem.find(query).limit(10);
     res.json(items);
   } catch (err) {
+    console.error("Error al buscar IMEI:", err);
     res.status(500).json({ error: 'Error al buscar IMEI' });
   }
 });

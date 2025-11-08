@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import Navigation from '../components/common/Navigation';
 import { catalogsApi } from '../services/api';
@@ -124,22 +124,7 @@ const ConfigurationPage: React.FC = () => {
   const [currentPrinter, setCurrentPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState<boolean>(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const b = await catalogsApi.getBrands();
-        setBrands(b || []);
-        const chars = await catalogsApi.getCharacteristics();
-        setCharacteristics(chars || []);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    load();
-    loadEquipmentData();
-  }, []);
-
-  const loadEquipmentData = async () => {
+  const loadEquipmentData = useCallback(async () => {
     setLoadingPrinters(true);
     try {
       // Load current printer from localStorage
@@ -197,7 +182,22 @@ const ConfigurationPage: React.FC = () => {
     } finally {
       setLoadingPrinters(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const b = await catalogsApi.getBrands();
+        setBrands(b || []);
+        const chars = await catalogsApi.getCharacteristics();
+        setCharacteristics(chars || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    load();
+    loadEquipmentData();
+  }, [loadEquipmentData]);
 
   const changePrinter = async (printerName: string) => {
     try {

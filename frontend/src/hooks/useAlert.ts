@@ -1,9 +1,10 @@
+import { useCallback } from 'react';
 import { useNotification } from '../contexts/NotificationContext';
 
 export const useAlert = () => {
   const { notifySuccess, notifyError, notifyWarning, notifyInfo } = useNotification();
 
-  const alert = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+  const alert = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     switch (type) {
       case 'success':
         notifySuccess('Éxito', message);
@@ -18,23 +19,23 @@ export const useAlert = () => {
         notifyInfo('Información', message);
         break;
     }
-  };
+  }, [notifySuccess, notifyError, notifyWarning, notifyInfo]);
 
-  const success = (message: string) => {
+  const success = useCallback((message: string) => {
     notifySuccess('Éxito', message);
-  };
+  }, [notifySuccess]);
 
-  const error = (message: string) => {
+  const error = useCallback((message: string) => {
     notifyError('Error', message);
-  };
+  }, [notifyError]);
 
-  const warning = (message: string) => {
+  const warning = useCallback((message: string) => {
     notifyWarning('Advertencia', message);
-  };
+  }, [notifyWarning]);
 
-  const info = (message: string) => {
+  const info = useCallback((message: string) => {
     notifyInfo('Información', message);
-  };
+  }, [notifyInfo]);
 
   return {
     alert,
