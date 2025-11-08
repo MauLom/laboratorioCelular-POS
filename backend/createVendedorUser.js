@@ -16,8 +16,6 @@ const User = require('./models/User');
       process.exit(1);
     }
 
-    console.log(`👑 Master admin encontrado: ${masterAdmin.username} (${masterAdmin._id})`);
-
     // Crear usuario vendedor (usa el pre('save') para hash automático)
     const newUser = new User({
       username: 'vendedor1',
@@ -31,11 +29,8 @@ const User = require('./models/User');
     });
 
     await newUser.save();
-    console.log('✅ Usuario Vendedor creado correctamente:');
-    console.log(newUser);
 
     await mongoose.connection.close();
-    console.log('🔒 Conexión cerrada');
   } catch (error) {
     console.error('❌ Error al crear usuario:', error);
     mongoose.connection.close();

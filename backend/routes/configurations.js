@@ -22,7 +22,6 @@ router.get('/', authenticate, async (req, res) => {
     
     res.json(key ? configurations[0] : configurations);
   } catch (error) {
-    console.error('Get configurations error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -56,7 +55,6 @@ router.post('/', authenticate, async (req, res) => {
 
     res.json(configuration);
   } catch (error) {
-    console.error('Create/Update configuration error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -95,7 +93,6 @@ router.put('/:key', authenticate, async (req, res) => {
 
     res.json(configuration);
   } catch (error) {
-    console.error('Update configuration error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -122,7 +119,6 @@ router.delete('/:key', authenticate, async (req, res) => {
 
     res.json({ message: 'Configuration deactivated successfully' });
   } catch (error) {
-    console.error('Delete configuration error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

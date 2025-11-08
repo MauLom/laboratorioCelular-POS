@@ -24,7 +24,6 @@ const authenticate = async (req, res, next) => {
     } else if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expired.' });
     }
-    console.error('Auth error:', error);
     res.status(500).json({ error: 'Server error during authentication.' });
   }
 };
@@ -123,7 +122,6 @@ const applyFranchiseFilter = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error('applyFranchiseFilter error:', err);
     res.status(500).json({ error: 'Internal server error (applyFranchiseFilter).' });
   }
 };

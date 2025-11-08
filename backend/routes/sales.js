@@ -78,8 +78,6 @@ router.get('/', authenticate, applyRoleDataFilter, async (req, res) => {
       }
     }
 
-    // 🔎 Mostrar query final antes de ejecutar
-    console.log('✅ Query final ejecutada:', JSON.stringify(query, null, 2));
 
     const options = {
       page: parseInt(page),
@@ -267,7 +265,6 @@ router.get('/export', authenticate, applyFranchiseFilter, applyRoleDataFilter, a
     res.end();
 
   } catch (error) {
-    console.error('Excel export error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -353,7 +350,6 @@ router.post('/', authenticate, async (req, res) => {
         if (inventoryItem) {
           inventoryItem.state = 'Sold';
           await inventoryItem.save();
-          console.log(`Updated inventory item ${imei} to Sold status`);
         } else {
           console.warn(`Inventory item with IMEI ${imei} not found`);
         }

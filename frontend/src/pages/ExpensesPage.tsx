@@ -64,16 +64,13 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-    console.log('Token detectado en useEffect:', token);
 
     if (!token) {
       console.warn('Esperando token antes de cargar gastos...');
       const checkInterval = setInterval(() => {
         const retryToken = localStorage.getItem('auth_token');
-        console.log('Reintentando token:', retryToken);
         if (retryToken) {
           clearInterval(checkInterval);
-          console.log('Token encontrado, cargando gastos...')
           load();
         }
       }, 500);

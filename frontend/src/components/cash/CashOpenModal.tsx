@@ -70,15 +70,11 @@ const CashOpenModal: React.FC<CashOpenModalProps> = ({
         exchange_rate_usd_mxn: parseFloat(exchange_rate_usd_mxn)
       };
 
-      console.log('💰 Opening cash session with data:', requestData);
       await cashSessionApi.open(requestData);
-      console.log('✅ Cash session opened successfully');
       success('Caja abierta exitosamente');
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('💥 Error opening cash session:', error);
-      console.error('💥 Error response:', error.response?.data);
       alertError(error.response?.data?.error || 'Error al abrir la caja');
     } finally {
       setLoading(false);

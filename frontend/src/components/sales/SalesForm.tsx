@@ -257,7 +257,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
             const guidData = await guidResponse.json();
             currentGuid = guidData.guid || guidData.systemGuid || '';
             setSystemGuid(currentGuid);
-            console.log('System GUID loaded:', currentGuid);
           } else {
             console.warn('System GUID service responded with error:', guidResponse.status);
           }
@@ -281,7 +280,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
           const matchingLocation = locations.find(location => location.guid === currentGuid);
           if (matchingLocation) {
             setSelectedLocation(matchingLocation);
-            console.log('Auto-selected location based on GUID:', matchingLocation.name);
           }
         }
 
@@ -289,7 +287,6 @@ const SalesForm: React.FC<SalesFormProps> = ({
         if (!currentGuid || !locations.find(location => location.guid === currentGuid)) {
           if (!canSelectLocation && locations.length === 1) {
             setSelectedLocation(locations[0]);
-            console.log('Auto-selected single available location:', locations[0].name);
           }
         }
 
