@@ -221,7 +221,7 @@ router.get('/history/:franchiseId', authenticate, async (req, res) => {
     });
 
   } catch (error) {
-s    res.status(500).json({ 
+    res.status(500).json({ 
       error: 'Error interno del servidor al obtener el historial' 
     });
   }
