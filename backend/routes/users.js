@@ -1,7 +1,36 @@
 const express = require('express');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const router = express.Router();
 const User = require('../models/User');
 const { authenticate, requireMasterAdmin } = require('../middleware/auth');
+
+// Generate a secure random password
+function generateSecurePassword(length = 12) {
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  const randomBytes = crypto.randomBytes(length);
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += charset[randomBytes[i] % charset.length];
+  }
+  return password;
+}
+
+// Helper function to set temporary password for a user
+async function setTemporaryPassword(plainPassword, daysUntilExpiration = 7) {
+  const salt = await bcrypt.genSalt(12);
+  const hashedTempPassword = await bcrypt.hash(plainPassword, salt);
+  
+  const expirationDate = new Date();
+  expirationDate.setDate(expirationDate.getDate() + daysUntilExpiration);
+  
+  return {
+    temporaryPassword: hashedTempPassword,
+    temporaryPasswordExpiresAt: expirationDate,
+    temporaryPasswordUsed: false,
+    mustChangePassword: true
+  };
+}
 
 // Get all users (Master admin only)
 router.get('/', authenticate, requireMasterAdmin, async (req, res) => {
@@ -71,6 +100,21 @@ router.post('/', authenticate, requireMasterAdmin, async (req, res) => {
       });
     }
     
+    // Generate temporary password (use provided password or generate secure random one)
+    // If password is provided in request, use it; otherwise generate a secure random password
+    const tempPassword = userData.password || generateSecurePassword(12);
+    
+    // Set temporary password fields
+    const tempPasswordData = await setTemporaryPassword(tempPassword, 7);
+    userData.temporaryPassword = tempPasswordData.temporaryPassword;
+    userData.temporaryPasswordExpiresAt = tempPasswordData.temporaryPasswordExpiresAt;
+    userData.temporaryPasswordUsed = tempPasswordData.temporaryPasswordUsed;
+    userData.mustChangePassword = tempPasswordData.mustChangePassword;
+    
+    // Set main password (will be hashed by pre-save hook, but user must use temp password first)
+    // The main password is set to the same value, but user must login with temp password first
+    userData.password = tempPassword;
+    
     const user = new User(userData);
     await user.save();
     
@@ -79,8 +123,9 @@ router.post('/', authenticate, requireMasterAdmin, async (req, res) => {
     await user.populate('createdBy', 'username firstName lastName');
     
     res.status(201).json({ 
-      message: 'User created successfully', 
-      user 
+      message: 'User created successfully with temporary password', 
+      user,
+      temporaryPassword: tempPassword // Include in response for admin to share with user
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -167,7 +212,7 @@ router.delete('/:id', authenticate, requireMasterAdmin, async (req, res) => {
   }
 });
 
-// Reset user password (Master admin only)
+// Reset user password (Master admin only) - Sets temporary password
 router.post('/:id/reset-password', authenticate, requireMasterAdmin, async (req, res) => {
   try {
     const { newPassword } = req.body;
@@ -181,10 +226,29 @@ router.post('/:id/reset-password', authenticate, requireMasterAdmin, async (req,
       return res.status(404).json({ error: 'User not found' });
     }
     
-    user.password = newPassword;
+    // Invalidate old temporary password if it exists
+    if (user.temporaryPassword) {
+      user.invalidateTemporaryPassword();
+    }
+    
+    // Set new temporary password
+    const tempPassword = newPassword;
+    const tempPasswordData = await setTemporaryPassword(tempPassword, 7);
+    
+    user.temporaryPassword = tempPasswordData.temporaryPassword;
+    user.temporaryPasswordExpiresAt = tempPasswordData.temporaryPasswordExpiresAt;
+    user.temporaryPasswordUsed = tempPasswordData.temporaryPasswordUsed;
+    user.mustChangePassword = tempPasswordData.mustChangePassword;
+    
+    // Don't change the main password - user must use temporary password first
+    // The main password will be updated when user sets new password via /auth/set-new-password
+    
     await user.save();
     
-    res.json({ message: 'Password reset successfully' });
+    res.json({ 
+      message: 'Temporary password set successfully. User must change password on next login.',
+      temporaryPassword: tempPassword // Include in response for admin to share with user
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
