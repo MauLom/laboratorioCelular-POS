@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const User = require('../models/User');
 const { authenticate, requireMasterAdmin } = require('../middleware/auth');
+const { validatePassword } = require('../utils/passwordValidator');
 
 // Login route
 router.post('/login', async (req, res) => {
@@ -23,9 +24,31 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials.' });
+    let requiresPasswordChange = false;
+    let isAuthenticated = false;
+
+    // First, check if user has a temporary password
+    if (user.temporaryPassword) {
+      const isTempPasswordMatch = await user.compareTemporaryPassword(password);
+      if (isTempPasswordMatch) {
+        // Temporary password is valid and not expired/used
+        isAuthenticated = true;
+        requiresPasswordChange = true;
+      }
+    }
+
+    // If temporary password didn't match, check regular password
+    if (!isAuthenticated) {
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid credentials.' });
+      }
+      isAuthenticated = true;
+
+      // Check if user must change password
+      if (user.mustChangePassword) {
+        requiresPasswordChange = true;
+      }
     }
 
     // Update last login
@@ -52,7 +75,8 @@ router.post('/login', async (req, res) => {
         role: user.role,
         franchiseLocation: user.franchiseLocation,
         lastLogin: user.lastLogin
-      }
+      },
+      requiresPasswordChange
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -98,17 +122,74 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
-// Change password
+// Set new password (for temporary password or forced password change)
+router.post('/set-new-password', authenticate, async (req, res) => {
+  try {
+    const { newPassword, confirmPassword } = req.body;
+
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'New password and confirmation are required.' });
+    }
+
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Validate password strength
+    const validation = await validatePassword(newPassword, user);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Password validation failed.',
+        errors: validation.errors
+      });
+    }
+
+    // Check if new password is the same as temporary password
+    if (user.temporaryPassword) {
+      const isSameAsTemp = await user.compareTemporaryPassword(newPassword);
+      if (isSameAsTemp) {
+        return res.status(400).json({ 
+          error: 'New password cannot be the same as the temporary password.' 
+        });
+      }
+    }
+
+    // Update password
+    user.password = newPassword;
+    
+    // Invalidate temporary password if it exists
+    if (user.temporaryPassword) {
+      user.invalidateTemporaryPassword();
+    }
+    
+    // Reset mustChangePassword flag
+    user.mustChangePassword = false;
+    
+    // Save user (pre-save hook will handle password hashing and history)
+    await user.save();
+
+    res.json({ 
+      message: 'Password set successfully. You can now log in with your new password.' 
+    });
+  } catch (error) {
+    console.error('Set new password error:', error);
+    res.status(500).json({ error: 'Error setting new password.' });
+  }
+});
+
+// Change password (for users changing their own password)
 router.put('/change-password', authenticate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current password and new password are required.' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
     }
 
     const user = await User.findById(req.user._id);
@@ -118,11 +199,21 @@ router.put('/change-password', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Current password is incorrect.' });
     }
 
+    // Validate password strength and history
+    const validation = await validatePassword(newPassword, user);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Password validation failed.',
+        errors: validation.errors
+      });
+    }
+
     user.password = newPassword;
     await user.save();
 
     res.json({ message: 'Password changed successfully' });
   } catch (error) {
+    console.error('Change password error:', error);
     res.status(500).json({ error: 'Error changing password.' });
   }
 });
