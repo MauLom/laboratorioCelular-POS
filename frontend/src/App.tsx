@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import CashSessionProvider from './components/cash/CashSessionProvider';
 import NotificationManager from './components/ui/NotificationManager';
 import LoginPage from './pages/LoginPage';
+import SetNewPasswordPage from './pages/SetNewPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import SalesPage from './pages/SalesPage';
@@ -25,6 +26,14 @@ function App() {
               <NotificationManager />
               <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route 
+                path="/set-new-password" 
+                element={
+                  <ProtectedRoute>
+                    <SetNewPasswordPage />
+                  </ProtectedRoute>
+                } 
+              />
               <Route 
                 path="/" 
                 element={

@@ -126,8 +126,14 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(credentials);
-      const from = (location.state as any)?.from?.pathname || '/';
-      navigate(from, { replace: true });
+      // Check if password change is required
+      const storedRequiresPasswordChange = localStorage.getItem('requiresPasswordChange');
+      if (storedRequiresPasswordChange === 'true') {
+        navigate('/set-new-password', { replace: true });
+      } else {
+        const from = (location.state as any)?.from?.pathname || '/';
+        navigate(from, { replace: true });
+      }
     } catch (error: any) {
       setError(error.message || 'Error al iniciar sesión');
     }

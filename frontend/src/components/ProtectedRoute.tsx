@@ -14,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRoles,
   redirectTo = '/login'
 }) => {
-  const { isAuthenticated, user, loading, hasRole } = useAuth();
+  const { isAuthenticated, user, loading, hasRole, requiresPasswordChange } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -34,6 +34,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!isAuthenticated) {
     // Redirect to login page with return url
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  // If password change is required and not already on set-new-password page, redirect
+  if (requiresPasswordChange && location.pathname !== '/set-new-password') {
+    return <Navigate to="/set-new-password" replace />;
   }
 
   if (requiredRoles && requiredRoles.length > 0) {
