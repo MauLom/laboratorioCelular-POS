@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const router = express.Router();
 const User = require('../models/User');
 const { authenticate, requireMasterAdmin } = require('../middleware/auth');
+const passwordConfig = require('../config/passwordConfig');
 
 // Generate a secure random password
 function generateSecurePassword(length = 12) {
@@ -17,7 +18,7 @@ function generateSecurePassword(length = 12) {
 }
 
 // Helper function to set temporary password for a user
-async function setTemporaryPassword(plainPassword, daysUntilExpiration = 7) {
+async function setTemporaryPassword(plainPassword, daysUntilExpiration = passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS) {
   const salt = await bcrypt.genSalt(12);
   const hashedTempPassword = await bcrypt.hash(plainPassword, salt);
   
@@ -105,7 +106,7 @@ router.post('/', authenticate, requireMasterAdmin, async (req, res) => {
     const tempPassword = userData.password || generateSecurePassword(12);
     
     // Set temporary password fields
-    const tempPasswordData = await setTemporaryPassword(tempPassword, 7);
+    const tempPasswordData = await setTemporaryPassword(tempPassword, passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS);
     userData.temporaryPassword = tempPasswordData.temporaryPassword;
     userData.temporaryPasswordExpiresAt = tempPasswordData.temporaryPasswordExpiresAt;
     userData.temporaryPasswordUsed = tempPasswordData.temporaryPasswordUsed;
@@ -233,7 +234,7 @@ router.post('/:id/reset-password', authenticate, requireMasterAdmin, async (req,
     
     // Set new temporary password
     const tempPassword = newPassword;
-    const tempPasswordData = await setTemporaryPassword(tempPassword, 7);
+    const tempPasswordData = await setTemporaryPassword(tempPassword, passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS);
     
     user.temporaryPassword = tempPasswordData.temporaryPassword;
     user.temporaryPasswordExpiresAt = tempPasswordData.temporaryPasswordExpiresAt;

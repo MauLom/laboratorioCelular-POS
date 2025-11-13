@@ -18,14 +18,17 @@ const COMMON_PASSWORDS = [
   'guest', 'user', 'demo', 'sample', 'default', 'changeme'
 ];
 
-// Configuration with defaults
+// Import password configuration
+const passwordConfig = require('../config/passwordConfig');
+
+// Configuration with defaults from config file
 const DEFAULT_CONFIG = {
-  minLength: 8,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireNumbers: true,
-  requireSpecialChars: true,
-  checkCommonPasswords: true,
+  minLength: passwordConfig.MIN_PASSWORD_LENGTH,
+  requireUppercase: passwordConfig.REQUIRE_UPPERCASE,
+  requireLowercase: passwordConfig.REQUIRE_LOWERCASE,
+  requireNumbers: passwordConfig.REQUIRE_NUMBERS,
+  requireSpecialChars: passwordConfig.REQUIRE_SPECIAL_CHARS,
+  checkCommonPasswords: passwordConfig.CHECK_COMMON_PASSWORDS,
 };
 
 function validatePasswordStrength(password, config = {}) {

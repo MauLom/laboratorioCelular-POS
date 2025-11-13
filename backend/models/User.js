@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const passwordConfig = require('../config/passwordConfig');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -127,7 +128,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Add password to history (keeps last N passwords, configurable)
 userSchema.methods.addToPasswordHistory = async function(oldPasswordHash) {
-  const MAX_HISTORY = 5; // Configurable: keep last 5 passwords
+  const MAX_HISTORY = passwordConfig.PASSWORD_HISTORY_COUNT;
   
   if (!oldPasswordHash) {
     // If no old password provided, use current password

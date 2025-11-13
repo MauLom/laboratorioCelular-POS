@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const passwordConfig = require('../config/passwordConfig');
 require('dotenv').config();
 
 const createMasterAdmin = async () => {
@@ -38,9 +39,9 @@ const createMasterAdmin = async () => {
     const salt = await bcrypt.genSalt(12);
     const hashedTempPassword = await bcrypt.hash(tempPassword, salt);
     
-    // Set expiration date (7 days from now)
+    // Set expiration date (from config)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
+    expirationDate.setDate(expirationDate.getDate() + passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS);
 
     // Create the actual Master admin with temporary password
     const masterAdmin = new User({
@@ -71,7 +72,7 @@ const createMasterAdmin = async () => {
     console.log('Temporary Password: admin123');
     console.log('Email: admin@laboratoirocelular.com');
     console.log('\n⚠️  User must change password on first login!');
-    console.log('⚠️  Temporary password expires in 7 days.');
+    console.log(`⚠️  Temporary password expires in ${passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS} days.`);
 
   } catch (error) {
     console.error('Error creating Master admin:', error);

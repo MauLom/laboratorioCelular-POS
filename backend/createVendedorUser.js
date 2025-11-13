@@ -3,6 +3,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const User = require('./models/User');
+const passwordConfig = require('./config/passwordConfig');
 
 (async () => {
   try {
@@ -22,9 +23,9 @@ const User = require('./models/User');
     const salt = await bcrypt.genSalt(12);
     const hashedTempPassword = await bcrypt.hash(tempPassword, salt);
     
-    // Set expiration date (7 days from now)
+    // Set expiration date (from config)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
+    expirationDate.setDate(expirationDate.getDate() + passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS);
 
     // Crear usuario vendedor con contraseña temporal
     const newUser = new User({
