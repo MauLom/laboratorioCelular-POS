@@ -234,6 +234,12 @@ export const authApi = {
   logout: async (): Promise<{ message: string }> => {
     const response = await api.post('/auth/logout');
     return response.data;
+  },
+
+  // Set new password (for temporary password or forced password change)
+  setNewPassword: async (data: { newPassword: string; confirmPassword: string }): Promise<{ message: string }> => {
+    const response = await api.post('/auth/set-new-password', data);
+    return response.data;
   }
 };
 

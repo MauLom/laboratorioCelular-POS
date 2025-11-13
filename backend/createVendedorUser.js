@@ -1,7 +1,9 @@
 // createVendedorUser.js
 require('dotenv').config();
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 const User = require('./models/User');
+const passwordConfig = require('./config/passwordConfig');
 
 (async () => {
   try {
@@ -16,16 +18,29 @@ const User = require('./models/User');
       process.exit(1);
     }
 
-    // Crear usuario vendedor (usa el pre('save') para hash automático)
+    // Generate temporary password
+    const tempPassword = '123456';
+    const salt = await bcrypt.genSalt(12);
+    const hashedTempPassword = await bcrypt.hash(tempPassword, salt);
+    
+    // Set expiration date (from config)
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS);
+
+    // Crear usuario vendedor con contraseña temporal
     const newUser = new User({
       username: 'vendedor1',
       email: 'vendedor1@empresa.com',
-      password: '123456', // ⚠️ se hasheará automáticamente
+      password: tempPassword, // Se hasheará automáticamente, pero el usuario debe usar la temp primero
       firstName: 'Juan',
       lastName: 'Pérez',
       role: 'Vendedor',
       createdBy: masterAdmin._id,
-      isActive: true
+      isActive: true,
+      temporaryPassword: hashedTempPassword,
+      temporaryPasswordExpiresAt: expirationDate,
+      temporaryPasswordUsed: false,
+      mustChangePassword: true
     });
 
     await newUser.save();

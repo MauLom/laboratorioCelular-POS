@@ -16,7 +16,10 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token or inactive user.' });
     }
 
+    // Attach user to request (Mongoose document with mustChangePassword flag accessible)
     req.user = user;
+    // Ensure mustChangePassword flag is explicitly available (it's already in the schema)
+    req.user.mustChangePassword = user.mustChangePassword || false;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

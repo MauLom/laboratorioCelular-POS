@@ -16,8 +16,10 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (data: LoginRequest) => Promise<void>;
+  requiresPasswordChange: boolean;
+  login: (data: LoginRequest) => Promise<{ requiresPasswordChange: boolean }>;
   logout: () => void;
+  setRequiresPasswordChange: (value: boolean) => void;
   isAdmin: () => boolean;
   isReadOnly: () => boolean;
   canEditSales: () => boolean;
@@ -41,10 +43,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState<string>('');
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState<boolean>(false);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
+    const storedRequiresPasswordChange = localStorage.getItem('requiresPasswordChange');
 
     if (storedToken && storedUser) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
@@ -53,6 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(parsedUser);
         setToken(storedToken);
         setIsAuthenticated(true);
+        
+        // Check if password change is required
+        if (storedRequiresPasswordChange === 'true') {
+          setRequiresPasswordChange(true);
+        }
+        
         console.log("🟢 Usuario cargado desde localStorage:", parsedUser);
         if (parsedUser?.franchiseLocation) {
           console.log("🏪 Sucursal asignada:", parsedUser.franchiseLocation);
@@ -65,22 +75,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (data: LoginRequest) => {
+  const login = async (data: LoginRequest): Promise<{ requiresPasswordChange: boolean }> => {
     setLoading(true);
     try {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/login`, data);
 
-      const { token, user } = res.data;
+      const { token, user, requiresPasswordChange: requiresChange = false } = res.data;
 
+      // Store token even if password change is required
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('userRole', user.role);
+      
+      // Store requiresPasswordChange flag
+      if (requiresChange) {
+        localStorage.setItem('requiresPasswordChange', 'true');
+        setRequiresPasswordChange(true);
+      } else {
+        localStorage.removeItem('requiresPasswordChange');
+        setRequiresPasswordChange(false);
+      }
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
       setUser(user);
       setToken(token);
       setIsAuthenticated(true);
+      
+      // Return the requiresPasswordChange flag for immediate use
+      return { requiresPasswordChange: requiresChange };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Error al iniciar sesión');
     } finally {
@@ -92,9 +115,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('requiresPasswordChange');
     setUser(null);
     setToken('');
     setIsAuthenticated(false);
+    setRequiresPasswordChange(false);
   };
 
   const isAdmin = () => {
@@ -120,8 +145,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         isAuthenticated,
+        requiresPasswordChange,
         login,
         logout,
+        setRequiresPasswordChange,
         isAdmin,
         isReadOnly,
         canEditSales,

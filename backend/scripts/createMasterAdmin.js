@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const passwordConfig = require('../config/passwordConfig');
 require('dotenv').config();
 
 const createMasterAdmin = async () => {
@@ -32,15 +34,28 @@ const createMasterAdmin = async () => {
 
     const savedTempAdmin = await tempAdmin.save();
 
-    // Create the actual Master admin
+    // Generate temporary password
+    const tempPassword = 'admin123';
+    const salt = await bcrypt.genSalt(12);
+    const hashedTempPassword = await bcrypt.hash(tempPassword, salt);
+    
+    // Set expiration date (from config)
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS);
+
+    // Create the actual Master admin with temporary password
     const masterAdmin = new User({
       username: 'admin',
       email: 'admin@laboratoirocelular.com',
-      password: 'admin123',
+      password: tempPassword, // Will be hashed by pre-save hook, but user must use temp password first
       firstName: 'Master',
       lastName: 'Administrator',
       role: 'Master admin',
-      createdBy: savedTempAdmin._id
+      createdBy: savedTempAdmin._id,
+      temporaryPassword: hashedTempPassword,
+      temporaryPasswordExpiresAt: expirationDate,
+      temporaryPasswordUsed: false,
+      mustChangePassword: true
     });
 
     await masterAdmin.save();
@@ -54,9 +69,10 @@ const createMasterAdmin = async () => {
 
     console.log('✅ Master admin created successfully!');
     console.log('Username: admin');
-    console.log('Password: admin123');
+    console.log('Temporary Password: admin123');
     console.log('Email: admin@laboratoirocelular.com');
-    console.log('\n⚠️  Please change the default password after first login!');
+    console.log('\n⚠️  User must change password on first login!');
+    console.log(`⚠️  Temporary password expires in ${passwordConfig.TEMP_PASSWORD_EXPIRY_DAYS} days.`);
 
   } catch (error) {
     console.error('Error creating Master admin:', error);

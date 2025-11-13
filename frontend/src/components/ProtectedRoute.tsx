@@ -7,14 +7,16 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requiredRoles?: UserRole[];
   redirectTo?: string;
+  allowPasswordChange?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requiredRoles,
-  redirectTo = '/login'
+  redirectTo = '/login',
+  allowPasswordChange = false
 }) => {
-  const { isAuthenticated, user, loading, hasRole } = useAuth();
+  const { isAuthenticated, user, loading, hasRole, requiresPasswordChange } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -34,6 +36,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!isAuthenticated) {
     // Redirect to login page with return url
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  // If password change is required
+  if (requiresPasswordChange) {
+    // Allow access to set-new-password page if allowPasswordChange prop is true
+    if (allowPasswordChange) {
+      return <>{children}</>;
+    }
+    
+    // Block all other routes and redirect to set-new-password
+    return <Navigate to="/set-new-password" replace />;
   }
 
   if (requiredRoles && requiredRoles.length > 0) {
