@@ -29,7 +29,7 @@ function App() {
               <Route 
                 path="/set-new-password" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowPasswordChange={true}>
                     <SetNewPasswordPage />
                   </ProtectedRoute>
                 } 

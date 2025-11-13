@@ -17,7 +17,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   requiresPasswordChange: boolean;
-  login: (data: LoginRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<{ requiresPasswordChange: boolean }>;
   logout: () => void;
   setRequiresPasswordChange: (value: boolean) => void;
   isAdmin: () => boolean;
@@ -75,13 +75,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (data: LoginRequest) => {
+  const login = async (data: LoginRequest): Promise<{ requiresPasswordChange: boolean }> => {
     setLoading(true);
     try {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/login`, data);
 
-      const { token, user, requiresPasswordChange: requiresChange } = res.data;
+      const { token, user, requiresPasswordChange: requiresChange = false } = res.data;
 
+      // Store token even if password change is required
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('userRole', user.role);
@@ -100,6 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(user);
       setToken(token);
       setIsAuthenticated(true);
+      
+      // Return the requiresPasswordChange flag for immediate use
+      return { requiresPasswordChange: requiresChange };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Error al iniciar sesión');
     } finally {

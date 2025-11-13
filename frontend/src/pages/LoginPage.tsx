@@ -105,12 +105,16 @@ const LoginPage: React.FC = () => {
   });
   const [error, setError] = useState<string>('');
   
-  const { login, loading, isAuthenticated } = useAuth();
+  const { login, loading, isAuthenticated, requiresPasswordChange } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   // Redirect if already authenticated
   if (isAuthenticated) {
+    // If password change is required, redirect to set-new-password
+    if (requiresPasswordChange) {
+      return <Navigate to="/set-new-password" replace />;
+    }
     const from = (location.state as any)?.from?.pathname || '/';
     return <Navigate to={from} replace />;
   }
@@ -125,12 +129,16 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      await login(credentials);
-      // Check if password change is required
-      const storedRequiresPasswordChange = localStorage.getItem('requiresPasswordChange');
-      if (storedRequiresPasswordChange === 'true') {
+      // Login will store token and set requiresPasswordChange flag
+      // Token is stored even if password change is required
+      const result = await login(credentials);
+      
+      // Check requiresPasswordChange from login response
+      if (result.requiresPasswordChange) {
+        // Redirect to set-new-password if password change is required
         navigate('/set-new-password', { replace: true });
       } else {
+        // Normal redirect to home or intended destination
         const from = (location.state as any)?.from?.pathname || '/';
         navigate(from, { replace: true });
       }
