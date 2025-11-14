@@ -26,6 +26,7 @@ interface AuthContextType {
   canEditExpenses: () => boolean;
   token: string;
   hasRole: (roles: string[]) => boolean;
+  isReparto: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -132,12 +133,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isReadOnly = () => 
-    user?.role === 'Cajero' || user?.role === 'Vendedor';
+    user?.role === 'Cajero' || 
+    user?.role === 'Vendedor' ||
+    user?.role === 'Reparto';
 
   const canEditSales = () => !isReadOnly() && isAdmin();
   const canEditExpenses = () => !isReadOnly() && isAdmin();
 
   const hasRole = (roles: string[]) => roles.includes(user?.role || '');
+
+  const isReparto = () => user?.role === 'Reparto';
 
   return (
     <AuthContext.Provider
@@ -154,7 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canEditSales,
         canEditExpenses,
         token, 
-        hasRole 
+        hasRole,
+        isReparto
       }}
     >
       {children}

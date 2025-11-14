@@ -14,6 +14,7 @@ import UserManagement from './pages/UserManagement';
 import ConfigurationPage from './pages/Configuration';
 import ExpensesPage from './pages/ExpensesPage';
 import CashClose from './components/cash/CashClose';
+import TransfersPage from './pages/TransfersPage';
 import './App.css';
 
 function App() {
@@ -50,6 +51,15 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route
+                path="/transfers"
+                element={
+                  <ProtectedRoute>
+                    <TransfersPage />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route 
                 path="/sales" 
                 element={

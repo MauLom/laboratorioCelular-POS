@@ -46,7 +46,8 @@ const userSchema = new mongoose.Schema({
       'Supervisor de sucursales',
       'Oficina',
       'Supervisor de oficina',
-      'Master admin'
+      'Master admin',
+      'Reparto'
     ]
   },
   franchiseLocation: {

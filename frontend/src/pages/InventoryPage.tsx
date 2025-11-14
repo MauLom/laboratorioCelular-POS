@@ -11,6 +11,7 @@ import Navigation from '../components/common/Navigation';
 import InventoryForm from '../components/inventory/InventoryForm';
 import InventoryList from '../components/inventory/InventoryList';
 import { inventoryApi } from '../services/api';
+import { useAuth } from "../contexts/AuthContext";
 import { InventoryItem, PaginatedResponse } from '../types';
 import { useAlert } from '../hooks/useAlert';
 import styled from 'styled-components';
@@ -32,6 +33,7 @@ const Select = chakra('select');
 
 const InventoryPage: React.FC = () => {
   const { success, error } = useAlert();
+  const { user } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -131,9 +133,11 @@ const InventoryPage: React.FC = () => {
               <Heading size="lg" color="dark.400">
                 Artículos del Inventario
               </Heading>
+              {!['Vendedor', 'Cajero'].includes(user?.role || '') && (
               <Button colorScheme="blue" onClick={openAddForm}>
                 Agregar Nuevo Artículo
               </Button>
+              )} 
             </HStack>
           </Box>
 
@@ -159,6 +163,7 @@ const InventoryPage: React.FC = () => {
                 <option value="Clearance">Liquidación</option>
               </Select>
 
+             {!['Vendedor', 'Cajero'].includes(user?.role || '') && (
               <Select
                 value={filters.branch}
                 onChange={(e: any) => setFilters({ ...filters, branch: e.target.value })}
@@ -174,6 +179,7 @@ const InventoryPage: React.FC = () => {
                 <option value="Branch 1">Sucursal 1</option>
                 <option value="Branch 2">Sucursal 2</option>
               </Select>
+             )} 
             </HStack>
           </Box>
 

@@ -67,6 +67,7 @@ app.use('/api/brands', require('./routes/brands'));
 app.use('/api/characteristics', require('./routes/characteristics'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash-session', require('./routes/cashSessions'));
+app.use("/api/transfers", require("./routes/transfers"));
 
 // Health check
 app.get('/api/health', (req, res) => {
