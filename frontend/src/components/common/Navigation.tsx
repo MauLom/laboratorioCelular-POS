@@ -7,7 +7,7 @@ const ChakraLink = chakra(RouterLink);
 
 const Navigation: React.FC = () => {
   const location = useLocation();
-  const { user, logout, isAdmin } = useAuth();           // 👈 usamos isAdmin()
+  const { user, logout, isAdmin, isReparto } = useAuth();
   const role = user?.role || 'Cajero';
   const isCashier = role === 'Cajero';
 
@@ -19,6 +19,49 @@ const Navigation: React.FC = () => {
 
   // Corte del día visible para Cajero y Admin/Supervisores
   const showDaily = isAdmin() || isCashier;
+
+  if (isReparto()) {
+    return (
+      <Box bg="dark.500" py={4} px={8} shadow="sm">
+        <HStack justify="space-between">
+          <HStack gap={8}>
+            <ChakraLink
+              to="/transfers"
+              color="gray.100"
+              px={4}
+              py={2}
+              rounded="md"
+              transition="all 0.2s"
+              bg={isActive('/transfers') ? 'brand.400' : 'transparent'}
+              _hover={{ bg: isActive('/transfers') ? 'brand.500' : 'dark.400' }}
+              fontWeight="medium"
+              textDecoration="none"
+            >
+              Mis Transferencias
+            </ChakraLink>
+          </HStack>
+
+          <HStack gap={4}>
+            <Text color="gray.100" fontSize="sm">
+              {user?.firstName} {user?.lastName} ({user?.role})
+            </Text>
+
+            <Button
+              size="sm"
+              colorScheme="red"
+              variant="outline"
+              onClick={handleLogout}
+              color="gray.100"
+              borderColor="gray.300"
+              _hover={{ bg: 'red.600', borderColor: 'red.600' }}
+            >
+              Cerrar Sesion
+            </Button>
+          </HStack>
+        </HStack>
+      </Box>
+    );
+  }            
 
   return (
     <Box bg="dark.500" py={4} px={8} shadow="sm">
@@ -57,6 +100,24 @@ const Navigation: React.FC = () => {
             </ChakraLink>
           )}
 
+          {/* Transferencias: solo admin/supervisores */}
+          {(isAdmin() || role === "Vendedor" || role === "Cajero") && (
+            <ChakraLink
+             to="/transfers"
+             color="gray.100"
+             px={4}
+             py={2}
+             rounded="md"
+             transition="all 0.2s"
+             bg={isActive('/transfers') ? 'brand.400' : 'transparent'}
+             _hover={{ bg: isActive('/transfers') ? 'brand.500' : 'dark.400' }}
+             fontWeight="medium"
+             textDecoration="none"
+            >
+              Transferencias
+            </ChakraLink>
+          )}   
+            
           {/* Ventas y Gastos: visibles para todos */}
           <ChakraLink
             to="/sales"
