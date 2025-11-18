@@ -201,9 +201,8 @@ const ConfigurationPage: React.FC = () => {
       try {
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
-        // TODO: Load product types when API is available
-        // const pt = await catalogsApi.getProductTypes();
-        // setProductTypes(pt || []);
+        const pt = await catalogsApi.getProductTypes();
+        setProductTypes(pt || []);
       } catch (err) {
         console.error(err);
       }
@@ -276,6 +275,8 @@ const ConfigurationPage: React.FC = () => {
   };
 
   const createProductType = async () => {
+    console.log('createProductType called', { productCompany, productModel, minInventoryThreshold });
+    
     if (!productCompany || !productModel.trim()) {
       notifyError("Complete todos los campos requeridos");
       return;
@@ -285,27 +286,27 @@ const ConfigurationPage: React.FC = () => {
       return;
     }
     try {
-      // TODO: Implement API call when backend is ready
-      // await catalogsApi.createProductType({
-      //   company: productCompany,
-      //   model: productModel.trim(),
-      //   minInventoryThreshold
-      // });
-      // const pt = await catalogsApi.getProductTypes();
-      // setProductTypes(pt || []);
-      // setProductCompany('');
-      // setProductModel('');
-      // setMinInventoryThreshold(0);
-      // notifySuccess('Tipo de producto creado exitosamente');
-
-      // Temporary: Show success message (remove when API is implemented)
-      notifySuccess(
-        "Tipo de producto creado exitosamente (API pendiente de implementación)"
-      );
+      console.log('Calling API with:', {
+        company: productCompany,
+        model: productModel.trim(),
+        minInventoryThreshold: minInventoryThreshold || 0
+      });
+      
+      await catalogsApi.createProductType({
+        company: productCompany,
+        model: productModel.trim(),
+        minInventoryThreshold: minInventoryThreshold || 0
+      });
+      
+      console.log('Product type created successfully');
+      const pt = await catalogsApi.getProductTypes();
+      setProductTypes(pt || []);
       setProductCompany("");
       setProductModel("");
       setMinInventoryThreshold(0);
+      notifySuccess("Tipo de producto creado exitosamente");
     } catch (err: any) {
+      console.error('Error creating product type:', err);
       notifyError(
         err.response?.data?.error || "Error al crear el tipo de producto"
       );
@@ -315,13 +316,10 @@ const ConfigurationPage: React.FC = () => {
   const deleteProductType = async (id: string) => {
     if (!window.confirm("¿Eliminar tipo de producto?")) return;
     try {
-      // TODO: Implement API call when backend is ready
-      // await catalogsApi.deleteProductType(id);
-      // const pt = await catalogsApi.getProductTypes();
-      // setProductTypes(pt || []);
-      notifySuccess(
-        "Tipo de producto eliminado (API pendiente de implementación)"
-      );
+      await catalogsApi.deleteProductType(id);
+      const pt = await catalogsApi.getProductTypes();
+      setProductTypes(pt || []);
+      notifySuccess("Tipo de producto eliminado exitosamente");
     } catch (err: any) {
       notifyError(
         err.response?.data?.error || "Error al eliminar el tipo de producto"
@@ -410,7 +408,16 @@ const ConfigurationPage: React.FC = () => {
               </Small>
             </FormRow>
             <FormRow>
-              <Button onClick={createProductType}>Crear</Button>
+              <Button 
+                type="button" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  createProductType();
+                }}
+              >
+                Crear
+              </Button>
             </FormRow>
             <List style={{ marginTop: "16px" }}>
               {productTypes.length === 0 ? (
@@ -422,7 +429,7 @@ const ConfigurationPage: React.FC = () => {
                   <ListItem key={pt._id}>
                     <div>
                       <div style={{ fontWeight: 600 }}>
-                        {pt.companyName || pt.company} - {pt.model}
+                        {pt.company?.name || pt.companyName || "N/A"} - {pt.model}
                       </div>
                       <Small>Umbral mínimo: {pt.minInventoryThreshold}</Small>
                     </div>

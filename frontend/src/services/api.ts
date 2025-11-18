@@ -433,6 +433,27 @@ export const catalogsApi = {
   createCharacteristicValue: async (characteristicId: string, payload: { brandId: string; value: string; displayName: string; hexColor?: string }) => {
     const response = await api.post(`/characteristics/${characteristicId}/values`, payload);
     return response.data;
+  },
+  // Product Type management
+  getProductTypes: async (): Promise<any[]> => {
+    const response = await api.get('/product-types');
+    return response.data;
+  },
+  getProductType: async (id: string): Promise<any> => {
+    const response = await api.get(`/product-types/${id}`);
+    return response.data;
+  },
+  createProductType: async (payload: { company: string; model: string; minInventoryThreshold: number }) => {
+    const response = await api.post('/product-types', payload);
+    return response.data;
+  },
+  updateProductType: async (id: string, payload: { company: string; model: string; minInventoryThreshold: number }) => {
+    const response = await api.put(`/product-types/${id}`, payload);
+    return response.data;
+  },
+  deleteProductType: async (id: string) => {
+    const response = await api.delete(`/product-types/${id}`);
+    return response.data;
   }
 };
 
