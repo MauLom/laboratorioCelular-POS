@@ -33,12 +33,14 @@ const Tabs = styled.div`
   gap: 8px;
 `;
 
-const TabButton = styled.button.withConfig({ shouldForwardProp: (p) => p !== 'active' })<{
+const TabButton = styled.button.withConfig({
+  shouldForwardProp: (p) => p !== "active",
+})<{
   active?: boolean;
 }>`
   padding: 8px 12px;
-  background: ${p => p.active ? '#3498db' : 'white'};
-  color: ${p => p.active ? 'white' : '#2c3e50'};
+  background: ${(p) => (p.active ? "#3498db" : "white")};
+  color: ${(p) => (p.active ? "white" : "#2c3e50")};
   border: 1px solid #ecf0f1;
   border-radius: 6px;
   cursor: pointer;
@@ -48,7 +50,7 @@ const Card = styled.div`
   background: white;
   padding: 16px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 `;
 
 const FormRow = styled.div`
@@ -71,14 +73,21 @@ const Select = styled.select`
   border-radius: 6px;
 `;
 
-const Button = styled.button.withConfig({ shouldForwardProp: (p) => p !== 'variant' })<{
-  variant?: 'primary' | 'secondary' | 'danger'
+const Button = styled.button.withConfig({
+  shouldForwardProp: (p) => p !== "variant",
+})<{
+  variant?: "primary" | "secondary" | "danger";
 }>`
   padding: 8px 12px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  background: ${p => p.variant === 'secondary' ? '#95a5a6' : p.variant === 'danger' ? '#e74c3c' : '#3498db'};
+  background: ${(p) =>
+    p.variant === "secondary"
+      ? "#95a5a6"
+      : p.variant === "danger"
+      ? "#e74c3c"
+      : "#3498db"};
   color: white;
 `;
 
@@ -153,28 +162,21 @@ const RoleName = styled.div`
 const ConfigurationPage: React.FC = () => {
   const { notifySuccess, notifyError } = useNotification();
   const { isAdmin } = useAuth();
-  const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics' | 'equipment' | 'cashModal'>('franchises');
+  const [tab, setTab] = useState<'franchises'  | "product-types"  | 'brands' | 'characteristics' | 'equipment' | 'cashModal'>('franchises');
+
 
   // franchises
 
-  // brands
+  // product types
+  const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [productCompany, setProductCompany] = useState("");
+  const [productModel, setProductModel] = useState("");
+  const [minInventoryThreshold, setMinInventoryThreshold] = useState<number>(0);
   const [brands, setBrands] = useState<any[]>([]);
-  const [brandName, setBrandName] = useState('');
-  const [brandDesc, setBrandDesc] = useState('');
-
-  // characteristics
-  const [characteristics, setCharacteristics] = useState<any[]>([]);
-  const [charName, setCharName] = useState('');
-  const [charType, setCharType] = useState<'text'|'color'|'select'|'number'>('text');
-  const [selectedChar, setSelectedChar] = useState<string | null>(null);
-  const [valueBrand, setValueBrand] = useState<string | null>(null);
-  const [valueVal, setValueVal] = useState('');
-  const [valueDisplay, setValueDisplay] = useState('');
-  const [valueHex, setValueHex] = useState('');
 
   // Equipment states
   const [printers, setPrinters] = useState<any[]>([]);
-  const [currentPrinter, setCurrentPrinter] = useState<string>('');
+  const [currentPrinter, setCurrentPrinter] = useState<string>("");
   const [loadingPrinters, setLoadingPrinters] = useState<boolean>(false);
 
   // Cash Modal configuration states
@@ -186,56 +188,65 @@ const ConfigurationPage: React.FC = () => {
     setLoadingPrinters(true);
     try {
       // Load current printer from localStorage
-      const saved = localStorage.getItem('selectedPrinter');
+      const saved = localStorage.getItem("selectedPrinter");
       if (saved) {
         setCurrentPrinter(saved);
       }
-      
+
       // Try to load available printers (optional service)
-      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
-      
+      const winServiceUrl =
+        process.env.REACT_APP_WIN_SERVICE_URL || "http://localhost:5005";
+
       // Add timeout and proper error handling
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-      
+
       try {
         const response = await fetch(`${winServiceUrl}/api/printer/list`, {
           signal: controller.signal,
           headers: {
-            'Content-Type': 'application/json',
-          }
+            "Content-Type": "application/json",
+          },
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (response.ok) {
           const data = await response.json();
           const printersList = data.printers || data || [];
           const printersArray = Array.isArray(printersList) ? printersList : [];
           setPrinters(printersArray);
-          console.log('Printers loaded:', printersArray);
+          console.log("Printers loaded:", printersArray);
         } else {
           // Service responded but with error
-          console.warn('Printer service responded with error:', response.status);
+          console.warn(
+            "Printer service responded with error:",
+            response.status
+          );
           setPrinters([]);
         }
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
-        
-        if (fetchError.name === 'AbortError') {
-          console.warn('Printer service request timeout (3s)');
-        } else if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('Failed to fetch')) {
-          console.warn('Printer service not available (connection refused)');
+
+        if (fetchError.name === "AbortError") {
+          console.warn("Printer service request timeout (3s)");
+        } else if (
+          fetchError.code === "ECONNREFUSED" ||
+          fetchError.message.includes("Failed to fetch")
+        ) {
+          console.warn("Printer service not available (connection refused)");
         } else {
-          console.warn('Error connecting to printer service:', fetchError.message);
+          console.warn(
+            "Error connecting to printer service:",
+            fetchError.message
+          );
         }
-        
+
         // Set empty array but don't show error to user (this service is optional)
         setPrinters([]);
       }
-      
     } catch (err) {
-      console.error('Unexpected error in loadEquipmentData:', err);
+      console.error("Unexpected error in loadEquipmentData:", err);
       setPrinters([]);
     } finally {
       setLoadingPrinters(false);
@@ -329,8 +340,8 @@ const ConfigurationPage: React.FC = () => {
       try {
         const b = await catalogsApi.getBrands();
         setBrands(b || []);
-        const chars = await catalogsApi.getCharacteristics();
-        setCharacteristics(chars || []);
+        const pt = await catalogsApi.getProductTypes();
+        setProductTypes(pt || []);
       } catch (err) {
         console.error(err);
       }
@@ -342,103 +353,124 @@ const ConfigurationPage: React.FC = () => {
 
   const changePrinter = async (printerName: string) => {
     try {
-      localStorage.setItem('selectedPrinter', printerName);
+      localStorage.setItem("selectedPrinter", printerName);
       setCurrentPrinter(printerName);
-      notifySuccess('Impresora predeterminada actualizada');
+      notifySuccess("Impresora predeterminada actualizada");
     } catch (err) {
-      notifyError('Error al cambiar impresora');
+      notifyError("Error al cambiar impresora");
     }
   };
 
   const testPrinter = async () => {
     if (!currentPrinter) {
-      notifyError('Selecciona una impresora primero');
+      notifyError("Selecciona una impresora primero");
       return;
     }
 
     try {
-      const winServiceUrl = process.env.REACT_APP_WIN_SERVICE_URL || 'http://localhost:5005';
+      const winServiceUrl =
+        process.env.REACT_APP_WIN_SERVICE_URL || "http://localhost:5005";
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
-      const response = await fetch(`${winServiceUrl}/api/printer/test?printerName=${encodeURIComponent(currentPrinter)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal
-      });
-      
+
+      const response = await fetch(
+        `${winServiceUrl}/api/printer/test?printerName=${encodeURIComponent(
+          currentPrinter
+        )}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+        }
+      );
+
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
-        notifySuccess('Test de impresora ejecutado correctamente');
+        notifySuccess("Test de impresora ejecutado correctamente");
       } else {
-        const errorText = await response.text().catch(() => 'Error desconocido');
-        notifyError(`Error en el test de impresora: ${response.status} - ${errorText}`);
+        const errorText = await response
+          .text()
+          .catch(() => "Error desconocido");
+        notifyError(
+          `Error en el test de impresora: ${response.status} - ${errorText}`
+        );
       }
     } catch (err: any) {
-      if (err.name === 'AbortError') {
-        notifyError('Timeout: el test de impresora tardó demasiado (5s)');
-      } else if (err.message.includes('Failed to fetch') || err.code === 'ECONNREFUSED') {
-        notifyError('Servicio de impresoras no disponible. Verifica que esté ejecutándose en el puerto 5005.');
+      if (err.name === "AbortError") {
+        notifyError("Timeout: el test de impresora tardó demasiado (5s)");
+      } else if (
+        err.message.includes("Failed to fetch") ||
+        err.code === "ECONNREFUSED"
+      ) {
+        notifyError(
+          "Servicio de impresoras no disponible. Verifica que esté ejecutándose en el puerto 5005."
+        );
       } else {
         notifyError(`Error al ejecutar test de impresora: ${err.message}`);
       }
     }
   };
 
-  const createBrand = async () => {
-    if (!brandName.trim()) return;
-    try {
-      await catalogsApi.createBrand({ name: brandName.trim(), description: brandDesc.trim() });
-      const b = await catalogsApi.getBrands();
-      setBrands(b || []);
-      setBrandName(''); setBrandDesc('');
-      notifySuccess('Marca creada exitosamente');
-    } catch (err: any) {
-      notifyError(err.response?.data?.error || 'Error al crear la marca');
+  const createProductType = async () => {
+    console.log('createProductType called', { productCompany, productModel, minInventoryThreshold });
+    
+    if (!productCompany || !productModel.trim()) {
+      notifyError("Complete todos los campos requeridos");
+      return;
     }
-  };
-
-  const deleteBrand = async (id: string) => {
-    if (!window.confirm('Eliminar marca?')) return;
-    await catalogsApi.deleteBrand(id);
-    const b = await catalogsApi.getBrands();
-    setBrands(b || []);
-  };
-
-  const createCharacteristic = async () => {
-    if (!charName.trim()) return;
-    try {
-      await catalogsApi.createCharacteristic({ name: charName.trim(), type: charType });
-      const chars = await catalogsApi.getCharacteristics();
-      setCharacteristics(chars || []);
-      setCharName('');
-      notifySuccess('Característica creada exitosamente');
-    } catch (err: any) {
-      notifyError(err.response?.data?.error || 'Error al crear la característica');
-    }
-  };
-
-  const createCharacteristicValue = async () => {
-    if (!selectedChar || !valueBrand || !valueVal || !valueDisplay) {
-      notifyError('Complete todos los campos requeridos');
+    if (minInventoryThreshold < 0) {
+      notifyError("El umbral de inventario mínimo debe ser mayor o igual a 0");
       return;
     }
     try {
-      await catalogsApi.createCharacteristicValue(selectedChar, { brandId: valueBrand, value: valueVal.trim(), displayName: valueDisplay.trim(), hexColor: valueHex.trim() });
-      notifySuccess('Valor creado exitosamente');
-      setValueVal(''); setValueDisplay(''); setValueHex('');
+      console.log('Calling API with:', {
+        company: productCompany,
+        model: productModel.trim(),
+        minInventoryThreshold: minInventoryThreshold || 0
+      });
+      
+      await catalogsApi.createProductType({
+        company: productCompany,
+        model: productModel.trim(),
+        minInventoryThreshold: minInventoryThreshold || 0
+      });
+      
+      console.log('Product type created successfully');
+      const pt = await catalogsApi.getProductTypes();
+      setProductTypes(pt || []);
+      setProductCompany("");
+      setProductModel("");
+      setMinInventoryThreshold(0);
+      notifySuccess("Tipo de producto creado exitosamente");
     } catch (err: any) {
-      notifyError(err.response?.data?.error || 'Error al crear el valor');
+      console.error('Error creating product type:', err);
+      notifyError(
+        err.response?.data?.error || "Error al crear el tipo de producto"
+      );
+    }
+  };
+
+  const deleteProductType = async (id: string) => {
+    if (!window.confirm("¿Eliminar tipo de producto?")) return;
+    try {
+      await catalogsApi.deleteProductType(id);
+      const pt = await catalogsApi.getProductTypes();
+      setProductTypes(pt || []);
+      notifySuccess("Tipo de producto eliminado exitosamente");
+    } catch (err: any) {
+      notifyError(
+        err.response?.data?.error || "Error al eliminar el tipo de producto"
+      );
     }
   };
 
   const handleError = (message: string) => {
     notifyError(message);
   };
-    
+
   const handleSuccess = (message: string) => {
     notifySuccess(message);
   };
@@ -463,139 +495,172 @@ const ConfigurationPage: React.FC = () => {
           </Tabs>
         </Header>
 
-
-        {tab === 'franchises' && (
+        {tab === "franchises" && (
           <Card>
             <FranchiseManager onError={handleError} onSuccess={handleSuccess} />
           </Card>
         )}
 
-        {tab === 'brands' && (
+        {tab === "product-types" && (
           <Card>
-            <h3>Marcas</h3>
+            <h3>Tipo de producto</h3>
             <FormRow>
-              <Input placeholder="Nombre de la marca" value={brandName} onChange={e => setBrandName(e.target.value)} />
-              <Input placeholder="Descripción (opcional)" value={brandDesc} onChange={e => setBrandDesc(e.target.value)} />
-              <Button onClick={createBrand}>Crear</Button>
+              <Select
+                value={productCompany}
+                onChange={(e) => setProductCompany(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                <option value="">-- Seleccione empresa --</option>
+                {brands.map((b) => (
+                  <option key={b._id} value={b._id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
             </FormRow>
-            <List>
-              {brands.map(b => (
-                <ListItem key={b._id}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{b.name}</div>
-                    <Small>{b.description}</Small>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Button variant="secondary" onClick={() => {}}>Editar</Button>
-                    <Button variant="danger" onClick={() => deleteBrand(b._id)}>Eliminar</Button>
-                  </div>
+            <FormRow>
+              <Input
+                placeholder="Modelo específico (ej: Galaxy S25, Redmi Note 13)"
+                value={productModel}
+                onChange={(e) => setProductModel(e.target.value)}
+              />
+            </FormRow>
+            <FormRow>
+              <Input
+                type="number"
+                placeholder="Umbral mínimo de inventario"
+                value={minInventoryThreshold || ""}
+                onChange={(e) =>
+                  setMinInventoryThreshold(parseInt(e.target.value) || 0)
+                }
+                min="0"
+              />
+              <Small style={{ marginLeft: "8px", alignSelf: "center" }}>
+                Se notificará cuando el stock baje de este valor
+              </Small>
+            </FormRow>
+            <FormRow>
+              <Button 
+                type="button" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  createProductType();
+                }}
+              >
+                Crear
+              </Button>
+            </FormRow>
+            <List style={{ marginTop: "16px" }}>
+              {productTypes.length === 0 ? (
+                <ListItem>
+                  <Small>No hay tipos de producto registrados</Small>
                 </ListItem>
-              ))}
+              ) : (
+                productTypes.map((pt: any) => (
+                  <ListItem key={pt._id}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>
+                        {pt.company?.name || pt.companyName || "N/A"} - {pt.model}
+                      </div>
+                      <Small>Umbral mínimo: {pt.minInventoryThreshold}</Small>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Button variant="secondary" onClick={() => {}}>
+                        Editar
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => deleteProductType(pt._id)}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  </ListItem>
+                ))
+              )}
             </List>
           </Card>
         )}
 
-        {tab === 'characteristics' && (
+        {tab === "equipment" && (
           <Card>
-            <h3>Características</h3>
-            <FormRow>
-              <Input placeholder="Nombre de la característica" value={charName} onChange={e => setCharName(e.target.value)} />
-              <Select value={charType} onChange={e => setCharType(e.target.value as any)}>
-                <option value="text">Texto</option>
-                <option value="color">Color</option>
-                <option value="select">Select</option>
-                <option value="number">Número</option>
-              </Select>
-              <Button onClick={createCharacteristic}>Crear</Button>
-            </FormRow>
+            <h3 style={{ marginBottom: "20px", color: "#2c3e50" }}>
+              Configuración del equipo
+            </h3>
 
-            <h4>Agregar valor a característica</h4>
-            <FormRow>
-              <Select value={selectedChar || ''} onChange={e => setSelectedChar(e.target.value || null)}>
-                <option value="">-- Seleccione característica --</option>
-                {characteristics.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </Select>
-              <Select value={valueBrand || ''} onChange={e => setValueBrand(e.target.value || null)}>
-                <option value="">-- Seleccione marca --</option>
-                {brands.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-              </Select>
-            </FormRow>
-            <FormRow>
-              <Input placeholder="Valor (clave)" value={valueVal} onChange={e => setValueVal(e.target.value)} />
-              <Input placeholder="Nombre para mostrar" value={valueDisplay} onChange={e => setValueDisplay(e.target.value)} />
-              <Input placeholder="#HEX (opcional)" value={valueHex} onChange={e => setValueHex(e.target.value)} />
-              <Button onClick={createCharacteristicValue}>Agregar</Button>
-            </FormRow>
-
-            <h4>Características existentes</h4>
-            <List>
-              {characteristics.map((c: any) => (
-                <ListItem key={c._id}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{c.name}</div>
-                    <Small>Tipo: {c.type}</Small>
-                  </div>
-                  <div>
-                    <Button variant="secondary" onClick={() => {}}>Ver valores</Button>
-                  </div>
-                </ListItem>
-              ))}
-            </List>
-          </Card>
-        )}
-
-        {tab === 'equipment' && (
-          <Card>
-            <h3 style={{ marginBottom: '20px', color: '#2c3e50' }}>Configuración del equipo</h3>
-            
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ marginBottom: '8px', fontWeight: '500', color: '#2c3e50' }}>Impresora predeterminada</div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
-                <select 
-                  value={currentPrinter} 
+            <div style={{ marginBottom: "24px" }}>
+              <div
+                style={{
+                  marginBottom: "8px",
+                  fontWeight: "500",
+                  color: "#2c3e50",
+                }}
+              >
+                Impresora predeterminada
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  alignItems: "center",
+                  marginTop: "8px",
+                }}
+              >
+                <select
+                  value={currentPrinter}
                   onChange={(e) => changePrinter(e.target.value)}
                   disabled={loadingPrinters}
                   style={{
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    backgroundColor: loadingPrinters ? '#f3f4f6' : 'white',
-                    fontSize: '14px',
-                    minWidth: '200px'
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    backgroundColor: loadingPrinters ? "#f3f4f6" : "white",
+                    fontSize: "14px",
+                    minWidth: "200px",
                   }}
                 >
                   <option value="">
-                    {loadingPrinters ? 'Cargando impresoras...' : 'Seleccionar impresora...'}
+                    {loadingPrinters
+                      ? "Cargando impresoras..."
+                      : "Seleccionar impresora..."}
                   </option>
-                  {Array.isArray(printers) && printers.map((printer) => (
-                    <option key={printer.name || printer} value={printer.name || printer}>
-                      {printer.name || printer} {printer.isDefault ? '(Por defecto del sistema)' : ''}
-                    </option>
-                  ))}
+                  {Array.isArray(printers) &&
+                    printers.map((printer) => (
+                      <option
+                        key={printer.name || printer}
+                        value={printer.name || printer}
+                      >
+                        {printer.name || printer}{" "}
+                        {printer.isDefault ? "(Por defecto del sistema)" : ""}
+                      </option>
+                    ))}
                 </select>
-                <Button 
+                <Button
                   onClick={testPrinter}
                   disabled={!currentPrinter || loadingPrinters}
                   variant="secondary"
                 >
-                  {loadingPrinters ? 'Cargando...' : 'Probar impresora'}
+                  {loadingPrinters ? "Cargando..." : "Probar impresora"}
                 </Button>
               </div>
               {currentPrinter && (
-                <Small style={{ marginTop: '8px', color: '#6b7280' }}>
+                <Small style={{ marginTop: "8px", color: "#6b7280" }}>
                   Impresora actual: {currentPrinter}
                 </Small>
               )}
             </div>
 
-            <div style={{ marginBottom: '24px' }}>
-              <Button 
+            <div style={{ marginBottom: "24px" }}>
+              <Button
                 onClick={loadEquipmentData}
                 disabled={loadingPrinters}
                 variant="secondary"
-                style={{ marginRight: '12px' }}
+                style={{ marginRight: "12px" }}
               >
-                {loadingPrinters ? 'Actualizando...' : 'Actualizar lista de impresoras'}
+                {loadingPrinters
+                  ? "Actualizando..."
+                  : "Actualizar lista de impresoras"}
               </Button>
             </div>
           </Card>
