@@ -25,6 +25,19 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   
   // Load cash modal configuration
   const loadCashModalConfig = useCallback(async () => {
+    // Only load config if user is authenticated
+    if (!isAuthenticated || !user) {
+      setConfigLoaded(true); // Mark as loaded to prevent blocking, but use defaults
+      const defaultRoles = new Set([
+        'Cajero',
+        'Vendedor',
+        'Supervisor de sucursal',
+        'Oficina'
+      ]);
+      setCashModalRoles(defaultRoles);
+      return;
+    }
+
     try {
       const config = await configurationsApi.getByKey('cash_modal_roles');
       if (config && config.values) {
@@ -45,7 +58,19 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
         ]);
         setCashModalRoles(defaultRoles);
       }
-    } catch (err) {
+    } catch (err: any) {
+      // If it's a 401, don't log error (user is not authenticated)
+      if (err.response?.status === 401) {
+        setConfigLoaded(true);
+        const defaultRoles = new Set([
+          'Cajero',
+          'Vendedor',
+          'Supervisor de sucursal',
+          'Oficina'
+        ]);
+        setCashModalRoles(defaultRoles);
+        return;
+      }
       console.warn('Error loading cash modal config, using defaults:', err);
       // Default: all roles except admin roles (fallback on error)
       const defaultRoles = new Set([
@@ -58,7 +83,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     } finally {
       setConfigLoaded(true);
     }
-  }, []);
+  }, [isAuthenticated, user]);
   
   // Función para determinar si el usuario necesita sesión de caja
   const userNeedsCashSession = useCallback((): boolean => {
@@ -155,10 +180,27 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     }
   }, [isAuthenticated, user, isCheckingSession, checkCashSession]);
 
-  // Load configuration on mount
+  // Load configuration only when authenticated
   useEffect(() => {
-    loadCashModalConfig();
-  }, [loadCashModalConfig]);
+    if (isAuthenticated && user) {
+      // Reset initialization state when user changes
+      setHasInitialized(false);
+      setConfigLoaded(false); // Reset to load fresh config for new user
+      loadCashModalConfig();
+    } else {
+      // If not authenticated, reset state and set defaults (mark as loaded to prevent blocking)
+      setConfigLoaded(true);
+      setHasInitialized(false);
+      setShowCashModal(false);
+      const defaultRoles = new Set([
+        'Cajero',
+        'Vendedor',
+        'Supervisor de sucursal',
+        'Oficina'
+      ]);
+      setCashModalRoles(defaultRoles);
+    }
+  }, [isAuthenticated, user, loadCashModalConfig]);
 
   useEffect(() => {
     if (isAuthenticated && user && !hasInitialized && configLoaded) {
