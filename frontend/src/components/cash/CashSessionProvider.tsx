@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { cashSessionApi, franchiseLocationsApi } from '../../services/api';
+import { cashSessionApi, franchiseLocationsApi, configurationsApi } from '../../services/api';
 import { deviceTrackerApi } from '../../services/deviceTrackerApi';
 import CashOpenModal from './CashOpenModal';
 
@@ -19,21 +19,54 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   
+  // Configuration for which roles should receive the cash modal
+  const [cashModalRoles, setCashModalRoles] = useState<Set<string>>(new Set());
+  const [configLoaded, setConfigLoaded] = useState(false);
+  
+  // Load cash modal configuration
+  const loadCashModalConfig = useCallback(async () => {
+    try {
+      const config = await configurationsApi.getByKey('cash_modal_roles');
+      if (config && config.values) {
+        const enabledRoles = new Set<string>();
+        config.values.forEach((v: any) => {
+          if (v.isActive !== false) {
+            enabledRoles.add(v.value);
+          }
+        });
+        setCashModalRoles(enabledRoles);
+      } else {
+        // Default: all roles except admin roles (fallback if config doesn't exist)
+        const defaultRoles = new Set([
+          'Cajero',
+          'Vendedor',
+          'Supervisor de sucursal',
+          'Oficina'
+        ]);
+        setCashModalRoles(defaultRoles);
+      }
+    } catch (err) {
+      console.warn('Error loading cash modal config, using defaults:', err);
+      // Default: all roles except admin roles (fallback on error)
+      const defaultRoles = new Set([
+        'Cajero',
+        'Vendedor',
+        'Supervisor de sucursal',
+        'Oficina'
+      ]);
+      setCashModalRoles(defaultRoles);
+    } finally {
+      setConfigLoaded(true);
+    }
+  }, []);
+  
   // Función para determinar si el usuario necesita sesión de caja
   const userNeedsCashSession = useCallback((): boolean => {
-    if (!user) return false;
+    if (!user || !configLoaded) return false;
     
-    // Roles administrativos que NO necesitan abrir caja
-    // Estos roles pueden acceder al sistema sin necesidad de manejar efectivo
-    const administrativeRoles = [
-      'Supervisor de sucursales',  // Maneja múltiples sucursales, no maneja caja directamente
-      'Supervisor de oficina',     // Rol administrativo/gerencial
-      'Master admin'               // Administrador general del sistema
-    ];
-    
-    // Si el usuario tiene un rol administrativo, no necesita abrir caja
-    return !administrativeRoles.includes(user.role);
-  }, [user]);
+    // Check if user's role is in the configured list of roles that should receive the modal
+    return cashModalRoles.has(user.role);
+  }, [user, cashModalRoles, configLoaded]);
   
   const getCurrentFranchise = async () => {
     try {
@@ -122,8 +155,13 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     }
   }, [isAuthenticated, user, isCheckingSession, checkCashSession]);
 
+  // Load configuration on mount
   useEffect(() => {
-    if (isAuthenticated && user && !hasInitialized) {
+    loadCashModalConfig();
+  }, [loadCashModalConfig]);
+
+  useEffect(() => {
+    if (isAuthenticated && user && !hasInitialized && configLoaded) {
       // Marcar como inicializado para evitar múltiples ejecuciones
       setHasInitialized(true);
       // Pequeño delay para asegurar que el login se complete
@@ -132,7 +170,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
 
     // Listener para cambios de visibilidad (cuando vuelve a la pestaña)
     const handleVisibilityChange = () => {
-      if (!document.hidden && isAuthenticated && user && !isCheckingSession) {
+      if (!document.hidden && isAuthenticated && user && !isCheckingSession && configLoaded) {
         checkCashSession();
       }
     };
@@ -143,7 +181,7 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
 
-  }, [isAuthenticated, user, hasInitialized, isCheckingSession, checkCashSession]);
+  }, [isAuthenticated, user, hasInitialized, isCheckingSession, checkCashSession, configLoaded]);
 
 
   // Exponer la función globalmente para que otros componentes puedan usarla

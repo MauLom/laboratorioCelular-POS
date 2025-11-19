@@ -291,6 +291,29 @@ export const usersApi = {
   getStats: async () => {
     const response = await api.get('/users/stats/summary');
     return response.data;
+  },
+
+  // Get unique roles from all users
+  getUniqueRoles: async (): Promise<string[]> => {
+    const response = await usersApi.getAll({ limit: 1000 }); // Get all users to extract roles
+    const roles = new Set<string>();
+    response.users.forEach((user: User) => {
+      if (user.role) {
+        roles.add(user.role);
+      }
+    });
+    // Also include all possible roles from the enum to ensure we have all roles even if no users have them
+    const allPossibleRoles = [
+      'Cajero',
+      'Vendedor',
+      'Supervisor de sucursal',
+      'Supervisor de sucursales',
+      'Oficina',
+      'Supervisor de oficina',
+      'Master admin'
+    ];
+    allPossibleRoles.forEach(role => roles.add(role));
+    return Array.from(roles).sort();
   }
 };
 
