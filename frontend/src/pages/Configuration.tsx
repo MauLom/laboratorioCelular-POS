@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import Navigation from '../components/common/Navigation';
-import { catalogsApi } from '../services/api';
+import { catalogsApi, usersApi, configurationsApi } from '../services/api';
 import FranchiseManager from '../components/configuration/FranchiseManager';
 import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -98,9 +99,61 @@ const Small = styled.div`
   color: #7f8c8d;
 `;
 
+const ToggleSwitch = styled.label<{ checked: boolean }>`
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: ${p => p.checked ? '#3498db' : '#ccc'};
+    transition: .4s;
+    border-radius: 24px;
+    &:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+      transform: ${p => p.checked ? 'translateX(26px)' : 'translateX(0)'};
+    }
+  }
+`;
+
+const RoleRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f1f1;
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const RoleName = styled.div`
+  font-weight: 500;
+  color: #2c3e50;
+`;
+
 const ConfigurationPage: React.FC = () => {
   const { notifySuccess, notifyError } = useNotification();
-  const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics' | 'equipment'>('franchises');
+  const { isAdmin } = useAuth();
+  const [tab, setTab] = useState<'franchises' | 'brands' | 'characteristics' | 'equipment' | 'cashModal'>('franchises');
 
   // franchises
 
@@ -123,6 +176,11 @@ const ConfigurationPage: React.FC = () => {
   const [printers, setPrinters] = useState<any[]>([]);
   const [currentPrinter, setCurrentPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState<boolean>(false);
+
+  // Cash Modal configuration states
+  const [roles, setRoles] = useState<string[]>([]);
+  const [cashModalRoles, setCashModalRoles] = useState<Set<string>>(new Set());
+  const [loadingCashModal, setLoadingCashModal] = useState<boolean>(false);
 
   const loadEquipmentData = useCallback(async () => {
     setLoadingPrinters(true);
@@ -184,6 +242,88 @@ const ConfigurationPage: React.FC = () => {
     }
   }, []);
 
+  const loadCashModalConfig = useCallback(async () => {
+    if (!isAdmin()) return;
+    
+    setLoadingCashModal(true);
+    try {
+      // Load roles
+      const uniqueRoles = await usersApi.getUniqueRoles();
+      setRoles(uniqueRoles);
+
+      // Load configuration
+      try {
+        const config = await configurationsApi.getByKey('cash_modal_roles');
+        if (config && config.values) {
+          const enabledRoles = new Set<string>();
+          config.values.forEach((v: any) => {
+            if (v.isActive !== false) {
+              enabledRoles.add(v.value);
+            }
+          });
+          setCashModalRoles(enabledRoles);
+        } else {
+          // Default: all roles except admin roles
+          const defaultRoles = new Set(uniqueRoles.filter(role => 
+            !['Supervisor de sucursales', 'Supervisor de oficina', 'Master admin'].includes(role)
+          ));
+          setCashModalRoles(defaultRoles);
+        }
+      } catch (err: any) {
+        // Configuration doesn't exist yet, use defaults
+        const defaultRoles = new Set(uniqueRoles.filter(role => 
+          !['Supervisor de sucursales', 'Supervisor de oficina', 'Master admin'].includes(role)
+        ));
+        setCashModalRoles(defaultRoles);
+      }
+    } catch (err: any) {
+      console.error('Error loading cash modal config:', err);
+      notifyError('Error al cargar configuración de modal de caja');
+    } finally {
+      setLoadingCashModal(false);
+    }
+  }, [isAdmin, notifyError]);
+
+  const saveCashModalConfig = async () => {
+    if (!isAdmin()) {
+      notifyError('No tienes permisos para modificar esta configuración');
+      return;
+    }
+
+    setLoadingCashModal(true);
+    try {
+      const values = roles.map(role => ({
+        value: role,
+        label: role,
+        isActive: cashModalRoles.has(role)
+      }));
+
+      await configurationsApi.createOrUpdate({
+        key: 'cash_modal_roles',
+        name: 'Roles que reciben el modal de Abrir Caja',
+        description: 'Configuración de qué roles de usuario deben recibir el modal de "Abrir Caja" al ingresar a la plataforma',
+        values
+      });
+
+      notifySuccess('Configuración guardada exitosamente');
+    } catch (err: any) {
+      console.error('Error saving cash modal config:', err);
+      notifyError(err.response?.data?.error || 'Error al guardar la configuración');
+    } finally {
+      setLoadingCashModal(false);
+    }
+  };
+
+  const toggleCashModalRole = (role: string) => {
+    const newSet = new Set(cashModalRoles);
+    if (newSet.has(role)) {
+      newSet.delete(role);
+    } else {
+      newSet.add(role);
+    }
+    setCashModalRoles(newSet);
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -197,7 +337,8 @@ const ConfigurationPage: React.FC = () => {
     };
     load();
     loadEquipmentData();
-  }, [loadEquipmentData]);
+    loadCashModalConfig();
+  }, [loadEquipmentData, loadCashModalConfig]);
 
   const changePrinter = async (printerName: string) => {
     try {
@@ -313,6 +454,12 @@ const ConfigurationPage: React.FC = () => {
             <TabButton active={tab === 'brands'} onClick={() => setTab('brands')}>Marcas</TabButton>
             <TabButton active={tab === 'characteristics'} onClick={() => setTab('characteristics')}>Características</TabButton>
             <TabButton active={tab === 'equipment'} onClick={() => setTab('equipment')}>Configuración del equipo</TabButton>
+            {isAdmin() && (
+              <TabButton active={tab === 'cashModal'} onClick={() => {
+                setTab('cashModal');
+                loadCashModalConfig();
+              }}>Modal de Caja</TabButton>
+            )}
           </Tabs>
         </Header>
 
@@ -451,6 +598,55 @@ const ConfigurationPage: React.FC = () => {
                 {loadingPrinters ? 'Actualizando...' : 'Actualizar lista de impresoras'}
               </Button>
             </div>
+          </Card>
+        )}
+
+        {tab === 'cashModal' && isAdmin() && (
+          <Card>
+            <h3 style={{ marginBottom: '20px', color: '#2c3e50' }}>Configuración del Modal de Caja</h3>
+            <p style={{ marginBottom: '20px', color: '#7f8c8d', fontSize: '14px' }}>
+              Selecciona qué roles de usuario deben recibir el modal de "Abrir Caja" al ingresar a la plataforma.
+            </p>
+            
+            {loadingCashModal ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#7f8c8d' }}>
+                Cargando configuración...
+              </div>
+            ) : (
+              <>
+                <List>
+                  {roles.map(role => (
+                    <RoleRow key={role}>
+                      <RoleName>{role}</RoleName>
+                      <ToggleSwitch checked={cashModalRoles.has(role)}>
+                        <input
+                          type="checkbox"
+                          checked={cashModalRoles.has(role)}
+                          onChange={() => toggleCashModalRole(role)}
+                        />
+                        <span className="slider" />
+                      </ToggleSwitch>
+                    </RoleRow>
+                  ))}
+                </List>
+                
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <Button 
+                    variant="secondary" 
+                    onClick={loadCashModalConfig}
+                    disabled={loadingCashModal}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={saveCashModalConfig}
+                    disabled={loadingCashModal}
+                  >
+                    {loadingCashModal ? 'Guardando...' : 'Guardar configuración'}
+                  </Button>
+                </div>
+              </>
+            )}
           </Card>
         )}
       </Container>
