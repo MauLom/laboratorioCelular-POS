@@ -40,16 +40,16 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
 
     try {
       const config = await configurationsApi.getByKey('cash_modal_roles');
-      if (config && config.values) {
+      if (config && config.values && Array.isArray(config.values) && config.values.length > 0) {
         const enabledRoles = new Set<string>();
         config.values.forEach((v: any) => {
-          if (v.isActive !== false) {
+          if (v.isActive !== false && v.value) {
             enabledRoles.add(v.value);
           }
         });
         setCashModalRoles(enabledRoles);
       } else {
-        // Default: all roles except admin roles (fallback if config doesn't exist)
+        // Default: all roles except admin roles (fallback if config doesn't exist or is empty)
         const defaultRoles = new Set([
           'Cajero',
           'Vendedor',
@@ -69,6 +69,18 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
           'Oficina'
         ]);
         setCashModalRoles(defaultRoles);
+        return;
+      }
+      // If it's a 404, config doesn't exist yet - use defaults
+      if (err.response?.status === 404) {
+        const defaultRoles = new Set([
+          'Cajero',
+          'Vendedor',
+          'Supervisor de sucursal',
+          'Oficina'
+        ]);
+        setCashModalRoles(defaultRoles);
+        setConfigLoaded(true);
         return;
       }
       console.warn('Error loading cash modal config, using defaults:', err);
