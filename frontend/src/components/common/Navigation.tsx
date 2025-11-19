@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { Box, HStack, chakra, Text, Button } from '@chakra-ui/react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -7,6 +7,7 @@ const ChakraLink = chakra(RouterLink);
 
 const Navigation: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout, isAdmin, isReparto } = useAuth();
   const role = user?.role || 'Cajero';
   const isCashier = role === 'Cajero';
@@ -15,6 +16,7 @@ const Navigation: React.FC = () => {
 
   const handleLogout = () => {
     logout();
+    navigate('/login', { replace: true });
   };
 
   // Corte del día visible para Cajero y Admin/Supervisores

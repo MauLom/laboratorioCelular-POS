@@ -291,6 +291,29 @@ export const usersApi = {
   getStats: async () => {
     const response = await api.get('/users/stats/summary');
     return response.data;
+  },
+
+  // Get unique roles from all users
+  getUniqueRoles: async (): Promise<string[]> => {
+    const response = await usersApi.getAll({ limit: 1000 }); // Get all users to extract roles
+    const roles = new Set<string>();
+    response.users.forEach((user: User) => {
+      if (user.role) {
+        roles.add(user.role);
+      }
+    });
+    // Also include all possible roles from the enum to ensure we have all roles even if no users have them
+    const allPossibleRoles = [
+      'Cajero',
+      'Vendedor',
+      'Supervisor de sucursal',
+      'Supervisor de sucursales',
+      'Oficina',
+      'Supervisor de oficina',
+      'Master admin'
+    ];
+    allPossibleRoles.forEach(role => roles.add(role));
+    return Array.from(roles).sort();
   }
 };
 
@@ -432,6 +455,27 @@ export const catalogsApi = {
   },
   createCharacteristicValue: async (characteristicId: string, payload: { brandId: string; value: string; displayName: string; hexColor?: string }) => {
     const response = await api.post(`/characteristics/${characteristicId}/values`, payload);
+    return response.data;
+  },
+  // Product Type management
+  getProductTypes: async (): Promise<any[]> => {
+    const response = await api.get('/product-types');
+    return response.data;
+  },
+  getProductType: async (id: string): Promise<any> => {
+    const response = await api.get(`/product-types/${id}`);
+    return response.data;
+  },
+  createProductType: async (payload: { company: string; model: string; minInventoryThreshold: number }) => {
+    const response = await api.post('/product-types', payload);
+    return response.data;
+  },
+  updateProductType: async (id: string, payload: { company: string; model: string; minInventoryThreshold: number }) => {
+    const response = await api.put(`/product-types/${id}`, payload);
+    return response.data;
+  },
+  deleteProductType: async (id: string) => {
+    const response = await api.delete(`/product-types/${id}`);
     return response.data;
   }
 };
