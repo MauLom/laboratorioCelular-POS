@@ -94,7 +94,7 @@ const applyFranchiseFilter = async (req, res, next) => {
       return next();
     }
 
-    // Vendedor o Cajero → solo su sucursal y solo los gastos del día
+    // Vendedor o Cajero solo su sucursal y solo los gastos del día
     if (['Vendedor', 'Cajero'].includes(role)) {
       if (!req.user.franchiseLocation?._id) {
         return res.status(403).json({ error: 'Sin sucursal asignada.' });
@@ -129,6 +129,52 @@ const applyFranchiseFilter = async (req, res, next) => {
   }
 };
 
+const applyInventoryFilter = async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+
+    const role = req.user.role;
+
+    // Master admin y administradores ven todo
+    if (['Master admin', 'Administrador', 'Administrador general'].includes(role)) {
+      return next();
+    }
+
+    // Supervisores de sucursales u oficina: segun tipo
+    if (role === 'Supervisor de sucursales') {
+      const locs = await FranchiseLocation.find({ type: 'Sucursal', isActive: true }).select('_id');
+      req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
+      return next();
+    }
+
+    if (role === 'Supervisor de oficina') {
+      const locs = await FranchiseLocation.find({ type: 'Oficina', isActive: true }).select('_id');
+      req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
+      return next();
+    }
+
+    // Vendedor o Cajero = solo inventario de su sucursal actual
+    if (['Vendedor', 'Cajero'].includes(role)) {
+      if (!req.user.franchiseLocation?._id) {
+        return res.status(403).json({ error: 'Sin sucursal asignada.' });
+      }
+
+      req.franchiseFilter = { franchiseLocation: req.user.franchiseLocation._id };
+      return next();
+    }
+
+    // Por defecto, si tiene sucursal asignada
+    if (req.user.franchiseLocation?._id) {
+      req.franchiseFilter = { franchiseLocation: req.user.franchiseLocation._id };
+      return next();
+    }
+
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error (applyInventoryFilter).' });
+  }
+};
+
 const applyRoleDataFilter = (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
 
@@ -140,13 +186,13 @@ const applyRoleDataFilter = (req, res, next) => {
     return next();
   }
 
-  // Cajeros/Vendedores: solo sus propios registros (además del filtro por fecha y sucursal)
+  // Cajeros/Vendedores: solo sus propios registros (ademas del filtro por fecha y sucursal)
   if (['Cajero', 'Vendedor'].includes(role)) {
     req.roleFilter = { createdBy: _id };
     return next();
   }
 
-  // Supervisores → sin filtro por usuario, ya se filtra por sucursal en applyFranchiseFilter
+  // Supervisores sin filtro por usuario, ya se filtra por sucursal en applyFranchiseFilter
   req.roleFilter = {};
   next();
 };
@@ -157,5 +203,6 @@ module.exports = {
   requireMasterAdmin,
   canManageLocation,
   applyFranchiseFilter,
+  applyInventoryFilter,
   applyRoleDataFilter,
 };

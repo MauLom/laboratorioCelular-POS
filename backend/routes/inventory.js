@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
-const { authenticate, authorize, applyFranchiseFilter } = require('../middleware/auth');
+const { authenticate, authorize, applyFranchiseFilter, applyInventoryFilter } = require('../middleware/auth');
 const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
 
 // Helper function to get accessible franchise locations for a user
@@ -28,7 +28,7 @@ const getAccessibleLocations = async (user) => {
 };
 
 // Get all inventory items (with franchise filtering)
-router.get('/', authenticate, authorize(['Master admin', 'Supervisor de sucursales', 'Supervisor de oficina']), applyFranchiseFilter, async (req, res) => {
+router.get('/', authenticate, authorize(['Master admin', 'Administrador', 'Supervisor de sucursales', 'Supervisor de oficina', 'Vendedor', 'Cajero']), applyInventoryFilter, async (req, res) => {
   try {
     const { state, franchiseLocation, page = 1, limit = 10 } = req.query;
     const query = {};
@@ -77,7 +77,7 @@ router.get('/', authenticate, authorize(['Master admin', 'Supervisor de sucursal
 });
 
 // Buscar por IMEI (parcial, con autenticación y filtro de franquicia)
-router.get('/search', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/search', authenticate, applyInventoryFilter, async (req, res) => {
   const { imei } = req.query;
   if (!imei || imei.length < 4) {
     return res.status(400).json({ error: 'IMEI requerido (mínimo 4 caracteres)' });
@@ -96,7 +96,7 @@ router.get('/search', authenticate, applyFranchiseFilter, async (req, res) => {
 });
 
 // Get single inventory item by IMEI (with franchise filtering)
-router.get('/:imei', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/:imei', authenticate, applyInventoryFilter, async (req, res) => {
   try {
     const query = { imei: req.params.imei };
     
@@ -208,7 +208,7 @@ router.delete('/:imei', authenticate, async (req, res) => {
 });
 
 // Get inventory statistics (with franchise filtering)
-router.get('/stats/summary', authenticate, applyFranchiseFilter, async (req, res) => {
+router.get('/stats/summary', authenticate, applyInventoryFilter, async (req, res) => {
   try {
     let matchQuery = {};
     

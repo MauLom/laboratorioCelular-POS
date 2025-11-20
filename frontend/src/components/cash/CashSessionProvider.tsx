@@ -149,6 +149,13 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     if (!isAuthenticated || !user || isCheckingSession) {
       return;
     }
+
+    if (
+      user.role === "Reparto"
+    ) {
+      setShowCashModal(false);
+      return;
+    } 
     
     // Si el usuario no necesita sesión de caja, no mostrar el modal
     if (!userNeedsCashSession()) {
