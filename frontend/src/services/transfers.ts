@@ -97,7 +97,7 @@ export async function storeScan(
   id: string,
   actions: {
     imei: string;
-    status: "recibido" | "no_recibido";
+    status: "received" | "not_received" | "pending";
     observation?: string;
   }[]
 ) {

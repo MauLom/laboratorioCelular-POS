@@ -68,8 +68,8 @@ exports.createTransfer = async (req, res) => {
     const items = equipments.map((e) => ({
       equipment: e._id,
       imei: e.imei,
-      courier: { status: "pendiente" },
-      store: { status: "pendiente" },
+      courier: { status: "pending" },
+      store: { status: "pending" },
     }));
 
     const transfer = await Transfer.create({
@@ -80,7 +80,7 @@ exports.createTransfer = async (req, res) => {
       requestedBy: userId,
       assignedDeliveryUser: deliveryUserId,
       reason: reason || "",
-      status: "pendiente",
+      status: "pending",
     });
 
     res.status(201).json({ message: "Transferencia creada", transfer });
@@ -102,7 +102,7 @@ exports.courierScan = async (req, res) => {
       observation = "",
     } = req.body || {};
 
-    const VALID_ITEM_STATUS = new Set(["pendiente", "recibido", "no_recibido"]);
+    const VALID_ITEM_STATUS = new Set(["pending", "received", "not_received"]);
 
     const transfer = await Transfer.findById(id);
     if (!transfer) {
@@ -128,7 +128,7 @@ exports.courierScan = async (req, res) => {
     if (allReceived) {
       transfer.items.forEach((item) => {
         item.courier = item.courier || {};
-        item.courier.status = "recibido";
+        item.courier.status = "received";
         item.courier.observation = observation;
         item.courier.at = new Date();
         item.courier.by = req.user?.id;
@@ -138,7 +138,7 @@ exports.courierScan = async (req, res) => {
     if (allNotReceived) {
       transfer.items.forEach((item) => {
         item.courier = item.courier || {};
-        item.courier.status = "no_recibido";
+        item.courier.status = "not_received";
         item.courier.observation = observation;
         item.courier.at = new Date();
         item.courier.by = req.user?.id;
@@ -149,7 +149,7 @@ exports.courierScan = async (req, res) => {
       transfer.items = transfer.items.map((item) => {
         if (item._id.toString() === receivedItemId) {
           item.courier = item.courier || {};
-          item.courier.status = "recibido";
+          item.courier.status = "received";
           item.courier.observation = observation;
           item.courier.at = new Date();
           item.courier.by = req.user?.id;
@@ -162,7 +162,7 @@ exports.courierScan = async (req, res) => {
       transfer.items = transfer.items.map((item) => {
         if (item._id.toString() === notReceivedItemId) {
           item.courier = item.courier || {};
-          item.courier.status = "no_recibido";
+          item.courier.status = "not_received";
           item.courier.observation = observation;
           item.courier.at = new Date();
           item.courier.by = req.user?.id;
@@ -172,7 +172,7 @@ exports.courierScan = async (req, res) => {
     }
 
     const courierReceived = transfer.items.filter(
-      (i) => (i.courier?.status || "pendiente") === "recibido"
+      (i) => (i.courier?.status || "pending") === "received"
     ).length;
     transfer.courierReceived = courierReceived;
 
@@ -222,7 +222,7 @@ exports.storeScan = async (req, res) => {
         if (!item) return;
 
         const desired = (a.status || "").toLowerCase();
-        if (!["pendiente", "recibido", "no_recibido"].includes(desired)) return;
+        if (!["pending", "received", "not_received"].includes(desired)) return;
 
         item.store = item.store || {};
         item.store.status = desired;
@@ -235,7 +235,7 @@ exports.storeScan = async (req, res) => {
     if (allReceived) {
       transfer.items.forEach(item => {
         item.store = {
-          status: "recibido",
+          status: "received",
           at: new Date(),
           by: req.user?.id,
         };
@@ -245,7 +245,7 @@ exports.storeScan = async (req, res) => {
     if (allNotReceived) {
       transfer.items.forEach(item => {
         item.store = {
-          status: "no_recibido",
+          status: "not_received",
           at: new Date(),
           by: req.user?.id,
         };
@@ -256,7 +256,7 @@ exports.storeScan = async (req, res) => {
       transfer.items.forEach(item => {
         if (item._id.toString() === receivedItemId) {
           item.store = {
-            status: "recibido",
+            status: "received",
             at: new Date(),
             by: req.user?.id,
           };
@@ -268,7 +268,7 @@ exports.storeScan = async (req, res) => {
       transfer.items.forEach(item => {
         if (item._id.toString() === notReceivedItemId) {
           item.store = {
-            status: "no_recibido",
+            status: "not_received",
             at: new Date(),
             by: req.user?.id,
           };
@@ -277,7 +277,7 @@ exports.storeScan = async (req, res) => {
     }
 
     transfer.storeReceived = transfer.items.filter(
-      i => i.store?.status === "recibido"
+      i => i.store?.status === "received"
     ).length;
 
     if (typeof transfer.recomputeStatus === "function") {
@@ -293,7 +293,7 @@ exports.storeScan = async (req, res) => {
 
       if (targetBranch) {
         for (const item of transfer.items) {
-          if (item.store?.status === "recibido") {
+          if (item.store?.status === "received") {
 
             const originalState = item.equipment.state;
 
@@ -372,8 +372,8 @@ exports.getAllTransfers = async (req, res) => {
       toBranch: t.toBranch,
       status: t.status,
       totalItems: t.items.length,
-      courierReceived: t.items.filter(i => i.courier.status === "recibido").length,
-      storeReceived: t.items.filter(i => i.store.status === "recibido").length,
+      courierReceived: t.items.filter(i => i.courier.status === "received").length,
+      storeReceived: t.items.filter(i => i.store.status === "received").length,
       assignedDeliveryUser: t.assignedDeliveryUser?._id?.toString() || null
     })));
 
@@ -424,11 +424,14 @@ exports.deleteTransfer = async (req, res) => {
       return res.status(404).json({ message: "Transferencia no encontrada" });
     }
 
-    if (transfer.status.includes("entregada")) {
+    if (
+      ["in_transit_complete", "completed"].includes(transfer.status) &&
+      req.user.role !== "Master admin"
+    ) {
       return res.status(400).json({
-        message: "No puedes eliminar una transferencia ya entregada.",
+        message: "No puedes eliminar una transferencia ya completada.",
       });
-    }
+    } 
 
     await Transfer.findByIdAndDelete(id);
 

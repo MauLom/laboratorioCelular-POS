@@ -5,27 +5,32 @@ interface Props {
 }
 
 const colors: Record<string, string> = {
-  pendiente: "#facc15",
-  en_transito: "#3b82f6",
-  en_transito_completa: "#2563eb",
-  recibida: "#22c55e",
-  completa: "#22c55e",
-  no_recibido: "#ef4444",
-  fallida: "#ef4444",
+  pending: "#facc15",
+  in_transit_partial: "#3b82f6",
+  in_transit_complete: "#2563eb",
+  completed: "#22c55e",
+  incomplete: "#f97316",
+  failed: "#ef4444",
+};
+
+const statusTranslation: Record<string, string> = {
+  pending: "Pendiente",
+  in_transit_partial: "En tránsito parcial",
+  in_transit_complete: "En tránsito completo",
+  completed: "Completada",
+  incomplete: "Incompleta",
+  failed: "Fallida",
 };
 
 function formatStatus(raw: string) {
   if (!raw) return "";
 
-  let clean = raw.toLowerCase().replace(/_/g, " ");
-
-  clean = clean.replace("transito", "tránsito");
-
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
+  const key = raw.toLowerCase();
+  return statusTranslation[key] || raw;
 }
 
 const TransferStatusTag: React.FC<Props> = ({ status }) => {
-  const key = status.toLowerCase();
+  const key = status?.toLowerCase() || "";
   const color = colors[key] || "#9ca3af";
 
   return (

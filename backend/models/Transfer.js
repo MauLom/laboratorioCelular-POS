@@ -3,7 +3,11 @@ const { Schema } = mongoose;
 
 const ScanInfoSchema = new Schema(
   {
-    status: { type: String, enum: ["pendiente", "recibido", "no_recibido"], default: "pendiente" },
+    status: {
+      type: String,
+      enum: ["pending", "received", "not_received"],
+      default: "pending"
+    },
     observation: String,
     at: Date,
     by: { type: Schema.Types.ObjectId, ref: "User" },
@@ -13,11 +17,19 @@ const ScanInfoSchema = new Schema(
 
 const TransferItemSchema = new Schema(
   {
-    equipment: { type: Schema.Types.ObjectId, ref: "InventoryItem", required: true },
-    imei: { type: String, index: true, required: true },
+    equipment: {
+      type: Schema.Types.ObjectId,
+      ref: "InventoryItem",
+      required: true
+    },
+    imei: {
+      type: String,
+      index: true,
+      required: true
+    },
 
-    courier: { type: ScanInfoSchema, default: { status: "pendiente" } },
-    store:   { type: ScanInfoSchema, default: { status: "pendiente" } },
+    courier: { type: ScanInfoSchema, default: { status: "pending" } },
+    store:   { type: ScanInfoSchema, default: { status: "pending" } },
   },
   { _id: true }
 );
@@ -25,37 +37,50 @@ const TransferItemSchema = new Schema(
 const TransferSchema = new Schema(
   {
     code: { type: String, index: true },
-    fromBranch: { type: String, required: true },
-    toBranch: { type: String, required: true },
 
-    items: { type: [TransferItemSchema], default: [] },
+    fromBranch: {
+      type: String,
+      required: true
+    },
+
+    toBranch: {
+      type: String,
+      required: true
+    },
+
+    items: {
+      type: [TransferItemSchema],
+      default: []
+    },
 
     status: {
       type: String,
       enum: [
-        "pendiente",
-
-        "en_transito_parcial",
-        "en_transito_completa",
-
-        "incompleta",
-        "completada",
-
-        "fallida",
+        "pending",
+        "in_transit_partial",
+        "in_transit_complete",
+        "completed",
+        "failed"
       ],
-      default: "pendiente",
-      index: true,
+      default: "pending",
+      index: true
     },
 
-    requestedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    requestedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User"
+    },
 
     assignedDeliveryUser: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      default: null,
+      default: null
     },
 
-    receivedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    receivedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User"
+    },
 
     reason: String,
   },
@@ -65,31 +90,36 @@ const TransferSchema = new Schema(
 TransferSchema.methods.recomputeStatus = function () {
   const items = this.items;
 
-  const courierPending = items.filter(i => i.courier?.status === "pendiente").length;
-  const courierReceived = items.filter(i => i.courier?.status === "recibido").length;
-  const courierRejected = items.filter(i => i.courier?.status === "no_recibido").length;
+  if (!items.length) {
+    this.status = "pending";
+    return;
+  }
 
-  const storePending = items.filter(i => i.store?.status === "pendiente").length;
-  const storeReceived = items.filter(i => i.store?.status === "recibido").length;
-  const storeRejected = items.filter(i => i.store?.status === "no_recibido").length;
+  const courierPending  = items.filter(i => i.courier?.status === "pending").length;
+  const courierReceived = items.filter(i => i.courier?.status === "received").length;
+  const courierRejected = items.filter(i => i.courier?.status === "not_received").length;
+
+  const storePending  = items.filter(i => i.store?.status === "pending").length;
+  const storeReceived = items.filter(i => i.store?.status === "received").length;
+  const storeRejected = items.filter(i => i.store?.status === "not_received").length;
 
   if (courierPending === 0) {
     if (courierReceived === items.length) {
-      this.status = "en_transito_completa";
+      this.status = "in_transit_complete";
     } else if (courierReceived > 0) {
-      this.status = "en_transito_parcial";
+      this.status = "in_transit_partial";
     } else if (courierRejected === items.length) {
-      this.status = "fallida";
+      this.status = "failed";
     }
   }
 
   if (storePending === 0) {
     if (storeReceived === items.length) {
-      this.status = "completada";
+      this.status = "completed";
     } else if (storeReceived > 0) {
-      this.status = "incompleta";
+      this.status = "in_transit_partial";
     } else if (storeRejected === items.length) {
-      this.status = "fallida";
+      this.status = "failed";
     }
   }
 };

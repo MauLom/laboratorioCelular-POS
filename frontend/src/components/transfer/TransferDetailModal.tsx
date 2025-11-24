@@ -77,10 +77,19 @@ const btnBlue = {
 
 function formatStatus(status: string) {
   if (!status) return "-";
-  return status
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (l) => l.toUpperCase());
+  return statusTranslation[status] || status;
 }
+
+const statusTranslation: Record<string, string> = {
+  pending: "Pendiente",
+  in_transit_partial: "En tránsito parcial",
+  in_transit_complete: "En tránsito completa",
+  completed: "Completada",
+  failed: "Fallida",
+
+  received: "Recibido",
+  not_received: "No recibido",
+};
 
 const TransferDetailModal: React.FC<Props> = ({
   isOpen,
@@ -162,7 +171,7 @@ const TransferDetailModal: React.FC<Props> = ({
       await storeScan(transfer._id, [
         {
           imei: transfer.items.find((x: any) => x._id === itemId)?.imei,
-          status: received ? "recibido" : "no_recibido",
+          status: received ? "received" : "not_received",
         },
       ]);
 
@@ -180,7 +189,7 @@ const TransferDetailModal: React.FC<Props> = ({
         transfer._id,
         transfer.items.map((item: any) => ({
           imei: item.imei,
-          status: received ? "recibido" : "no_recibido",
+          status: received ? "received" : "not_received",
         }))
       );
 
@@ -195,12 +204,12 @@ const TransferDetailModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const statusColor =
-    transfer?.status?.includes("completado")
+    transfer?.status?.includes("completed")
       ? "#28a745"
-      : transfer?.status?.includes("pendiente")
+      : transfer?.status?.includes("pending")
       ? "#ffc107"
-      : transfer?.status?.includes("no_recibido") ||
-        transfer?.status?.includes("fallida")
+      : transfer?.status?.includes("not_received") ||
+        transfer?.status?.includes("failed")
       ? "#dc3545"
       : "#17a2b8";
 
@@ -340,7 +349,7 @@ const TransferDetailModal: React.FC<Props> = ({
                                 }`.trim()
                               : "desconocido"
                           }`
-                        : "Pendiente"}
+                        : "Pending"}
                     </p>
 
                     <p>
@@ -355,7 +364,7 @@ const TransferDetailModal: React.FC<Props> = ({
                                 }`.trim()
                               : "desconocido"
                           }`
-                        : "Pendiente"}
+                        : "Pending"}
                     </p>
                   </div>
                 ))}
@@ -401,8 +410,8 @@ const TransferDetailModal: React.FC<Props> = ({
 
               <tbody>
                 {transfer.items.map((item: any) => {
-                  const courierStatus = item.courier?.status || "pendiente";
-                  const storeStatus = item.store?.status || "pendiente";
+                  const courierStatus = item.courier?.status || "pending";
+                  const storeStatus = item.store?.status || "pending";
 
                   return (
                     <tr
@@ -410,9 +419,9 @@ const TransferDetailModal: React.FC<Props> = ({
                       style={{
                         borderBottom: "1px solid #e1e1e1",
                         background:
-                          storeStatus === "recibido"
+                          storeStatus === "received"
                             ? "#e9f9ee"
-                            : storeStatus === "no_recibido"
+                            : storeStatus === "not_received"
                             ? "#fdeaea"
                             : "#fff",
                       }}
@@ -432,11 +441,11 @@ const TransferDetailModal: React.FC<Props> = ({
 
                       {isReparto && (
                         <td style={{ textAlign: "center", padding: 10 }}>
-                          {courierStatus === "recibido" ? (
+                          {courierStatus === "received" ? (
                             <span style={{ color: "green", fontWeight: 600 }}>
                               ✅ Recibido
                             </span>
-                          ) : courierStatus === "no_recibido" ? (
+                          ) : courierStatus === "not_received" ? (
                             <span style={{ color: "red", fontWeight: 600 }}>
                               ❌ No recibido
                             </span>
@@ -462,11 +471,11 @@ const TransferDetailModal: React.FC<Props> = ({
 
                       {canStoreConfirm && (
                         <td style={{ textAlign: "center", padding: 10 }}>
-                          {storeStatus === "recibido" ? (
+                          {storeStatus === "received" ? (
                             <span style={{ color: "green", fontWeight: 600 }}>
                               🏪 Recibido
                             </span>
-                          ) : storeStatus === "no_recibido" ? (
+                          ) : storeStatus === "not_received" ? (
                             <span style={{ color: "red", fontWeight: 600 }}>
                               🚫 No recibido
                             </span>

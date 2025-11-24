@@ -227,12 +227,12 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
             style={{ width: "100%", padding: "8px", marginTop: "5px" }}
           >
             <option value="">Todos</option>
-            <option value="New">New</option>
-            <option value="Repair">Repair</option>
-            <option value="Repaired">Repaired</option>
-            <option value="Sold">Sold</option>
-            <option value="Lost">Lost</option>
-            <option value="Clearance">Clearance</option>
+            <option value="New">Nuevo</option>
+            <option value="Repair">Reparacion</option>
+            <option value="Repaired">Reparado</option>
+            <option value="Sold">Vendido</option>
+            <option value="Lost">Perdido</option>
+            <option value="Clearance">Liquidacion</option>
           </select>
         </Box>
 
