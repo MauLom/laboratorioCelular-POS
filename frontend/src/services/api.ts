@@ -113,6 +113,14 @@ export const inventoryApi = {
     const response = await api.get('/inventory/search', { params: { imei } });
     return response.data;
   },
+
+  // Create multiple items (bulk)
+  createBulk: async (
+    items: Omit<InventoryItem, '_id' | 'createdAt' | 'updatedAt'>[]
+  ): Promise<{ message: string; items: InventoryItem[] }> => {
+    const response = await api.post('/inventory/bulk', { items });
+    return response.data;
+  },
 };
 
 // Sales API

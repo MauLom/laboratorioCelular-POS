@@ -575,9 +575,35 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   
   // Handle form submission
   const handleSubmit = async () => {
+    // Validation (Step 8.1)
     if (previewItems.length === 0) {
       error('No hay artículos para agregar');
       return;
+    }
+    
+    if (!productFormData.productType) {
+      error('Debe seleccionar un tipo de producto');
+      return;
+    }
+    
+    if (!productFormData.franchiseLocation) {
+      error('Debe asignar una tienda');
+      return;
+    }
+    
+    // Validate purchase price if provided
+    if (productFormData.purchasePrice !== undefined && productFormData.purchasePrice < 0) {
+      error('El precio de compra debe ser un valor positivo');
+      return;
+    }
+    
+    // Validate invoice date if provided
+    if (productFormData.purchaseInvoiceDate) {
+      const invoiceDate = new Date(productFormData.purchaseInvoiceDate);
+      if (isNaN(invoiceDate.getTime())) {
+        error('La fecha de factura no es válida');
+        return;
+      }
     }
     
     setSubmitting(true);
@@ -603,10 +629,12 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
         price: productFormData.purchasePrice // Use purchase price as sale price initially
       }));
       
-      // Create items sequentially
-      // TODO: Replace with bulk endpoint when available
-      for (const item of itemsToCreate) {
-        await inventoryApi.create(item as any);
+      if (itemsToCreate.length === 1) {
+        // Single item - use existing endpoint
+        await inventoryApi.create(itemsToCreate[0] as any);
+      } else {
+        // Multiple items - use bulk endpoint
+        await inventoryApi.createBulk(itemsToCreate as any);
       }
       
       success(`¡${itemsToCreate.length} artículo(s) agregado(s) exitosamente!`);
