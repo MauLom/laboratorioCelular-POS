@@ -1,14 +1,39 @@
+export interface Brand {
+  _id?: string;
+  name: string;
+  description?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductType {
+  _id?: string;
+  company: string | Brand;
+  model: string;
+  minInventoryThreshold: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface InventoryItem {
   _id?: string;
   imei: string;
-  state: 'New' | 'Repair' | 'Repaired' | 'Sold' | 'Lost' | 'Clearance';
+  imei2?: string; // New
+  state: 'New' | 'Repair' | 'OnRepair' | 'Repaired' | 'Sold' | 'OnSale' | 'Lost' | 'Clearance'; // Updated - keep old values for backward compatibility
   branch?: string; // Virtual field for backward compatibility
   franchiseLocation?: string | FranchiseLocation; // New field
+  productType?: string | ProductType; // New
   hiddenDetails?: any;
   model?: string;
   brand?: string;
   color?: string;
   storage?: string;
+  provider?: string; // New
+  purchasePrice?: number; // New
+  purchaseInvoiceId?: string; // New
+  purchaseInvoiceDate?: string; // New
   price?: number;
   notes?: string;
   createdAt?: string;
