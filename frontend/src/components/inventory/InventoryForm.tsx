@@ -103,7 +103,7 @@ const ErrorMessage = styled.span`
 
 interface InventoryFormData {
   imei: string;
-  state: 'New' | 'Repair' | 'Repaired' | 'Sold' | 'Lost' | 'Clearance';
+  state: 'New' | 'Repair' | 'OnRepair' | 'Repaired' | 'Sold' | 'OnSale' | 'Lost' | 'Clearance';
   franchiseLocation: string;
   model?: string;
   brand?: string;
@@ -212,7 +212,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       imei: initialData?.imei || '',
-      state: initialData?.state || 'New',
+      state: (initialData?.state as InventoryFormData['state']) || 'New',
       franchiseLocation: getDefaultFranchiseLocation(),
       model: initialData?.model || '',
       brand: initialData?.brand || '',
@@ -253,11 +253,13 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
         <Label htmlFor="state">Estado *</Label>
         <Select id="state" {...register('state')} disabled={isLoading}>
           <option value="New">Nuevo</option>
-          <option value="Repair">En Reparación</option>
+          <option value="Repair">En Reparación (Legacy)</option>
+          <option value="OnRepair">En Reparación</option>
           <option value="Repaired">Reparado</option>
           <option value="Sold">Vendido</option>
+          <option value="OnSale">En Venta</option>
           <option value="Lost">Perdido</option>
-          <option value="Clearance">Liquidación</option>
+          <option value="Clearance">Liquidación (Legacy)</option>
         </Select>
         {errors.state && <ErrorMessage>{errors.state.message}</ErrorMessage>}
       </FormGroup>

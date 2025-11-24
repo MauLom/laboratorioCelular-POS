@@ -721,6 +721,7 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   // Filter product types based on search
   const filteredProductTypes = useMemo(() => {
     if (!productTypeSearch.trim()) {
+      // Show all product types when search is empty
       return productTypes;
     }
     const searchLower = productTypeSearch.toLowerCase();
@@ -728,7 +729,7 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
       const displayName = getProductTypeDisplayName(pt).toLowerCase();
       return displayName.includes(searchLower);
     });
-  }, [productTypes, productTypeSearch]);
+  }, [productTypes, productTypeSearch, getProductTypeDisplayName]);
   
   // Handle product type selection
   const handleProductTypeSelect = (productType: ProductType) => {
@@ -740,7 +741,10 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   // Handle product type input change
   const handleProductTypeInputChange = (value: string) => {
     setProductTypeSearch(value);
-    setShowProductTypeDropdown(true);
+    // Always show dropdown when typing
+    if (value.trim() || productTypes.length > 0) {
+      setShowProductTypeDropdown(true);
+    }
     
     // If value matches exactly, select it
     const exactMatch = productTypes.find(pt => 
@@ -803,38 +807,70 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
               <FormGrid>
                 <FormGroup style={{ gridColumn: '1 / -1' }}>
                   <Label htmlFor="productType">Tipo de Producto (Marca/Modelo Base) *</Label>
-                  <AutocompleteContainer ref={productTypeInputRef}>
-                    <Input
-                      id="productType"
-                      type="text"
-                      placeholder="Selecciona o escribe tipo de producto..."
-                      value={productTypeSearch}
-                      onChange={(e) => handleProductTypeInputChange(e.target.value)}
-                      onFocus={() => setShowProductTypeDropdown(true)}
-                      required
-                      autoComplete="off"
-                      disabled={submitting}
-                    />
-                    {showProductTypeDropdown && filteredProductTypes.length > 0 && (
-                      <AutocompleteDropdown ref={productTypeDropdownRef}>
-                        {filteredProductTypes.map(pt => (
-                          <AutocompleteOption
-                            key={pt._id}
-                            onClick={() => handleProductTypeSelect(pt)}
-                          >
-                            {getProductTypeDisplayName(pt)}
-                          </AutocompleteOption>
-                        ))}
-                      </AutocompleteDropdown>
-                    )}
-                    {showProductTypeDropdown && filteredProductTypes.length === 0 && productTypeSearch.trim() && (
-                      <AutocompleteDropdown ref={productTypeDropdownRef}>
-                        <AutocompleteOption style={{ color: '#999', cursor: 'default' }}>
-                          No se encontraron resultados
-                        </AutocompleteOption>
-                      </AutocompleteDropdown>
-                    )}
-                  </AutocompleteContainer>
+                  {productTypes.length === 0 ? (
+                    <>
+                      <Input
+                        id="productType"
+                        type="text"
+                        placeholder="No hay tipos de producto disponibles"
+                        value=""
+                        disabled={true}
+                        style={{ backgroundColor: '#f8f9fa' }}
+                      />
+                      <InlineError style={{ background: '#fff3cd', borderColor: '#ffc107', color: '#856404' }}>
+                        ⚠️ No hay tipos de producto configurados. Por favor, cree tipos de producto en la página de Configuración primero.
+                        <br />
+                        <small style={{ fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>
+                          Los tipos de producto son combinaciones de Marca + Modelo (ej: "Samsung - Galaxy S21")
+                        </small>
+                      </InlineError>
+                    </>
+                  ) : (
+                    <AutocompleteContainer ref={productTypeInputRef}>
+                      <Input
+                        id="productType"
+                        type="text"
+                        placeholder={`Selecciona o escribe tipo de producto (${productTypes.length} disponibles)...`}
+                        value={productTypeSearch}
+                        onChange={(e) => handleProductTypeInputChange(e.target.value)}
+                        onFocus={() => {
+                          if (productTypes.length > 0) {
+                            setShowProductTypeDropdown(true);
+                          }
+                        }}
+                        onClick={() => {
+                          if (productTypes.length > 0) {
+                            setShowProductTypeDropdown(true);
+                          }
+                        }}
+                        required
+                        autoComplete="off"
+                        disabled={submitting}
+                      />
+                      {showProductTypeDropdown && productTypes.length > 0 && (
+                        <AutocompleteDropdown ref={productTypeDropdownRef}>
+                          {filteredProductTypes.length > 0 ? (
+                            filteredProductTypes.map(pt => (
+                              <AutocompleteOption
+                                key={pt._id}
+                                onClick={() => handleProductTypeSelect(pt)}
+                              >
+                                {getProductTypeDisplayName(pt)}
+                              </AutocompleteOption>
+                            ))
+                          ) : productTypeSearch.trim() ? (
+                            <AutocompleteOption style={{ color: '#999', cursor: 'default' }}>
+                              No se encontraron resultados para "{productTypeSearch}"
+                            </AutocompleteOption>
+                          ) : (
+                            <AutocompleteOption style={{ color: '#999', cursor: 'default' }}>
+                              Escriba para buscar o seleccione de la lista
+                            </AutocompleteOption>
+                          )}
+                        </AutocompleteDropdown>
+                      )}
+                    </AutocompleteContainer>
+                  )}
                   {validationErrors.productType && (
                     <InlineError>{validationErrors.productType}</InlineError>
                   )}
