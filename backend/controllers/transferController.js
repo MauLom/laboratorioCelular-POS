@@ -351,8 +351,6 @@ exports.getAllTransfers = async (req, res) => {
 
       const deviceBranch = location.name;
 
-      console.log("Sucursal detectada para transferencias:", deviceBranch);
-
       query = {
         $or: [
           { toBranch: deviceBranch },

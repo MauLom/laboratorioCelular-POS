@@ -117,8 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(token);
       setIsAuthenticated(true);
 
-      console.log("📌 User final con Device Tracker:", finalUser);
-
       return { requiresPasswordChange: requiresChange };
     } finally {
       setLoading(false);
