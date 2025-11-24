@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+import { Spinner } from '@chakra-ui/react';
 import { ProductType, FranchiseLocation, Brand } from '../../types';
 import { catalogsApi, franchiseLocationsApi, inventoryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -321,6 +322,42 @@ const ErrorMessage = styled.span`
   display: block;
 `;
 
+const InlineError = styled.div`
+  color: #e74c3c;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  background: #ffe6e6;
+  border: 1px solid #ffcdd2;
+  border-radius: 4px;
+`;
+
+const LoadingOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+`;
+
+const LoadingSpinner = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  
+  span {
+    color: #3498db;
+    font-weight: 500;
+  }
+`;
+
 const ButtonGroup = styled.div`
   display: flex;
   gap: 1rem;
@@ -389,6 +426,15 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   const [colorValues, setColorValues] = useState<Array<{ _id: string; value: string; displayName: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // State for validation errors
+  const [validationErrors, setValidationErrors] = useState<{
+    productType?: string;
+    franchiseLocation?: string;
+    imei?: string;
+    purchasePrice?: string;
+    purchaseInvoiceDate?: string;
+  }>({});
   
   // State for product type autocomplete
   const [productTypeSearch, setProductTypeSearch] = useState('');
@@ -536,20 +582,33 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   
   // Generate preview
   const generatePreview = () => {
+    const errors: typeof validationErrors = {};
+    let hasErrors = false;
+    
     if (imeiEntries.length === 0) {
-      error('Debe agregar al menos un IMEI');
-      return;
+      errors.imei = 'Debe agregar al menos un IMEI';
+      hasErrors = true;
     }
     
     if (!productFormData.productType) {
-      error('Debe seleccionar un tipo de producto');
-      return;
+      errors.productType = 'Debe seleccionar un tipo de producto';
+      hasErrors = true;
     }
     
     if (!productFormData.franchiseLocation) {
-      error('Debe asignar una tienda');
+      errors.franchiseLocation = 'Debe asignar una tienda';
+      hasErrors = true;
+    }
+    
+    if (hasErrors) {
+      setValidationErrors(errors);
+      error('Por favor corrija los errores antes de continuar');
       return;
     }
+    
+    setValidationErrors({});
+    
+    if (!productFormData.productType) return;
     
     const productTypeName = typeof productFormData.productType.company === 'string'
       ? productFormData.productType.model
@@ -576,35 +635,46 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   // Handle form submission
   const handleSubmit = async () => {
     // Validation (Step 8.1)
+    const errors: typeof validationErrors = {};
+    let hasErrors = false;
+    
     if (previewItems.length === 0) {
       error('No hay artículos para agregar');
       return;
     }
     
     if (!productFormData.productType) {
-      error('Debe seleccionar un tipo de producto');
-      return;
+      errors.productType = 'Debe seleccionar un tipo de producto';
+      hasErrors = true;
     }
     
     if (!productFormData.franchiseLocation) {
-      error('Debe asignar una tienda');
-      return;
+      errors.franchiseLocation = 'Debe asignar una tienda';
+      hasErrors = true;
     }
     
     // Validate purchase price if provided
     if (productFormData.purchasePrice !== undefined && productFormData.purchasePrice < 0) {
-      error('El precio de compra debe ser un valor positivo');
-      return;
+      errors.purchasePrice = 'El precio de compra debe ser un valor positivo';
+      hasErrors = true;
     }
     
     // Validate invoice date if provided
     if (productFormData.purchaseInvoiceDate) {
       const invoiceDate = new Date(productFormData.purchaseInvoiceDate);
       if (isNaN(invoiceDate.getTime())) {
-        error('La fecha de factura no es válida');
-        return;
+        errors.purchaseInvoiceDate = 'La fecha de factura no es válida';
+        hasErrors = true;
       }
     }
+    
+    if (hasErrors) {
+      setValidationErrors(errors);
+      error('Por favor corrija los errores antes de continuar');
+      return;
+    }
+    
+    setValidationErrors({});
     
     setSubmitting(true);
     try {
@@ -743,6 +813,7 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                       onFocus={() => setShowProductTypeDropdown(true)}
                       required
                       autoComplete="off"
+                      disabled={submitting}
                     />
                     {showProductTypeDropdown && filteredProductTypes.length > 0 && (
                       <AutocompleteDropdown ref={productTypeDropdownRef}>
@@ -764,6 +835,9 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                       </AutocompleteDropdown>
                     )}
                   </AutocompleteContainer>
+                  {validationErrors.productType && (
+                    <InlineError>{validationErrors.productType}</InlineError>
+                  )}
                 </FormGroup>
                 
                 <FormGroup>
@@ -807,15 +881,19 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                 
                 <FormGroup>
                   <Label htmlFor="purchasePrice">Precio de Compra (Unitario)</Label>
-                  <Input
-                    id="purchasePrice"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Ej: 750.00"
-                    value={productFormData.purchasePrice || ''}
-                    onChange={(e) => handleProductFormChange('purchasePrice', e.target.value ? parseFloat(e.target.value) : undefined)}
-                  />
+                    <Input
+                      id="purchasePrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ej: 750.00"
+                      value={productFormData.purchasePrice || ''}
+                      onChange={(e) => handleProductFormChange('purchasePrice', e.target.value ? parseFloat(e.target.value) : undefined)}
+                      disabled={submitting}
+                    />
+                    {validationErrors.purchasePrice && (
+                      <InlineError>{validationErrors.purchasePrice}</InlineError>
+                    )}
                 </FormGroup>
                 
                 <FormGroup>
@@ -831,13 +909,17 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                 
                 <FormGroup>
                   <Label htmlFor="purchaseInvoiceDate">Fecha Factura de Compra</Label>
-                  <Input
-                    id="purchaseInvoiceDate"
-                    type="date"
-                    placeholder="Selecciona una fecha"
-                    value={productFormData.purchaseInvoiceDate || ''}
-                    onChange={(e) => handleProductFormChange('purchaseInvoiceDate', e.target.value || undefined)}
-                  />
+                    <Input
+                      id="purchaseInvoiceDate"
+                      type="date"
+                      placeholder="Selecciona una fecha"
+                      value={productFormData.purchaseInvoiceDate || ''}
+                      onChange={(e) => handleProductFormChange('purchaseInvoiceDate', e.target.value || undefined)}
+                      disabled={submitting}
+                    />
+                    {validationErrors.purchaseInvoiceDate && (
+                      <InlineError>{validationErrors.purchaseInvoiceDate}</InlineError>
+                    )}
                 </FormGroup>
                 
                 <FormGroup>
@@ -872,6 +954,9 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                         : 'Tienda no asignada'}
                       disabled={true}
                     />
+                  )}
+                  {validationErrors.franchiseLocation && (
+                    <InlineError>{validationErrors.franchiseLocation}</InlineError>
                   )}
                 </FormGroup>
                 
@@ -909,7 +994,11 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                       placeholder="Introduce el IMEI principal"
                       value={currentImei}
                       onChange={(e) => setCurrentImei(e.target.value)}
+                      disabled={submitting}
                     />
+                    {validationErrors.imei && (
+                      <InlineError>{validationErrors.imei}</InlineError>
+                    )}
                   </FormGroup>
                   <FormGroup>
                     <Label htmlFor="currentImei2">IMEI 2 Actual (Opcional)</Label>
@@ -921,7 +1010,7 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                       onChange={(e) => setCurrentImei2(e.target.value)}
                     />
                   </FormGroup>
-                  <Button onClick={handleAddImei} style={{ width: '100%' }}>
+                  <Button onClick={handleAddImei} style={{ width: '100%' }} disabled={submitting}>
                     + Añadir IMEI a la Lista
                   </Button>
                   
@@ -957,7 +1046,7 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                       onChange={(e) => setBulkImeiText(e.target.value)}
                     />
                   </FormGroup>
-                  <Button onClick={handleProcessBulkImeis} style={{ width: '100%' }}>
+                  <Button onClick={handleProcessBulkImeis} style={{ width: '100%' }} disabled={submitting}>
                     📋 Procesar y Añadir IMEIs Pegados
                   </Button>
                 </div>
@@ -966,10 +1055,10 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
             
             {/* Action Buttons */}
             <ButtonGroup>
-              <Button className="secondary" onClick={onClose}>
+              <Button className="secondary" onClick={onClose} disabled={submitting}>
                 Cancelar
               </Button>
-              <Button onClick={generatePreview} disabled={imeiEntries.length === 0}>
+              <Button onClick={generatePreview} disabled={imeiEntries.length === 0 || submitting}>
                 Añadir {imeiEntries.length} Artículo(s)
               </Button>
             </ButtonGroup>
@@ -1015,10 +1104,10 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
             
             {/* Action Buttons */}
             <ButtonGroup>
-              <Button className="secondary" onClick={() => setShowPreview(false)}>
+              <Button className="secondary" onClick={() => setShowPreview(false)} disabled={submitting}>
                 Volver a Editar
               </Button>
-              <Button onClick={handleSubmit} disabled={submitting}>
+              <Button onClick={handleSubmit} disabled={submitting || previewItems.length === 0}>
                 {submitting ? 'Guardando...' : `Confirmar y Añadir ${previewItems.length} Artículo(s)`}
               </Button>
             </ButtonGroup>
