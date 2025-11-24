@@ -151,7 +151,8 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
     }
 
     if (
-      user.role === "Reparto"
+      user.role === "Reparto" ||
+      user.role === "Vendedor"
     ) {
       setShowCashModal(false);
       return;

@@ -13,6 +13,8 @@ interface Props {
   onUpdated?: () => void;
 }
 
+const API_URL = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
+
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -95,9 +97,8 @@ const TransferDetailModal: React.FC<Props> = ({
     setLoading(true);
     getTransferById(transferId)
       .then((data) => {
-         console.log("🔍 Transfer detail:", data);
-         setTransfer(data);
-        })
+        setTransfer(data);
+      })
       .finally(() => setLoading(false));
   }, [isOpen, transferId]);
 
@@ -139,10 +140,20 @@ const TransferDetailModal: React.FC<Props> = ({
   const isSucursalUser =
     user?.role === "Vendedor" || user?.role === "Cajero";
 
+  const [deviceBranch, setDeviceBranch] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (transfer?.toBranch) {
+      setDeviceBranch(transfer.toBranch);
+    }
+  }, [isOpen, transfer]); 
+
   const isDestino =
     transfer?.toBranch &&
-    user?.franchiseLocation?.name &&
-    transfer.toBranch.toLowerCase() === user.franchiseLocation.name.toLowerCase();
+    deviceBranch &&
+    transfer.toBranch.toLowerCase() === deviceBranch.toLowerCase();
 
   const canStoreConfirm = isSucursalUser && isDestino;
 
@@ -236,104 +247,120 @@ const TransferDetailModal: React.FC<Props> = ({
             </div>
 
             {/* PANEL DE CONTROL SOLO PARA ADMIN */}
-            {["Master admin", "Administrador", "Supervisor"].includes(user?.role ?? "") && (
+            {["Master admin", "Administrador", "Supervisor"].includes(
+              user?.role ?? ""
+            ) && (
               <div
-               style={{
-                padding: "12px",
-                background: "#f7f7f7",
-                borderRadius: 8,
-                marginBottom: 20,
-                border: "1px solid #ddd",
-                fontSize: 14,
-                lineHeight: 1.5,
-              }}
-            >
-              <h3 style={{ fontSize: 16, marginBottom: 10, fontWeight: 600 }}>
-                Panel de Control
-              </h3>
-
-              <p>
-                <b>Creado por:</b>{" "}
-                {transfer?.requestedBy
-                  ? `${transfer.requestedBy.firstName ?? ""} ${transfer.requestedBy.lastName ?? ""} (${transfer.requestedBy.role ?? ""})`.trim()
-                  : "—"}
-              </p>
-
-              <p>
-                <b>Repartidor asignado:</b>{" "}
-                {transfer?.assignedDeliveryUser
-                 ? `${transfer.assignedDeliveryUser.firstName} ${transfer.assignedDeliveryUser.lastName}`
-                 : "No asignado"}
-              </p>
-
-              <p>
-                <b>Recibido por sucursal:</b>{" "}
-                {transfer?.receivedBy
-                  ? `${transfer.receivedBy.firstName} ${transfer.receivedBy.lastName}`
-                  : "—"}
-              </p>
-
-              <p>
-                <b>Creado:</b>{" "}
-                {transfer?.createdAt
-                  ? new Date(transfer.createdAt).toLocaleString()
-                  : "(sin fecha)"}
-              </p>
-
-              <p>
-                <b>Última actualización:</b>{" "}
-                {transfer?.updatedAt
-                  ? new Date(transfer.updatedAt).toLocaleString()
-                  : "(sin fecha)"}
-              </p>
-
-              <hr style={{ margin: "10px 0" }} />
-
-              <h4 style={{ fontSize: 15, marginBottom: 6 }}>Movimientos por equipo:</h4>
-              {transfer.items.map((item: any, i: number) => (
-                <div
-                  key={i}
+                style={{
+                  padding: "12px",
+                  background: "#f7f7f7",
+                  borderRadius: 8,
+                  marginBottom: 20,
+                  border: "1px solid #ddd",
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                <h3
                   style={{
-                    padding: "6px 10px",
-                    background: "#fff",
-                    borderRadius: 6,
-                    border: "1px solid #ddd",
-                    marginBottom: 8,
+                    fontSize: 16,
+                    marginBottom: 10,
+                    fontWeight: 600,
                   }}
                 >
-                  <p>
-                    <b>IMEI:</b> {item.imei}
-                  </p>
+                  Panel de Control
+                </h3>
 
-                  <p>
-                    <b>Reparto:</b>{" "}
-                    {item.courier?.at ? (
-                      `${new Date(item.courier.at ?? 0).toLocaleString()} por ${
-                        item.courier?.by
-                         ? `${item.courier.by.firstName ?? ""} ${item.courier.by.lastName ?? ""}`.trim()
-                         : "desconocido"
-                      }`
-                    ) : ( 
-                     "Pendiente"
-                    )} 
-                  </p>
+                <p>
+                  <b>Creado por:</b>{" "}
+                  {transfer?.requestedBy
+                    ? `${transfer.requestedBy.firstName ?? ""} ${
+                        transfer.requestedBy.lastName ?? ""
+                      } (${transfer.requestedBy.role ?? ""})`.trim()
+                    : "—"}
+                </p>
 
-                  <p>
-                    <b>Sucursal:</b>{" "}
-                    {item.store?.at ? (
-                       `${new Date(item.store.at ?? 0).toLocaleString()} por ${
-                         item.store?.by
-                          ? `${item.store.by.firstName ?? ""} ${item.store.by.lastName ?? ""}`.trim()
-                          : "desconocido"
-                       }`
-                     ) : (
-                      "Pendiente"
-                    )} 
-                  </p>
-                </div>
-              ))}
-             </div>
-            )}        
+                <p>
+                  <b>Repartidor asignado:</b>{" "}
+                  {transfer?.assignedDeliveryUser
+                    ? `${transfer.assignedDeliveryUser.firstName} ${transfer.assignedDeliveryUser.lastName}`
+                    : "No asignado"}
+                </p>
+
+                <p>
+                  <b>Recibido por sucursal:</b>{" "}
+                  {transfer?.receivedBy
+                    ? `${transfer.receivedBy.firstName} ${transfer.receivedBy.lastName}`
+                    : "—"}
+                </p>
+
+                <p>
+                  <b>Creado:</b>{" "}
+                  {transfer?.createdAt
+                    ? new Date(transfer.createdAt).toLocaleString()
+                    : "(sin fecha)"}
+                </p>
+
+                <p>
+                  <b>Última actualización:</b>{" "}
+                  {transfer?.updatedAt
+                    ? new Date(transfer.updatedAt).toLocaleString()
+                    : "(sin fecha)"}
+                </p>
+
+                <hr style={{ margin: "10px 0" }} />
+
+                <h4 style={{ fontSize: 15, marginBottom: 6 }}>
+                  Movimientos por equipo:
+                </h4>
+                {transfer.items.map((item: any, i: number) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "6px 10px",
+                      background: "#fff",
+                      borderRadius: 6,
+                      border: "1px solid #ddd",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <p>
+                      <b>IMEI:</b> {item.imei}
+                    </p>
+
+                    <p>
+                      <b>Reparto:</b>{" "}
+                      {item.courier?.at
+                        ? `${new Date(
+                            item.courier.at ?? 0
+                          ).toLocaleString()} por ${
+                            item.courier?.by
+                              ? `${item.courier.by.firstName ?? ""} ${
+                                  item.courier.by.lastName ?? ""
+                                }`.trim()
+                              : "desconocido"
+                          }`
+                        : "Pendiente"}
+                    </p>
+
+                    <p>
+                      <b>Sucursal:</b>{" "}
+                      {item.store?.at
+                        ? `${new Date(
+                            item.store.at ?? 0
+                          ).toLocaleString()} por ${
+                            item.store?.by
+                              ? `${item.store.by.firstName ?? ""} ${
+                                  item.store.by.lastName ?? ""
+                                }`.trim()
+                              : "desconocido"
+                          }`
+                        : "Pendiente"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <table
               style={{

@@ -59,12 +59,7 @@ const TransfersPage: React.FC = () => {
       }
 
       else if (role === "Vendedor" || role === "Cajero") {
-        const userBranch =
-          user.franchiseLocation?.name?.toLowerCase() || "";
-
-        filtered = list.filter(
-          (t) => t.toBranch?.toLowerCase() === userBranch
-        );
+        filtered = list;
       }
 
       else {

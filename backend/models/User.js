@@ -58,6 +58,10 @@ const userSchema = new mongoose.Schema({
       return ['Cajero', 'Supervisor de sucursal', 'Oficina'].includes(this.role);
     }
   },
+  deviceLocation: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  }, 
   isActive: {
     type: Boolean,
     default: true

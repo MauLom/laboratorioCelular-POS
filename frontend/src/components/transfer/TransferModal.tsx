@@ -31,6 +31,9 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [toBranch, setToBranch] = useState("");
 
+  const [branches, setBranches] = useState<any[]>([]);
+  const ALLOW_OFFICES_AS_DESTINATION = false;
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -70,6 +73,37 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
     };
 
     loadDeliveryUsers();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadBranches = async () => {
+      try {
+        const res = await fetch(`${API_URL}/franchise-locations`, {
+          headers: getAuthHeaders(),
+        });
+
+        const data = await res.json();
+        let locations =
+          Array.isArray(data) ? data :
+          data.data || data.locations || data.results || [];
+
+        const filtered = locations.filter((loc: any) => {
+          if (ALLOW_OFFICES_AS_DESTINATION) return true;
+
+          const type = (loc.type || "").toLowerCase();
+          return type === "sucursal";
+        }); 
+
+        setBranches(filtered);
+      } catch (error) {
+        console.error("Error cargando sucursales:", error);
+        setBranches([]);
+      }
+    };
+    
+    loadBranches();
   }, [isOpen]);
 
   useEffect(() => {
@@ -283,10 +317,12 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
             style={{ width: "100%", padding: "8px", marginTop: "5px" }}
           >
             <option value="">Seleccionar</option>
-            <option value="Maus">Maus</option>
-            <option value="Hidalgo">Hidalgo</option>
-            <option value="Sucursal 1">Sucursal 1</option>
-            <option value="Sucursal 2">Sucursal 2</option>
+
+            {branches.map((b) => (
+              <option key={b._id} value={b.name}>
+                {b.name} ({b.type})
+              </option>
+            ))}   
           </select>
         </Box>
 

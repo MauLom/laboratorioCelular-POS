@@ -2,6 +2,7 @@ const Transfer = require("../models/Transfer");
 const Equipment = require("../models/InventoryItem");
 const User = require("../models/User");
 const mongoose = require("mongoose");
+const FranchiseLocation = require("../models/FranchiseLocation");
 
 const normalize = (x = "") => x.toString().trim().toLowerCase();
 
@@ -325,34 +326,61 @@ exports.storeScan = async (req, res) => {
 
 exports.getAllTransfers = async (req, res) => {
   try {
-
     let query = {};
+    const role = req.user.role;
 
-    if (req.user.role === "Reparto") {
-      query = { assignedDeliveryUser: new mongoose.Types.ObjectId(req.user.id) };
-    }  
-    
+    if (role === "Reparto") {
+      query.assignedDeliveryUser = req.user.id;
+    }
+
+    else if (["Vendedor", "Cajero"].includes(role)) {
+
+      const branchId = req.headers["x-branch-id"];
+
+      if (!branchId) {
+        console.warn("No se envió x-branch-id en transferencias");
+        return res.json([]);
+      }
+
+      const location = await FranchiseLocation.findById(branchId);
+
+      if (!location) {
+        console.warn("Sucursal inválida para ese branchId");
+        return res.json([]);
+      }
+
+      const deviceBranch = location.name;
+
+      console.log("Sucursal detectada para transferencias:", deviceBranch);
+
+      query = {
+        $or: [
+          { toBranch: deviceBranch },
+          { fromBranch: deviceBranch }
+        ]
+      };
+    }
+
     const transfers = await Transfer.find(query)
       .populate("requestedBy", "firstName lastName role")
       .populate("assignedDeliveryUser", "firstName lastName role")
       .populate("items.equipment", "brand model imei franchiseLocation")
       .sort({ createdAt: -1 });
-    const shaped = transfers.map((t) => ({
+
+    res.json(transfers.map(t => ({
       _id: t._id,
       code: t.code,
-      fromBranch: displayBranch(t.fromBranch),
-      toBranch: displayBranch(t.toBranch),
+      fromBranch: t.fromBranch,
+      toBranch: t.toBranch,
       status: t.status,
       totalItems: t.items.length,
-      courierReceived: t.items.filter((i) => i.courier.status === "recibido").length,
-      storeReceived: t.items.filter((i) => i.store.status === "recibido").length,
-      createdAt: t.createdAt,
+      courierReceived: t.items.filter(i => i.courier.status === "recibido").length,
+      storeReceived: t.items.filter(i => i.store.status === "recibido").length,
       assignedDeliveryUser: t.assignedDeliveryUser?._id?.toString() || null
-    }));
-
-    res.json(shaped);
+    })));
 
   } catch (error) {
+    console.error("Error getAllTransfers:", error);
     res.status(500).json({ message: error.message });
   }
 };

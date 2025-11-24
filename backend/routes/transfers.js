@@ -1,22 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { authenticate, authorize } = require("../middleware/auth");
-
-router.use((req, res, next) => {
-  if (!req.body || Object.keys(req.body).length === 0) {
-    let rawData = "";
-    req.on("data", chunk => rawData += chunk);
-    req.on("end", () => {
-      try {
-        req.body = JSON.parse(rawData);
-      } catch {
-      }
-      next();
-    });
-  } else {
-    next();
-  }
-});
+const FranchiseLocation = require("../models/FranchiseLocation");
 
 const {
   createTransfer,
@@ -27,34 +12,65 @@ const {
   deleteTransfer,
 } = require("../controllers/transferController");
 
+const detectDeviceBranch = async (req, res, next) => {
+  try {
+    const guid = req.headers["x-device-guid"];
+
+    if (!guid) {
+      console.warn("No se envió X-Device-Guid en transferencias");
+      return next();
+    }
+
+    const location = await FranchiseLocation.findOne({ guid });
+
+    if (!location) {
+      console.warn("GUID sin sucursal asociada en Transferencias");
+      return next();
+    }
+
+    req.deviceBranch = location.name;
+    req.deviceBranchId = location._id;
+
+    next();
+  } catch (error) {
+    console.error("❌ Error detectando sucursal desde GUID:", error);
+    next();
+  }
+};
+
 router.post(
   "/",
   authenticate,
   authorize(["Master admin", "Administrador", "Supervisor"]),
-  (req, res, next) => {
-    console.log("Body recibido (tras middleware):", req.body);
-    next();
-  },
   createTransfer
 );
 
 router.get(
   "/",
   authenticate,
-  authorize(["Master admin", "Administrador", "Supervisor", "Reparto", "Vendedor", "Cajero"]),
-  getAllTransfers
-);
-
-router.get(
-  "/:id",
-  authenticate,
+  detectDeviceBranch,
   authorize([
     "Master admin",
     "Administrador",
     "Supervisor",
     "Reparto",
     "Vendedor",
-    "Cajero",
+    "Cajero"
+  ]),
+  getAllTransfers
+);
+
+router.get(
+  "/:id",
+  authenticate,
+  detectDeviceBranch,
+  authorize([
+    "Master admin",
+    "Administrador",
+    "Supervisor",
+    "Reparto",
+    "Vendedor",
+    "Cajero"
   ]),
   getTransferById
 );
