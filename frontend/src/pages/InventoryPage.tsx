@@ -8,6 +8,7 @@ import {
   chakra,
 } from '@chakra-ui/react';
 import Navigation from '../components/common/Navigation';
+import AddInventoryForm from '../components/inventory/AddInventoryForm';
 import InventoryForm from '../components/inventory/InventoryForm';
 import InventoryList from '../components/inventory/InventoryList';
 import { inventoryApi } from '../services/api';
@@ -59,19 +60,10 @@ const InventoryPage: React.FC = () => {
     fetchItems();
   }, [fetchItems]);
 
-  const handleAddItem = async (itemData: Omit<InventoryItem, '_id' | 'createdAt' | 'updatedAt'>) => {
-    setFormLoading(true);
-    try {
-      await inventoryApi.create(itemData);
-      setShowForm(false);
-      fetchItems();
-      success('¡Artículo agregado exitosamente!');
-    } catch (err) {
-      console.error('Failed to add item:', err);
-      error('Error al agregar el artículo');
-    } finally {
-      setFormLoading(false);
-    }
+  // Note: AddInventoryForm handles its own submission, this is just for refresh callback
+  const handleAddItem = () => {
+    // This function is called by AddInventoryForm after successful submission
+    fetchItems();
   };
 
   const handleEditItem = async (itemData: Partial<InventoryItem>) => {
@@ -185,8 +177,16 @@ const InventoryPage: React.FC = () => {
             loading={loading}
           />
 
-          {/* Simple Modal for Add/Edit Form */}
-          {showForm && (
+          {/* Modal for Add Form */}
+          {showForm && !editingItem && (
+            <AddInventoryForm
+              onClose={closeForm}
+              onSubmit={handleAddItem}
+            />
+          )}
+          
+          {/* Modal for Edit Form - Keep old form for editing */}
+          {showForm && editingItem && (
             <Box
               position="fixed"
               top="0"
@@ -222,9 +222,9 @@ const InventoryPage: React.FC = () => {
                   ×
                 </Button>
                 <InventoryForm
-                  onSubmit={editingItem ? handleEditItem : handleAddItem}
+                  onSubmit={handleEditItem}
                   initialData={editingItem}
-                  isEditing={!!editingItem}
+                  isEditing={true}
                   isLoading={formLoading}
                 />
               </Box>

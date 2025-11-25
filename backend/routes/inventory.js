@@ -148,6 +148,79 @@ router.post('/', authenticate, handleBranchToFranchiseLocationConversion, async 
   }
 });
 
+// Create multiple inventory items (bulk)
+router.post('/bulk', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
+  try {
+    const { items } = req.body; // Array of inventory items
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items array is required' });
+    }
+    
+    // Validate franchise location access
+    if (req.user.role !== 'Master admin') {
+      const accessibleLocations = await getAccessibleLocations(req.user);
+      const locationIds = accessibleLocations.map(loc => loc._id.toString());
+      
+      // Validate all items have accessible locations
+      const invalidItems = items.filter(
+        (item) =>
+          !item.franchiseLocation ||
+          !locationIds.includes(item.franchiseLocation)
+      );
+      
+      if (invalidItems.length > 0) {
+        return res.status(403).json({
+          error: 'Access denied. Some items have invalid franchise locations.'
+        });
+      }
+    }
+    
+    // Validate IMEIs are unique
+    const imeis = items.map((item) => item.imei);
+    const duplicateImeis = imeis.filter(
+      (imei, index) => imeis.indexOf(imei) !== index
+    );
+    if (duplicateImeis.length > 0) {
+      return res.status(400).json({
+        error: `Duplicate IMEIs found: ${duplicateImeis.join(', ')}`
+      });
+    }
+    
+    // Check for existing IMEIs
+    const existingItems = await InventoryItem.find({
+      imei: { $in: imeis }
+    });
+    
+    if (existingItems.length > 0) {
+      const existingImeis = existingItems.map((item) => item.imei);
+      return res.status(400).json({
+        error: `IMEIs already exist: ${existingImeis.join(', ')}`
+      });
+    }
+    
+    // Create all items
+    const createdItems = await InventoryItem.insertMany(items);
+    
+    // Populate franchise location
+    await InventoryItem.populate(createdItems, {
+      path: 'franchiseLocation',
+      select: 'name code type'
+    });
+    
+    res.status(201).json({
+      message: `${createdItems.length} items created successfully`,
+      items: createdItems
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      res.status(400).json({ error: 'One or more IMEIs already exist' });
+    } else {
+      res.status(400).json({ error: error.message });
+    }
+  }
+});
+
 // Update inventory item (with franchise validation)
 router.put('/:imei', authenticate, handleBranchToFranchiseLocationConversion, async (req, res) => {
   try {
