@@ -162,7 +162,7 @@ const RoleName = styled.div`
 const ConfigurationPage: React.FC = () => {
   const { notifySuccess, notifyError } = useNotification();
   const { isAdmin } = useAuth();
-  const [tab, setTab] = useState<'franchises'  | "product-types"  | 'brands' | 'characteristics' | 'equipment' | 'cashModal'>('franchises');
+  const [tab, setTab] = useState<'franchises'  | "product-types"  | 'equipment' | 'cashModal'>('franchises');
 
 
   // franchises
@@ -483,8 +483,7 @@ const ConfigurationPage: React.FC = () => {
           <Title>Configuración</Title>
           <Tabs>
             <TabButton active={tab === 'franchises'} onClick={() => setTab('franchises')}>Franquicias</TabButton>
-            <TabButton active={tab === 'brands'} onClick={() => setTab('brands')}>Marcas</TabButton>
-            <TabButton active={tab === 'characteristics'} onClick={() => setTab('characteristics')}>Características</TabButton>
+            <TabButton active={tab === 'product-types'} onClick={() => setTab('product-types')}>Tipo de producto</TabButton>
             <TabButton active={tab === 'equipment'} onClick={() => setTab('equipment')}>Configuración del equipo</TabButton>
             {isAdmin() && (
               <TabButton active={tab === 'cashModal'} onClick={() => {
