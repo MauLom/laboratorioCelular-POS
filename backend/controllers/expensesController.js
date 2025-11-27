@@ -1,56 +1,79 @@
 const Expense = require('../models/Expense');
 const FranchiseLocation = require('../models/FranchiseLocation');
 
-function getTodayRange() {
-  const now = new Date(
-    new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey' })
-  );
-
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-  return { start, end };
+function getTodayString() {
+  return new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Monterrey'
+  });
 }
 
 exports.list = async (req, res) => {
   try {
+    const { q, from, to, user } = req.query;
+    const userRole = req.user.role;
+
     const isAdmin = [
       'Master admin',
       'Administrador',
       'Admin',
       'Supervisor de oficina',
       'Supervisor de sucursales'
-    ].includes(req.user.role);
+    ].includes(userRole);
 
     const query = {};
 
-    const branchDetected = req.headers['x-branch-id'];
-
     if (!isAdmin) {
-      if (!branchDetected) return res.json([]);
+      const branchDetected = req.headers['x-branch-id'];
 
-      const { start, end } = getTodayRange();
+      if (!branchDetected) {
+        return res.json([]);
+      }
 
       query.franchiseLocation = branchDetected;
-      query.date = { $gte: start, $lte: end };
+      query.date = getTodayString();
+    }
+
+    if (isAdmin && (from || to)) {
+      query.date = {};
+      if (from) query.date.$gte = new Date(from);
+      if (to) query.date.$lte = new Date(to);
+    }
+
+    if (q) {
+      query.$or = [
+        { reason: new RegExp(q, 'i') },
+        { notes: new RegExp(q, 'i') },
+        { user: new RegExp(user, 'i') }
+      ];
+    }
+
+    if (user) {
+      query.user = new RegExp(user, 'i');
     }
 
     const expenses = await Expense.find(query)
-      .populate('franchiseLocation', 'name')
-      .populate('createdBy', 'username')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .populate('franchiseLocation', 'name code type')
+      .populate('createdBy', 'firstName lastName username role');
 
     res.json(expenses);
+
   } catch (error) {
-    console.error('Error listando gastos:', error);
+    console.error('Error al listar gastos:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
 exports.getOne = async (req, res) => {
   try {
-    const expense = await Expense.findById(req.params.id);
-    if (!expense) return res.status(404).json({ error: 'No encontrado' });
+    const expense = await Expense.findById(req.params.id)
+      .populate('franchiseLocation', 'name code type')
+      .populate('createdBy', 'firstName lastName username role');
+
+    if (!expense) {
+      return res.status(404).json({ error: 'Gasto no encontrado' });
+    }
+
     res.json(expense);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -70,24 +93,21 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'Sucursal inválida' });
     }
 
-    const now = new Date(
-      new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey' })
-    );
-
     const expense = new Expense({
       reason: data.reason,
       amount: data.amount,
       user: req.user.username,
       createdBy: req.user._id,
       franchiseLocation: data.franchiseLocation,
-      date: now,
+      date: data.date || getTodayString(),
       notes: data.notes || ''
     });
 
     await expense.save();
     res.status(201).json(expense);
+
   } catch (error) {
-    console.error('❌ Error creando gasto:', error);
+    console.error('Error creando gasto:', error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -100,7 +120,10 @@ exports.update = async (req, res) => {
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ error: 'No encontrado' });
+    if (!updated) {
+      return res.status(404).json({ error: 'No encontrado' });
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -110,8 +133,12 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   try {
     const deleted = await Expense.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'No encontrado' });
-    res.json({ message: 'Eliminado correctamente' });
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'No encontrado' });
+    }
+
+    res.json({ message: 'Gasto eliminado correctamente' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
