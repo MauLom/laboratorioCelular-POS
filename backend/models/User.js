@@ -46,7 +46,8 @@ const userSchema = new mongoose.Schema({
       'Supervisor de sucursales',
       'Oficina',
       'Supervisor de oficina',
-      'Master admin'
+      'Master admin',
+      'Reparto'
     ]
   },
   franchiseLocation: {
@@ -57,6 +58,10 @@ const userSchema = new mongoose.Schema({
       return ['Cajero', 'Supervisor de sucursal', 'Oficina'].includes(this.role);
     }
   },
+  deviceLocation: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  }, 
   isActive: {
     type: Boolean,
     default: true

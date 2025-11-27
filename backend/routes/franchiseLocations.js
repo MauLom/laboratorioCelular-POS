@@ -50,6 +50,23 @@ router.get('/active', authenticate, async (req, res) => {
   }
 });
 
+// Obtener sucursal por GUID (Device Tracker - SIN AUTENTICACIÓN)
+router.get('/by-guid/:guid', async (req, res) => {
+  try {
+    const { guid } = req.params;
+
+    const location = await FranchiseLocation.findOne({ guid });
+
+    if (!location) {
+      return res.status(404).json({ error: 'Sucursal no encontrada para este GUID' });
+    }
+
+    res.json(location);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get single franchise location by ID (Master admin only)
 router.get('/:id', authenticate, requireMasterAdmin, async (req, res) => {
   try {

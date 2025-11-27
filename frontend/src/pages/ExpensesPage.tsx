@@ -17,19 +17,71 @@ import {
 import type { Expense } from '../types/expense';
 import Layout from '../components/common/Layout';
 import { CustomToast } from '../components/common/CustomToast';
+import { useAuth } from "../contexts/AuthContext";
+import axios from "axios";
+import deviceTrackerApi from '../services/deviceTrackerApi';
 
 export default function ExpensesPage() {
+  const { user } = useAuth();
+
+  const [trackerBranchName, setTrackerBranchName] = useState("Cargando...");
+  const [trackerBranchId, setTrackerBranchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadBranch() {
+      try {
+        const guid = await deviceTrackerApi.getSystemGuid();
+
+        if (!guid) {
+          console.warn("⚠ No hay GUID del device tracker, usando fallback del usuario");
+          setTrackerBranchName(user?.franchiseLocation?.name || "Sucursal desconocida");
+          setTrackerBranchId(user?.franchiseLocation?._id || null);
+          return;
+        }
+
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_URL}/franchise-locations/by-guid/${guid}`,
+         {
+           headers: {
+             Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          }
+        );  
+
+        if (res.data) {
+          setTrackerBranchName(res.data.name);
+          setTrackerBranchId(res.data._id);
+          localStorage.setItem('branchId', res.data._id);
+          return;
+        }
+
+      } catch (err) {
+        console.error("Error buscando sucursal por Device Tracker:", err);
+      }
+
+      setTrackerBranchName(user?.franchiseLocation?.name || "Sucursal desconocida");
+      setTrackerBranchId(user?.franchiseLocation?._id || null);
+    }
+
+    loadBranch();
+  }, [user]);
+
+  const userRole = user?.role || "";
+  const isAdmin =
+    ["Master admin", "Administrador", "Admin", "Supervisor de sucursales", "Supervisor de oficina"]
+      .includes(userRole);
+
   const [toastData, setToastData] = useState<{ message: string; status: string } | null>(null);
   const toast = useMemo(() => ({
     success: (msg: string) => setToastData({ message: msg, status: 'success' }),
     error: (msg: string) => setToastData({ message: msg, status: 'error' }),
     info: (msg: string) => setToastData({ message: msg, status: 'info' }),
-  }), []); 
+  }), []);
 
   const currentUser =
-    localStorage.getItem('userName') ||
-    localStorage.getItem('username') ||
-    'Usuario Actual';
+    user?.username ||
+    user?.firstName ||
+    "Usuario Actual";
 
   const localDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
 
@@ -39,6 +91,8 @@ export default function ExpensesPage() {
     user: currentUser,
     date: localDate,
     notes: '',
+    franchiseLocation: trackerBranchId || "",
+    deviceGuid: ""
   };
 
   const [items, setItems] = useState<Expense[]>([]);
@@ -53,6 +107,7 @@ export default function ExpensesPage() {
   const load = useCallback(async (filters?: { q?: string; from?: string; to?: string; user?: string }) => {
     setLoading(true);
     try {
+      if (!isAdmin) filters = undefined;
       const res = await listExpenses(filters);
       setItems(Array.isArray(res) ? res : []);
     } catch {
@@ -60,24 +115,9 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, isAdmin]);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-
-    if (!token) {
-      console.warn('Esperando token antes de cargar gastos...');
-      const checkInterval = setInterval(() => {
-        const retryToken = localStorage.getItem('auth_token');
-        if (retryToken) {
-          clearInterval(checkInterval);
-          load();
-        }
-      }, 500);
-      return () => clearInterval(checkInterval);
-    }
-
-    // Si ya hay un token, carga inmediatamente
     load();
   }, [load]);
 
@@ -88,19 +128,41 @@ export default function ExpensesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      if (editingId) {
-        await updateExpense(editingId, form);
-        toast.success('Gasto actualizado correctamente.');
-      } else {
-        await createExpense(form);
-        toast.success('Gasto registrado correctamente.');
+      const guid = await deviceTrackerApi.getSystemGuid();
+
+      if (!trackerBranchId) {
+        toast.error("No se pudo determinar la sucursal por Device Tracker");
+        setLoading(false);
+        return;
       }
+
+      const payload = {
+        reason: form.reason,
+        amount: form.amount,
+        notes: form.notes,
+        user: form.user,
+        date: form.date,
+        franchiseLocation: trackerBranchId,
+        deviceGuid: guid ?? "SIN_GUID"
+      };  
+
+      console.log("Enviando gasto:", payload);
+
+      if (editingId && isAdmin) {
+        await updateExpense(editingId, payload);
+      } else {
+        await createExpense(payload);
+      }
+      
+      toast.success('Gasto registrado correctamente.');
       setForm(emptyExpense);
       setEditingId(null);
       await load();
+
     } catch (error) {
-      console.error(error);
+      console.error("Error al guardar gasto:", error);
       toast.error('Ocurrió un error al guardar gastos.');
     } finally {
       setLoading(false);
@@ -108,6 +170,8 @@ export default function ExpensesPage() {
   };
 
   const handleEdit = (exp: Expense) => {
+    if (!isAdmin) return;
+
     setForm({
       ...exp,
       date: exp.date.slice(0, 10),
@@ -118,8 +182,9 @@ export default function ExpensesPage() {
   };
 
   const handleDelete = async (id?: string) => {
-    if (!id) return;
+    if (!id || !isAdmin) return;
     if (!window.confirm('¿Eliminar gasto?')) return;
+
     setLoading(true);
     try {
       await deleteExpense(id);
@@ -153,7 +218,6 @@ export default function ExpensesPage() {
 
   return (
     <Layout>
-      {/* Formulario de registro */}
       <Box bg="white" p="20px" borderRadius="8px" boxShadow="md">
         <Heading as="h2" size="md" mb="4">
           Registro de Gastos
@@ -161,6 +225,8 @@ export default function ExpensesPage() {
 
         <form onSubmit={handleSubmit}>
           <Flex direction="column">
+
+            {/* Motivo y monto */}
             <Flex mb="10px">
               <Input
                 placeholder="Motivo"
@@ -178,6 +244,7 @@ export default function ExpensesPage() {
               />
             </Flex>
 
+            {/* Usuario + Sucursal */}
             <Flex mb="10px">
               <Input
                 placeholder="Usuario"
@@ -187,31 +254,26 @@ export default function ExpensesPage() {
                 cursor="not-allowed"
                 mr="10px"
               />
+
               <Input
-                type="date"
-                value={form.date}
-                onChange={(e) => handleChange('date', e.target.value)}
-                readOnly={
-                  !['Master admin', 'Administrador', 'Admin'].includes(
-                    localStorage.getItem('userRole') || localStorage.getItem('role') || ''
-                  )
-                }
-                bg={
-                  ['Master admin', 'Administrador', 'Admin'].includes(
-                    localStorage.getItem('userRole') || localStorage.getItem('role') || ''
-                  )
-                    ? 'white'
-                    : '#f0f0f0'
-                }
-                cursor={
-                  ['Master admin', 'Administrador', 'Admin'].includes(
-                    localStorage.getItem('userRole') || localStorage.getItem('role') || ''
-                  )
-                    ? 'text'
-                    : 'not-allowed'
-                }
+                placeholder="Sucursal"
+                value={trackerBranchName}
+                readOnly={!isAdmin}
+                bg={isAdmin ? 'white' : '#f0f0f0'}
+                cursor={isAdmin ? 'text' : 'not-allowed'}
               />
             </Flex>
+
+            {/* Fecha */}
+            <Input
+              type="date"
+              value={form.date}
+              onChange={(e) => handleChange('date', e.target.value)}
+              readOnly={!isAdmin}
+              bg={isAdmin ? 'white' : '#f0f0f0'}
+              cursor={isAdmin ? 'text' : 'not-allowed'}
+              mb="10px"
+            />
 
             <Input
               placeholder="Notas (opcional)"
@@ -224,7 +286,7 @@ export default function ExpensesPage() {
               <Button colorScheme="blue" type="submit" disabled={loading} mr="10px">
                 {editingId ? 'Actualizar' : 'Guardar'}
               </Button>
-              {editingId && (
+              {editingId && isAdmin && (
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -240,65 +302,64 @@ export default function ExpensesPage() {
         </form>
       </Box>
 
-      {/* Filtros */}
-      {['Master admin', 'Administrador', 'Admin', 'Supervisor de sucursales', 'Supervisor de oficina'].includes(
-        localStorage.getItem('userRole') || localStorage.getItem('role') || ''
-      ) && (
-      <Box bg="white" mt="20px" p="20px" borderRadius="8px" boxShadow="md">
-        <Heading as="h3" size="sm" mb="4">
-          Búsqueda y Filtros
-        </Heading>
-        <Flex wrap="wrap" mb="10px">
-          <Input
-            placeholder="Buscar (motivo, notas, usuario)"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            mr="10px"
-            mb="10px"
-          />
-          <Input
-            type="date"
-            value={from}
-            onChange={e => setFrom(e.target.value)}
-            mr="10px"
-            mb="10px"
-          />
-          <Input
-            type="date"
-            value={to}
-            onChange={e => setTo(e.target.value)}
-            mr="10px"
-            mb="10px"
-          />
-          <select
-            value={userFilter}
-            onChange={e => setUserFilter(e.target.value)}
-            style={{
-              padding: '8px',
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-              marginRight: '10px',
-              marginBottom: '10px',
-            }}
-          >
-            <option value="">Todos los usuarios</option>
-            {uniqueUsers.map(u => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-          <Button colorScheme="blue" onClick={handleFilters} disabled={loading} mr="10px">
-            Aplicar
-          </Button>
-          <Button variant="outline" onClick={clearFilters} disabled={loading}>
-            Limpiar
-          </Button>
-        </Flex>
-      </Box>
-     )} 
+      {/* FILTROS SOLO ADMIN */}
+      {isAdmin && (
+        <Box bg="white" mt="20px" p="20px" borderRadius="8px" boxShadow="md">
+          <Heading as="h3" size="sm" mb="4">
+            Búsqueda y Filtros
+          </Heading>
+          <Flex wrap="wrap" mb="10px">
+            <Input
+              placeholder="Buscar (motivo, notas, usuario)"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              mr="10px"
+              mb="10px"
+            />
+            <Input
+              type="date"
+              value={from}
+              onChange={e => setFrom(e.target.value)}
+              mr="10px"
+              mb="10px"
+            />
+            <Input
+              type="date"
+              value={to}
+              onChange={e => setTo(e.target.value)}
+              mr="10px"
+              mb="10px"
+            />
+            <select
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
+              style={{
+                padding: '8px',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                marginRight: '10px',
+                marginBottom: '10px',
+              }}
+            >
+              <option value="">Todos los usuarios</option>
+              {uniqueUsers.map(u => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
 
-      {/* Tabla de resultados */}
+            <Button colorScheme="blue" onClick={handleFilters} disabled={loading} mr="10px">
+              Aplicar
+            </Button>
+            <Button variant="outline" onClick={clearFilters} disabled={loading}>
+              Limpiar
+            </Button>
+          </Flex>
+        </Box>
+      )}
+
+      {/* TABLA */}
       <Box bg="white" mt="20px" p="20px" borderRadius="8px" boxShadow="md">
         {loading ? (
           <Spinner size="xl" />
@@ -307,29 +368,17 @@ export default function ExpensesPage() {
             <Box as="table" width="100%" border="1px solid #ccc" borderRadius="8px">
               <Box as="thead" bg="green.400" color="white" fontWeight="bold">
                 <Box as="tr">
-                  <Box as="th" p="8px">
-                    Fecha
-                  </Box>
-                  <Box as="th" p="8px">
-                    Motivo
-                  </Box>
-                  <Box as="th" p="8px">
-                    Monto
-                  </Box>
-                  <Box as="th" p="8px">
-                    Usuario
-                  </Box>
-                  <Box as="th" p="8px">
-                    Notas
-                  </Box>
-                  <Box as="th" p="8px" textAlign="center">
-                    Acciones
-                  </Box>
+                  <Box as="th" p="8px">Fecha</Box>
+                  <Box as="th" p="8px">Motivo</Box>
+                  <Box as="th" p="8px">Monto</Box>
+                  <Box as="th" p="8px">Usuario</Box>
+                  <Box as="th" p="8px">Notas</Box>
+                  <Box as="th" p="8px" textAlign="center">Acciones</Box>
                 </Box>
               </Box>
 
               <Box as="tbody">
-                {Array.isArray(items) && items.length > 0 ? (
+                {items.length > 0 ? (
                   items.map(e => (
                     <Box
                       as="tr"
@@ -343,47 +392,38 @@ export default function ExpensesPage() {
                           return `${parts[2]}/${parts[1]}/${parts[0]}`;
                         })()}
                       </Box>
-                      <Box as="td" p="8px">
-                        {e.reason}
-                      </Box>
+                      <Box as="td" p="8px">{e.reason}</Box>
                       <Box as="td" p="8px" fontWeight="bold">
                         ${Number(e.amount).toFixed(2)}
                       </Box>
-                      <Box as="td" p="8px">
-                        {e.user}
-                      </Box>
-                      <Box as="td" p="8px">
-                        {e.notes || '-'}
-                      </Box>
+                      <Box as="td" p="8px">{e.user}</Box>
+                      <Box as="td" p="8px">{e.notes || '-'}</Box>
+
                       <Box as="td" p="8px" textAlign="center">
                         <Flex justify="center">
-                          {['Master admin', 'Administrador', 'Admin', 'Supervisor de sucursales', 'Supervisor de oficina'].includes(
-                            localStorage.getItem('userRole') || localStorage.getItem('role') || ''
-                          ) ? (
+                          {isAdmin ? (
                             <>
-                             <Button
-                              size="sm"
-                              colorScheme="yellow"
-                              onClick={() => handleEdit(e)}
-                              mr="6px"
-                             >
-                              Editar
-                             </Button>
-                             <Button
-                               size="sm"
-                               colorScheme="red"
-                               onClick={() => handleDelete(e._id)}
+                              <Button
+                                size="sm"
+                                colorScheme="yellow"
+                                onClick={() => handleEdit(e)}
+                                mr="6px"
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                colorScheme="red"
+                                onClick={() => handleDelete(e._id)}
                               >
                                 Eliminar
                               </Button>
-                             </>
+                            </>
                           ) : (
-                            <Text color="gray.400" fontSize="sm">
-                              —
-                            </Text>
+                            <Text color="gray.400" fontSize="sm">—</Text>
                           )}
-                         </Flex>
-                        </Box>  
+                        </Flex>
+                      </Box>
                     </Box>
                   ))
                 ) : (
@@ -402,6 +442,7 @@ export default function ExpensesPage() {
           </Box>
         )}
       </Box>
+
       {toastData && <CustomToast message={toastData.message} status={toastData.status} />}
     </Layout>
   );

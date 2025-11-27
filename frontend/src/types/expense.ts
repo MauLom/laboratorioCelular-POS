@@ -3,12 +3,11 @@ export interface Expense {
   reason: string;
   amount: number;
   user: string;
-  date: string; // formato ISO
+  date: string;
   notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  franchiseLocation: string;
+  deviceGuid?: string;
 }
-
 export interface ExpenseListResponse {
   ok: boolean;
   data: Expense[];

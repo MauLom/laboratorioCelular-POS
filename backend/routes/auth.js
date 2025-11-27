@@ -53,8 +53,13 @@ router.post('/login', async (req, res) => {
 
     // Update last login
     user.lastLogin = new Date();
-    await user.save();
 
+    // Guardar ubicación enviada por Device Tracker si viene en la petición
+    if (req.body.deviceLocation) {
+      user.deviceLocation = req.body.deviceLocation;
+    }
+    await user.save();
+      
     // Generate JWT token
     const token = jwt.sign(
       { userId: user._id },
@@ -74,7 +79,8 @@ router.post('/login', async (req, res) => {
         fullName: user.fullName,
         role: user.role,
         franchiseLocation: user.franchiseLocation,
-        lastLogin: user.lastLogin
+        lastLogin: user.lastLogin,
+        deviceLocation: user.deviceLocation || null
       },
       requiresPasswordChange
     });
@@ -277,6 +283,33 @@ router.post('/assign-location', async (req, res) => {
   } catch (error) {
     console.error('Error al asignar sucursal:', error);
     res.status(500).json({ error: 'Error al asignar sucursal.' });
+  }
+});
+
+// Obtener datos completos del usuario autenticado (incluye deviceLocation si existe)
+router.get('/me', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate('franchiseLocation')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      franchiseLocation: user.franchiseLocation || null,
+      deviceLocation: user.deviceLocation || null,
+    });
+
+  } catch (err) {
+    console.error("Error en /auth/me:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

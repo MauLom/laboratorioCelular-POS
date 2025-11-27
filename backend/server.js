@@ -43,7 +43,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-branch-id', 'x-device-guid']
 }));
 app.use(morgan('combined'));
 app.use(bodyParser.json());
@@ -68,6 +68,7 @@ app.use('/api/characteristics', require('./routes/characteristics'));
 app.use('/api/product-types', require('./routes/productTypes'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash-session', require('./routes/cashSessions'));
+app.use("/api/transfers", require("./routes/transfers"));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -294,37 +294,50 @@ router.get('/:id', authenticate, applyFranchiseFilter, async (req, res) => {
 // Create new sale (with franchise validation)
 router.post('/', authenticate, async (req, res) => {
   try {
-    // Log sucursal recibida desde el cliente
     const saleData = { ...req.body };
-    // Si se recibe branch, usarlo como franchiseLocation
-    if (saleData.branch) {
-      saleData.franchiseLocation = saleData.branch;
-      delete saleData.branch;
-    }
-    // Validate franchise location access
-    if (req.user.role !== 'Master admin') {
-      const accessibleLocations = await getAccessibleLocations(req.user);
-      const locationIds = accessibleLocations.map(loc => loc._id.toString());
-      if (!saleData.franchiseLocation || !locationIds.includes(saleData.franchiseLocation)) {
-        return res.status(403).json({ error: 'Access denied. Cannot create sale for this franchise location.' });
-      }
+
+    // Obtener sucursal real desde Device Tracker
+    const deviceBranch =
+      req.user.deviceLocation ||
+      req.user.franchiseLocation ||
+      null;
+
+    if (!deviceBranch) {
+      return res.status(400).json({
+        error: "Device Tracker did not attach location. Cannot create sale."
+      });
     }
 
-    // Add user information who created the sale
+    // Verificar que la sucursal exista
+    const location = await FranchiseLocation.findById(deviceBranch);
+    if (!location) {
+      return res.status(400).json({
+        error: "Invalid branch from Device Tracker."
+      });
+    }
+
+    // Ignorar cualquier sucursal enviada por el frontend
+    delete saleData.branch;
+    delete saleData.franchiseLocation;
+
+    // Asignar sucursal real
+    saleData.franchiseLocation = deviceBranch;
+
+    // Datos del usuario creador
     saleData.createdBy = req.user._id;
-    saleData.createdByName = req.user.firstName && req.user.lastName 
-      ? `${req.user.firstName} ${req.user.lastName}` 
-      : req.user.username;
+    saleData.createdByName =
+      req.user.firstName && req.user.lastName
+        ? `${req.user.firstName} ${req.user.lastName}`
+        : req.user.username;
     saleData.createdByRole = req.user.role;
     saleData.createdByUsername = req.user.username;
 
     const sale = new Sale(saleData);
-    
-    // Process inventory for articles or single IMEI
+
+    // Procesar IMEIs si es venta
     if (sale.description === 'Sale') {
       const imeisToProcess = [];
-      
-      // Get IMEIs from articles if available, otherwise use single IMEI
+
       if (sale.articles && sale.articles.length > 0) {
         sale.articles.forEach(article => {
           if (article.imei && article.imei.trim()) {
@@ -334,35 +347,32 @@ router.post('/', authenticate, async (req, res) => {
       } else if (sale.imei && sale.imei.trim()) {
         imeisToProcess.push(sale.imei.trim());
       }
-      
-      // Update inventory status for all IMEIs
+
+      // Actualizar estado del inventario
       for (const imei of imeisToProcess) {
-        const inventoryQuery = { imei: imei };
-        
-        // Apply same franchise filtering for inventory item
+        const inventoryQuery = { imei };
+
         if (req.user.role !== 'Master admin') {
           const accessibleLocations = await getAccessibleLocations(req.user);
           const locationIds = accessibleLocations.map(loc => loc._id);
           inventoryQuery.franchiseLocation = { $in: locationIds };
         }
-        
-        const inventoryItem = await InventoryItem.findOne(inventoryQuery);
-        if (inventoryItem) {
-          inventoryItem.state = 'Sold';
-          await inventoryItem.save();
-        } else {
-          console.warn(`Inventory item with IMEI ${imei} not found`);
+
+        const item = await InventoryItem.findOne(inventoryQuery);
+        if (item) {
+          item.state = 'Sold';
+          await item.save();
         }
       }
     }
-    
+
     await sale.save();
-    
-    // Populate franchise location and creator info for response
+
     await sale.populate('franchiseLocation', 'name code type address contact');
     await sale.populate('createdBy', 'firstName lastName username role');
-    
+
     res.status(201).json(sale);
+
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
