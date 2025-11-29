@@ -9,7 +9,7 @@ interface CashSessionProviderProps {
 }
 
 const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, requiresPasswordChange } = useAuth();
   const [showCashModal, setShowCashModal] = useState(false);
   const [franchiseName, setFranchiseName] = useState('');
   const [franchiseId, setFranchiseId] = useState('');
@@ -270,6 +270,10 @@ const  CashSessionProvider: React.FC<CashSessionProviderProps> = ({ children }) 
       }
     }, 500);
   };
+
+  if (requiresPasswordChange) {
+    return <>{children}</>;
+  } 
 
   return (
     <>
