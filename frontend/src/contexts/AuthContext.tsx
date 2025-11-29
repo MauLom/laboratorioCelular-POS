@@ -68,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(parsedUser);
         setToken(storedToken);
         setIsAuthenticated(true);
+        setRequiresPasswordChange(storedRequiresPasswordChange === "true");
 
       } catch (err) {
         console.error("Error al parsear usuario:", err);
@@ -116,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(finalUser);
       setToken(token);
       setIsAuthenticated(true);
+      setRequiresPasswordChange(requiresChange);
 
       return { requiresPasswordChange: requiresChange };
     } finally {
