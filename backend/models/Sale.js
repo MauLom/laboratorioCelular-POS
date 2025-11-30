@@ -9,7 +9,7 @@ const salesSchema = new mongoose.Schema({
   finance: {
     type: String,
     required: true,
-    enum: ['Payjoy', 'Lespago', 'Repair', 'Accessory', 'Cash', 'Other']
+    enum: ['Payjoy', 'Lespago', 'Repair', 'Accessory', 'Cash', 'Sale','Other']
   },
   concept: {
     type: String,
