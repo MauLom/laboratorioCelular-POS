@@ -107,6 +107,7 @@ cashSessionSchema.statics.findTodaySession = function(franchiseLocationId) {
   
   return this.findOne({
     franchiseLocation: franchiseLocationId,
+    status: 'open',
     openDateTime: {
       $gte: startOfDay,
       $lt: endOfDay
@@ -139,6 +140,7 @@ cashSessionSchema.pre('save', async function(next) {
     
     const existingSession = await this.constructor.findOne({
       franchiseLocation: this.franchiseLocation,
+      status: 'open',
       openDateTime: {
         $gte: startOfDay,
         $lt: endOfDay
