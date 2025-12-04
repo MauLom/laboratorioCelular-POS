@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+function getMonterreyDayRange() {
+  const now = new Date();
+
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+
+  return { start, end };
+}
+
 const cashSessionSchema = new mongoose.Schema({
   // Referencia a la sucursal
   franchiseLocation: {
@@ -100,18 +109,24 @@ cashSessionSchema.index({
 
 // Método estático para verificar si hay sesión abierta hoy
 cashSessionSchema.statics.findTodaySession = function(franchiseLocationId) {
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+  const { start, end } = getMonterreyDayRange(new Date());
   
   return this.findOne({
     franchiseLocation: franchiseLocationId,
+    status: 'open',
     openDateTime: {
-      $gte: startOfDay,
-      $lt: endOfDay
+      $gte: start,
+      $lt: end
     }
   }).populate('franchiseLocation user');
+};
+
+// Obtener cualquier sesión abierta incluso si no es de hoy
+cashSessionSchema.statics.findAnyOpenSession = function(franchiseLocationId) {
+  return this.findOne({
+    franchiseLocation: franchiseLocationId,
+    status: 'open'
+  }).sort({ openDateTime: -1 }).populate('franchiseLocation user');
 };
 
 // Método de instancia para cerrar sesión
@@ -129,19 +144,33 @@ cashSessionSchema.methods.closeSession = function(closeData) {
   return this.save();
 };
 
+// Cierre forzado por admin (sin validar fechas)
+cashSessionSchema.methods.forceCloseSession = function(closeData) {
+  this.status = 'closed';
+  this.closeDateTime = new Date();
+
+  if (closeData) {
+    this.closing_cash_mxn = closeData.closing_cash_mxn ?? this.closing_cash_mxn;
+    this.closing_cash_usd = closeData.closing_cash_usd ?? this.closing_cash_usd;
+    this.card_amount = closeData.card_amount ?? this.card_amount;
+    this.withdrawn_amount = closeData.withdrawn_amount ?? this.withdrawn_amount;
+    this.notes = closeData.notes ?? this.notes;
+  }
+
+  return this.save();
+};
+
 // Validación: no permitir múltiples sesiones abiertas el mismo día por sucursal
 cashSessionSchema.pre('save', async function(next) {
   if (this.isNew) {
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    const { start, end } = getMonterreyDayRange();
     
     const existingSession = await this.constructor.findOne({
       franchiseLocation: this.franchiseLocation,
+      status: 'open',
       openDateTime: {
-        $gte: startOfDay,
-        $lt: endOfDay
+        $gte: start,
+        $lt: end
       }
     });
     

@@ -39,6 +39,29 @@ router.post('/open', authenticate, async (req, res) => {
       });
     }
 
+    const anyOpenSession = await CashSession.findOne({
+      franchiseLocation: franchiseLocationId,
+      status: "open"
+    });
+
+    if (anyOpenSession) {
+      const today = new Date();
+      const sessionDate = new Date(anyOpenSession.openDateTime);
+
+      const isSameDay =
+        sessionDate.getFullYear() === today.getFullYear() &&
+        sessionDate.getMonth() === today.getMonth() &&
+        sessionDate.getDate() === today.getDate();
+
+      if (!isSameDay) {
+        return res.status(400).json({
+          error:
+            "No puedes abrir caja porque hay una sesión pendiente de cierre del día anterior. Contacta al administrador.",
+          session: anyOpenSession
+        });
+      }
+    }     
+
     // Verificar si ya existe una sesión abierta hoy
     const existingSession = await CashSession.findTodaySession(franchiseLocationId);
     if (existingSession) {
@@ -224,6 +247,66 @@ router.get('/history/:franchiseId', authenticate, async (req, res) => {
     res.status(500).json({ 
       error: 'Error interno del servidor al obtener el historial' 
     });
+  }
+});
+
+router.post('/force-close/:sessionId', authenticate, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const allowedRoles = [
+      'Master admin',
+      'Administrador',
+      'Supervisor de oficina',
+      'Supervisor de sucursales'
+    ];
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: 'No tienes permiso para cerrar sesiones antiguas'
+      });
+    }
+
+    const session = await CashSession.findById(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ error: 'Sesión no encontrada' });
+    }
+
+    if (session.status === 'closed') {
+      return res.status(400).json({ error: 'La sesión ya está cerrada' });
+    }
+
+    const closeData = req.body || {};
+    const closed = await session.forceCloseSession(closeData);
+
+    res.json({
+      message: 'Sesión cerrada exitosamente (forzado por administrador)',
+      session: closed
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: 'Error interno del servidor al cerrar la sesión de forma forzada'
+    });
+  }
+});
+
+router.get('/any-open/:franchiseId', authenticate, async (req, res) => {
+  try {
+    const { franchiseId } = req.params;
+
+    if (!franchiseId) {
+      return res.status(400).json({ error: 'franchiseId es requerido' });
+    }
+
+    const session = await CashSession.findAnyOpenSession(franchiseId);
+
+    return res.json(session || null);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al buscar sesiones abiertas' });
   }
 });
 
