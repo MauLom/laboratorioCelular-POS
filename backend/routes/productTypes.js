@@ -2,6 +2,7 @@ const express = require('express');
 const ProductType = require('../models/ProductType');
 const Brand = require('../models/Brand');
 const { authenticate } = require('../middleware/auth');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // Create product type
 router.post('/', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
     }
@@ -86,7 +87,7 @@ router.post('/', authenticate, async (req, res) => {
 // Update product type
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
     }
@@ -145,7 +146,7 @@ router.put('/:id', authenticate, async (req, res) => {
 // Delete product type (soft delete)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR];
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
     }

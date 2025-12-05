@@ -1,5 +1,6 @@
 const Expense = require('../models/Expense');
 const FranchiseLocation = require('../models/FranchiseLocation');
+const { ROLES } = require('../utils/roles');
 
 function getTodayString() {
   return new Date().toLocaleDateString('en-CA', {
@@ -13,11 +14,11 @@ exports.list = async (req, res) => {
     const userRole = req.user.role;
 
     const isAdmin = [
-      'Master admin',
-      'Administrador',
-      'Admin',
-      'Supervisor de oficina',
-      'Supervisor de sucursales'
+      ROLES.MASTER_ADMIN,
+      ROLES.ADMIN,
+      ROLES.ADMIN_SHORT,
+      ROLES.OFFICE_SUPERVISOR,
+      ROLES.MULTI_BRANCH_SUPERVISOR
     ].includes(userRole);
 
     const query = {};

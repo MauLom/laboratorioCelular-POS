@@ -4,18 +4,19 @@ const InventoryItem = require('../models/InventoryItem');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { authenticate, authorize, applyFranchiseFilter, applyInventoryFilter } = require('../middleware/auth');
 const { handleBranchToFranchiseLocationConversion } = require('../middleware/branchCompatibility');
+const { ROLES } = require("../utils/roles");
 
 // Helper function to get accessible franchise locations for a user
 const getAccessibleLocations = async (user) => {
-  if (user.role === 'Master admin') {
+  if (user.role === ROLES.MASTER_ADMIN) {
     return await FranchiseLocation.find({ isActive: true });
   }
   
-  if (user.role === 'Supervisor de sucursales') {
+  if (user.role === ROLES.MULTI_BRANCH_SUPERVISOR) {
     return await FranchiseLocation.find({ type: 'Sucursal', isActive: true });
   }
   
-  if (user.role === 'Supervisor de oficina') {
+  if (user.role === ROLES.OFFICE_SUPERVISOR) {
     return await FranchiseLocation.find({ type: 'Oficina', isActive: true });
   }
   
@@ -28,7 +29,7 @@ const getAccessibleLocations = async (user) => {
 };
 
 // Get all inventory items (with franchise filtering)
-router.get('/', authenticate, authorize(['Master admin', 'Administrador', 'Supervisor de sucursales', 'Supervisor de oficina', 'Vendedor', 'Cajero']), applyInventoryFilter, async (req, res) => {
+router.get('/', authenticate, authorize([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.MULTI_BRANCH_SUPERVISOR, ROLES.OFFICE_SUPERVISOR, ROLES.SELLER, ROLES.CASHIER]), applyInventoryFilter, async (req, res) => {
   try {
     const { state, franchiseLocation, page = 1, limit = 10 } = req.query;
     const query = {};
@@ -36,7 +37,7 @@ router.get('/', authenticate, authorize(['Master admin', 'Administrador', 'Super
     if (state) query.state = state;
     
     // Apply franchise location filtering
-    if (req.user.role === 'Master admin') {
+    if (req.user.role === ROLES.MASTER_ADMIN) {
       // Master admin can filter by any location or see all
       if (franchiseLocation) query.franchiseLocation = franchiseLocation;
     } else {
@@ -101,7 +102,7 @@ router.get('/:imei', authenticate, applyInventoryFilter, async (req, res) => {
     const query = { imei: req.params.imei };
     
     // Apply franchise location filtering
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id);
       query.franchiseLocation = { $in: locationIds };
@@ -123,7 +124,7 @@ router.post('/', authenticate, handleBranchToFranchiseLocationConversion, async 
     const itemData = { ...req.body };
     
     // Validate franchise location access
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id.toString());
       
@@ -158,7 +159,7 @@ router.post('/bulk', authenticate, handleBranchToFranchiseLocationConversion, as
     }
     
     // Validate franchise location access
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id.toString());
       
@@ -227,14 +228,14 @@ router.put('/:imei', authenticate, handleBranchToFranchiseLocationConversion, as
     const query = { imei: req.params.imei };
     
     // Apply franchise location filtering for finding the item
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id);
       query.franchiseLocation = { $in: locationIds };
     }
     
     // Validate franchise location access if being changed
-    if (req.body.franchiseLocation && req.user.role !== 'Master admin') {
+    if (req.body.franchiseLocation && req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id.toString());
       
@@ -264,7 +265,7 @@ router.delete('/:imei', authenticate, async (req, res) => {
     const query = { imei: req.params.imei };
     
     // Apply franchise location filtering
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id);
       query.franchiseLocation = { $in: locationIds };
@@ -286,7 +287,7 @@ router.get('/stats/summary', authenticate, applyInventoryFilter, async (req, res
     let matchQuery = {};
     
     // Apply franchise location filtering
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id);
       matchQuery.franchiseLocation = { $in: locationIds };

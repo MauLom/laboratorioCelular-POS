@@ -1,6 +1,7 @@
 const express = require('express');
 const Configuration = require('../models/Configuration');
 const { authenticate } = require('../middleware/auth');
+const { ROLES } = require("../utils/roles");
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     // Check if user is Master admin
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       return res.status(403).json({ error: 'Access denied. Master admin required.' });
     }
 
@@ -63,7 +64,7 @@ router.post('/', authenticate, async (req, res) => {
 router.put('/:key', authenticate, async (req, res) => {
   try {
     // Check if user is Master admin
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       return res.status(403).json({ error: 'Access denied. Master admin required.' });
     }
 
@@ -101,7 +102,7 @@ router.put('/:key', authenticate, async (req, res) => {
 router.delete('/:key', authenticate, async (req, res) => {
   try {
     // Check if user is Master admin
-    if (req.user.role !== 'Master admin') {
+    if (req.user.role !== ROLES.MASTER_ADMIN) {
       return res.status(403).json({ error: 'Access denied. Master admin required.' });
     }
 
