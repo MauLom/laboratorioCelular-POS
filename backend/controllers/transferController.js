@@ -3,6 +3,7 @@ const Equipment = require("../models/InventoryItem");
 const User = require("../models/User");
 const mongoose = require("mongoose");
 const FranchiseLocation = require("../models/FranchiseLocation");
+const { ROLES } = require("../utils/roles");
 
 const normalize = (x = "") => x.toString().trim().toLowerCase();
 
@@ -27,7 +28,7 @@ exports.createTransfer = async (req, res) => {
     if (assignedDeliveryUser) {
       const user = await User.findById(assignedDeliveryUser);
 
-      if (!user || user.role !== "Reparto") {
+      if (!user || user.role !== ROLES.DELIVERY) {
         return res.status(400).json({
           message: "El usuario asignado no es un repartidor valido"
         });
@@ -329,11 +330,11 @@ exports.getAllTransfers = async (req, res) => {
     let query = {};
     const role = req.user.role;
 
-    if (role === "Reparto") {
+    if (role === ROLES.DELIVERY) {
       query.assignedDeliveryUser = req.user.id;
     }
 
-    else if (["Vendedor", "Cajero"].includes(role)) {
+    else if ([ROLES.SELLER, ROLES.CASHIER].includes(role)) {
 
       const branchId = req.headers["x-branch-id"];
 
@@ -387,7 +388,7 @@ exports.getTransferById = async (req, res) => {
   try {
     let query = { _id: req.params.id };
 
-    if (req.user.role === "Reparto") {
+    if (req.user.role === ROLES.DELIVERY) {
       query.assignedDeliveryUser = req.user.id;
     }
 
@@ -426,7 +427,7 @@ exports.deleteTransfer = async (req, res) => {
 
     if (
       ["in_transit_complete", "completed"].includes(transfer.status) &&
-      req.user.role !== "Master admin"
+      req.user.role !== ROLES.MASTER_ADMIN
     ) {
       return res.status(400).json({
         message: "No puedes eliminar una transferencia ya completada.",

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { authenticate, authorize } = require("../middleware/auth");
 const FranchiseLocation = require("../models/FranchiseLocation");
+const { ROLES } = require('../utils/roles');
 
 const {
   createTransfer,
@@ -41,7 +42,7 @@ const detectDeviceBranch = async (req, res, next) => {
 router.post(
   "/",
   authenticate,
-  authorize(["Master admin", "Administrador", "Supervisor"]),
+  authorize([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.MULTI_BRANCH_SUPERVISOR, ROLES.OFFICE_SUPERVISOR]),
   createTransfer
 );
 
@@ -50,12 +51,13 @@ router.get(
   authenticate,
   detectDeviceBranch,
   authorize([
-    "Master admin",
-    "Administrador",
-    "Supervisor",
-    "Reparto",
-    "Vendedor",
-    "Cajero"
+    ROLES.MASTER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.MULTI_BRANCH_SUPERVISOR,
+    ROLES.OFFICE_SUPERVISOR,
+    ROLES.DELIVERY,
+    ROLES.SELLER,
+    ROLES.CASHIER
   ]),
   getAllTransfers
 );
@@ -65,12 +67,13 @@ router.get(
   authenticate,
   detectDeviceBranch,
   authorize([
-    "Master admin",
-    "Administrador",
-    "Supervisor",
-    "Reparto",
-    "Vendedor",
-    "Cajero"
+    ROLES.MASTER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.MULTI_BRANCH_SUPERVISOR,
+    ROLES.OFFICE_SUPERVISOR,
+    ROLES.DELIVERY,
+    ROLES.SELLER,
+    ROLES.CASHIER
   ]),
   getTransferById
 );
@@ -78,21 +81,21 @@ router.get(
 router.put(
   "/:id/courier/items",
   authenticate,
-  authorize(["Reparto"]),
+  authorize([ROLES.DELIVERY]),
   courierScan
 );
 
 router.put(
   "/:id/store/items",
   authenticate,
-  authorize(["Vendedor", "Cajero"]),
+  authorize([ROLES.SELLER, ROLES.CASHIER]),
   storeScan
 );
 
 router.delete(
   "/:id",
   authenticate,
-  authorize(["Master admin", "Administrador", "Supervisor"]),
+  authorize([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.MULTI_BRANCH_SUPERVISOR, ROLES.OFFICE_SUPERVISOR]),
   deleteTransfer
 );
 

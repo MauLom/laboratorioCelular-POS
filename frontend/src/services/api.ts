@@ -511,6 +511,25 @@ export const cashSessionApi = {
     return response.data;
   },
 
+  findAnyOpenSession: async (franchiseId: string): Promise<CashSession | null> => {
+    const response = await api.get(`/cash-session/any-open/${franchiseId}`);
+    return response.data;
+  },
+
+  forceClose: async (
+    sessionId: string,
+    data: {
+      closing_cash_mxn?: number;
+      closing_cash_usd?: number;
+      card_amount?: number;
+      withdrawn_amount?: number;
+      notes?: string;
+    }
+  ): Promise<{ message: string; session: CashSession }> => {
+    const response = await api.post(`/cash-session/force-close/${sessionId}`, data);
+    return response.data;
+  },  
+
   // Get session history
   getHistory: async (franchiseId: string, params?: { page?: number; limit?: number }): Promise<{
     sessions: CashSession[];

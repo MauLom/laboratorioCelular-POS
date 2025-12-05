@@ -5,6 +5,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { authenticate, requireMasterAdmin } = require('../middleware/auth');
 const passwordConfig = require('../config/passwordConfig');
+const { ROLES } = require('../utils/roles');
 
 // Generate a secure random password
 function generateSecurePassword(length = 12) {
@@ -94,7 +95,7 @@ router.post('/', authenticate, requireMasterAdmin, async (req, res) => {
     };
     
     // Validate role-location requirement
-    const rolesThatNeedLocation = ['Cajero', 'Supervisor de sucursal', 'Oficina'];
+    const rolesThatNeedLocation = [ROLES.CASHIER, ROLES.BRANCH_SUPERVISOR, ROLES.OFFICE];
     if (rolesThatNeedLocation.includes(userData.role) && !userData.franchiseLocation) {
       return res.status(400).json({ 
         error: `Role ${userData.role} requires a franchise location assignment.` 
@@ -161,7 +162,7 @@ router.put('/:id', authenticate, requireMasterAdmin, async (req, res) => {
     
     const finalRole = updates.role || user.role;
     const finalLocation = updates.franchiseLocation || user.franchiseLocation;
-    const rolesThatNeedLocation = ['Cajero', 'Supervisor de sucursal', 'Oficina'];
+    const rolesThatNeedLocation = [ROLES.CASHIER, ROLES.BRANCH_SUPERVISOR, ROLES.OFFICE];
     
     if (rolesThatNeedLocation.includes(finalRole) && !finalLocation) {
       return res.status(400).json({ 

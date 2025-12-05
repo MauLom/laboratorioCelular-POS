@@ -2,6 +2,7 @@ const express = require('express');
 const Characteristic = require('../models/Characteristic');
 const CharacteristicValue = require('../models/CharacteristicValue');
 const { authenticate } = require('../middleware/auth');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ router.get('/:characteristicId/values', authenticate, async (req, res) => {
 // Create characteristic
 router.post('/', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const { name, description, type } = req.body;
@@ -54,7 +55,7 @@ router.post('/', authenticate, async (req, res) => {
 // Create characteristic value for a brand
 router.post('/:characteristicId/values', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const { characteristicId } = req.params;
@@ -79,7 +80,7 @@ router.post('/:characteristicId/values', authenticate, async (req, res) => {
 // Update characteristic
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const { name, description, type } = req.body;
@@ -100,7 +101,7 @@ router.put('/:id', authenticate, async (req, res) => {
 // Delete characteristic (soft)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const char = await Characteristic.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });

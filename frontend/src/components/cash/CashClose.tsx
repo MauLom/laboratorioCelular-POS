@@ -42,6 +42,9 @@ const CashClose: React.FC = () => {
   const [dailyExpenses, setDailyExpenses] = useState<Expense[]>([]);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
 
+  const [oldOpenSession, setOldOpenSession] = useState<any | null>(null);
+  const [pendingSessions, setPendingSessions] = useState<any[]>([]);
+
   const getCurrentFranchise = async () => {
     try {
       setLoading(true);
@@ -90,27 +93,33 @@ const CashClose: React.FC = () => {
       // Filtrar ventas del día actual en el cliente como respaldo
       const today = new Date();
       
+      // Obtener rango del día en zona horaria de Monterrey
+      const monterreyNow = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Monterrey" })
+      );
+
+      const start = new Date(
+        monterreyNow.getFullYear(),
+        monterreyNow.getMonth(),
+        monterreyNow.getDate(),
+        0, 0, 0
+      );
+
+      const end = new Date(
+        monterreyNow.getFullYear(),
+        monterreyNow.getMonth(),
+        monterreyNow.getDate(),
+        23, 59, 59
+      );
+
       const todaysSales = allSales.filter(sale => {
-        if (!sale.createdAt) {
-          return false;
-        }
-        
-        const saleDate = new Date(sale.createdAt);
-        
-        // Comparar solo las fechas (año, mes, día) sin considerar la hora
-        const saleDateOnly = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate());
-        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        
-        // También considerar las últimas 24 horas para manejar diferencias de zona horaria
-        const last24Hours = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-        const next24Hours = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-        
-        const isToday = saleDateOnly.getTime() === todayOnly.getTime();
-        const isWithin24Hours = saleDate >= last24Hours && saleDate <= next24Hours;
-        
-        // Aceptar si es del día actual O si está dentro de las últimas/próximas 24 horas
-        const shouldInclude = isToday || isWithin24Hours;
-        return shouldInclude;
+        if (!sale.createdAt) return false;
+
+        const saleDate = new Date(
+          new Date(sale.createdAt).toLocaleString("en-US", { timeZone: "America/Monterrey" })
+        );
+
+        return saleDate >= start && saleDate <= end;
       });
             
       // Calcular montos por tipo de pago
@@ -195,16 +204,96 @@ const CashClose: React.FC = () => {
     }
   }, [franchiseId, alertError]);
 
+  const loadAnyOpenSession = useCallback(async () => {
+    if (!franchiseId) return;
+    try {
+      const session = await cashSessionApi.findAnyOpenSession(franchiseId);
+
+      if (session && session.status === "open") {
+        const openDate = new Date(session.openDateTime);
+        const today = new Date();
+
+        const isSameDay =
+         openDate.getFullYear() === today.getFullYear() &&
+         openDate.getMonth() === today.getMonth() &&
+         openDate.getDate() === today.getDate();
+
+        if (isSameDay) {
+          setOldOpenSession(session);
+        } else {
+          setOldOpenSession(null);
+        }
+      } else {
+        if (
+          user?.role &&
+          ["Master admin", "Administrador", "Supervisor de oficina", "Supervisor de sucursales"].includes(user.role)
+        ) {
+          const history = await cashSessionApi.getHistory(franchiseId, { limit: 1 });
+          if (history.sessions.length > 0) {
+            setOldOpenSession(history.sessions[0]);
+          } else {
+            setOldOpenSession(null);
+          }
+        } else {
+          setOldOpenSession(null);
+        }
+      }    
+    } catch (e) {
+      setOldOpenSession(null);
+   }
+  }, [franchiseId, user?.role]);
+
+  const loadPendingSessionsAllBranches = useCallback(async () => {
+    try {
+      if (
+        !user ||
+        !["Master admin", "Administrador", "Supervisor de oficina", "Supervisor de sucursales"].includes(user.role)
+      ) {
+        return;
+      }
+
+      const locations = await franchiseLocationsApi.getActive();
+      const results: any[] = [];
+
+      for (const loc of locations) {
+        const session = await cashSessionApi.findAnyOpenSession(String(loc._id));
+        if (session && session.status === "open") {
+          const openDate = new Date(session.openDateTime);
+          const today = new Date();
+
+          const isSameDay =
+            openDate.getFullYear() === today.getFullYear() &&
+            openDate.getMonth() === today.getMonth() &&
+            openDate.getDate() === today.getDate();
+
+          if (!isSameDay) {
+            results.push({
+              franchiseName: loc.name,
+              franchiseId: loc._id,
+              session,
+            });
+          }
+        }
+      }
+      
+      setPendingSessions(results);
+    } catch (err) {
+      console.error("Error cargando sesiones pendientes globales:", err);
+    }
+  }, [user]);
+
+
   useEffect(() => {
     getCurrentFranchise();
-  }, []);
+    loadPendingSessionsAllBranches();
+  }, [user, loadPendingSessionsAllBranches]);
 
   // Cargar datos de ventas cuando se obtenga el ID de la franquicia
   useEffect(() => {
     if (franchiseId) {
-      loadTodaysSalesData();
+      loadAnyOpenSession();
     }
-  }, [franchiseId, loadTodaysSalesData]);
+  }, [franchiseId, loadAnyOpenSession]);
 
   // Función para validar números con hasta 2 decimales
   const handleNumericInput = (value: string, setter: (value: string) => void) => {
@@ -277,6 +366,30 @@ const CashClose: React.FC = () => {
     }
   };
 
+  const handleForceClose = async (sessionId: string) => {
+    try {
+      setClosingCash(true);
+
+      await cashSessionApi.forceClose(sessionId, {
+        closing_cash_mxn: parseFloat(feria) || 0,
+        closing_cash_usd: parseFloat(dolar) || 0,
+        card_amount: parseFloat(tarjeta) || 0,
+        withdrawn_amount: parseFloat(salida) || 0,
+        notes: "Cierre forzado por administrador",
+      });
+
+      success("Sesión atrasada cerrada correctamente.");
+
+      loadPendingSessionsAllBranches();
+    } catch (err: any) {
+      alertError(
+        err?.response?.data?.error || "Error al cerrar la sesión atrasada"
+      );
+    } finally {
+      setClosingCash(false);
+    }
+  };  
+
   return (
     <Page>
       <Navigation />
@@ -296,6 +409,84 @@ const CashClose: React.FC = () => {
                 <Text fontSize="lg" fontWeight="medium" mb={4}>
                 Sucursal Actual:
                 </Text>
+                {pendingSessions.length > 0 && (
+                  <Box
+                    bg="yellow.100"
+                    border="1px"
+                    borderColor="yellow.300"
+                    p={4}
+                    rounded="md"
+                    mb={6}
+                  >
+                    <Text fontWeight="bold" color="yellow.800">
+                      ⚠️ Existen sesiones de caja abiertas de días anteriores
+                    </Text>
+
+                    {pendingSessions.map((item, idx) => (
+                      <Box
+                        key={idx}
+                        mb={3}
+                        p={3}
+                        bg="yellow.50"
+                        rounded="md"
+                        border="1px"
+                        borderColor="yellow.200"
+                      >
+                        <Text color="yellow.800" fontWeight="bold">
+                          • {item.franchiseName}
+                        </Text>
+
+                        <Text color="yellow.700">
+                          Apertura: {new Date(item.session.openDateTime).toLocaleString()}
+                        </Text>
+
+                        <Button
+                          mt={2}
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() => handleForceClose(item.session._id)}
+                          isLoading={closingCash}
+                        >
+                          Cerrar Sesión Atrasada
+                        </Button>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+
+                {oldOpenSession && (
+                  <Box
+                    bg="blue.50"
+                    border="1px"
+                    borderColor="blue.300"
+                    p={4}
+                    rounded="md"
+                    mb={6}
+                  >
+                    <Text fontWeight="bold" color="blue.800">
+                      Sesión de caja abierta hoy
+                    </Text>
+
+                    <Text color="blue.700" mt={1}>
+                      Apertura: {new Date(oldOpenSession.openDateTime).toLocaleString()}
+                    </Text>
+
+                    <Text color="blue.600" fontSize="sm" mt={1}>
+                      Esta sesión corresponde al día actual
+                    </Text>
+
+                    <Button
+                      mt={3}
+                      size="sm"
+                      colorScheme="red"
+                      onClick={() => handleForceClose(oldOpenSession._id)}
+                      isLoading={closingCash}
+                    >
+                      Cerrar Sesión Forzadamente
+                    </Button>  
+                  </Box>
+                )}    
+
                 <Flex direction="row" justifyContent={'space-between'} mb={4}>
                     <Text fontSize="xl" color="blue.600" fontWeight="semibold">
                         {franchiseName}

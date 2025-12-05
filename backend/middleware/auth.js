@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const FranchiseLocation = require('../models/FranchiseLocation');
+const { ROLES } = require("../utils/roles");
 
 const authenticate = async (req, res, next) => {
   try {
@@ -47,14 +48,14 @@ const authorize = (allowedRoles) => {
   };
 };
 
-const requireMasterAdmin = authorize(['Master admin']);
+const requireMasterAdmin = authorize([ROLES.MASTER_ADMIN]);
 
 const canManageLocation = (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
 
   const role = req.user.role;
 
-  if (['Master admin', 'Supervisor de sucursales', 'Supervisor de oficina'].includes(role)) {
+  if ([ROLES.MASTER_ADMIN, ROLES.MULTI_BRANCH_SUPERVISOR, ROLES.OFFICE_SUPERVISOR].includes(role)) {
     return next();
   }
 
@@ -76,26 +77,26 @@ const applyFranchiseFilter = async (req, res, next) => {
     const role = req.user.role;
 
     // Master admin ve todo
-    if (role === 'Master admin' || role === 'Administrador general') {
+    if (role === ROLES.MASTER_ADMIN || role === ROLES.GLOBAL_ADMIN) {
       return next();
     }
 
     // Supervisores de sucursales
-    if (role === 'Supervisor de sucursales') {
+    if (role === ROLES.MULTI_BRANCH_SUPERVISOR) {
       const locs = await FranchiseLocation.find({ type: 'Sucursal', isActive: true }).select('_id');
       req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
       return next();
     }
 
     // Supervisores de oficina
-    if (role === 'Supervisor de oficina') {
+    if (role === ROLES.OFFICE_SUPERVISOR) {
       const locs = await FranchiseLocation.find({ type: 'Oficina', isActive: true }).select('_id');
       req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
       return next();
     }
 
     // Vendedor o Cajero solo su sucursal y solo los gastos del día
-    if (['Vendedor', 'Cajero'].includes(role)) {
+    if ([ROLES.SELLER, ROLES.CASHIER].includes(role)) {
       if (!req.user.franchiseLocation?._id) {
         return res.status(403).json({ error: 'Sin sucursal asignada.' });
       }
@@ -136,25 +137,25 @@ const applyInventoryFilter = async (req, res, next) => {
     const role = req.user.role;
 
     // Master admin y administradores ven todo
-    if (['Master admin', 'Administrador', 'Administrador general'].includes(role)) {
+    if ([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.GLOBAL_ADMIN].includes(role)) {
       return next();
     }
 
     // Supervisores de sucursales u oficina: segun tipo
-    if (role === 'Supervisor de sucursales') {
+    if (role === ROLES.MULTI_BRANCH_SUPERVISOR) {
       const locs = await FranchiseLocation.find({ type: 'Sucursal', isActive: true }).select('_id');
       req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
       return next();
     }
 
-    if (role === 'Supervisor de oficina') {
+    if (role === ROLES.OFFICE_SUPERVISOR) {
       const locs = await FranchiseLocation.find({ type: 'Oficina', isActive: true }).select('_id');
       req.franchiseFilter = { franchiseLocation: { $in: locs.map((l) => l._id) } };
       return next();
     }
 
     // Vendedor o Cajero = solo inventario de su sucursal actual
-    if (['Vendedor', 'Cajero'].includes(role)) {
+    if ([ROLES.SELLER, ROLES.CASHIER].includes(role)) {
       if (!req.user.franchiseLocation?._id) {
         return res.status(403).json({ error: 'Sin sucursal asignada.' });
       }
@@ -181,13 +182,13 @@ const applyRoleDataFilter = (req, res, next) => {
   const { role, _id } = req.user;
 
   // Admins ven todo
-  if (['Master admin', 'Administrador', 'Admin', 'Administrador general'].includes(role)) {
+  if ([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.ADMIN_SHORT, ROLES.GLOBAL_ADMIN].includes(role)) {
     req.roleFilter = {};
     return next();
   }
 
   // Cajeros/Vendedores: solo sus propios registros (ademas del filtro por fecha y sucursal)
-  if (['Cajero', 'Vendedor'].includes(role)) {
+  if ([ROLES.CASHIER, ROLES.SELLER].includes(role)) {
     req.roleFilter = { createdBy: _id };
     return next();
   }
