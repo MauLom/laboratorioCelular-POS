@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const CashSession = require('../models/CashSession');
 const { authenticate } = require('../middleware/auth');
+const { ROLES } = require('../utils/roles');
 
 // POST /api/cash-session/open - Registra apertura de caja
 router.post('/open', authenticate, async (req, res) => {
@@ -255,10 +256,10 @@ router.post('/force-close/:sessionId', authenticate, async (req, res) => {
     const { sessionId } = req.params;
 
     const allowedRoles = [
-      'Master admin',
-      'Administrador',
-      'Supervisor de oficina',
-      'Supervisor de sucursales'
+      ROLES.MASTER_ADMIN,
+      ROLES.ADMIN,
+      ROLES.OFFICE_SUPERVISOR,
+      ROLES.MULTI_BRANCH_SUPERVISOR
     ];
 
     if (!allowedRoles.includes(req.user.role)) {
