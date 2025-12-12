@@ -2,6 +2,7 @@ const express = require('express');
 const Brand = require('../models/Brand');
 const CharacteristicValue = require('../models/CharacteristicValue');
 const { authenticate } = require('../middleware/auth');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // Create brand
 router.post('/', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const { name, description } = req.body;
@@ -52,7 +53,7 @@ router.post('/', authenticate, async (req, res) => {
 // Update brand
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina', 'Oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR, ROLES.OFFICE];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const { name, description } = req.body;
@@ -73,7 +74,7 @@ router.put('/:id', authenticate, async (req, res) => {
 // Delete brand (soft)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const allowedRoles = ['Master admin', 'Supervisor de oficina'];
+    const allowedRoles = [ROLES.MASTER_ADMIN, ROLES.OFFICE_SUPERVISOR];
     if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'Acceso denegado. Permisos insuficientes.' });
 
     const brand = await Brand.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
