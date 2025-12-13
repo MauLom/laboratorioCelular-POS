@@ -33,7 +33,7 @@ const getAccessibleLocations = async (user) => {
 // Get all sales (with franchise filtering)
 router.get('/', authenticate, applyRoleDataFilter, async (req, res) => {
   try {
-    const { description, finance, franchiseLocation, page = 1, limit = 10, startDate, endDate } = req.query;
+    const { description, finance, franchiseLocation, page = 1, limit = 20, startDate, endDate } = req.query;
     
     // Iniciamos query base desde el filtro aplicado por rol
     const query = { ...(req.roleFilter || {}) };
