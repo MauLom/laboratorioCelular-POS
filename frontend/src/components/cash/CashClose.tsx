@@ -169,6 +169,10 @@ const CashClose: React.FC = () => {
         }
       });
 
+      if (totalCard === 0 && totalUSD === 0) {
+        totalCash = totalAmount;
+      }  
+
       // Obtener gastos del día primero para poder ajustar el efectivo
       try {
         const today = new Date();
