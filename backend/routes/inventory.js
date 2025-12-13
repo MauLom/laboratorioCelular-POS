@@ -31,7 +31,7 @@ const getAccessibleLocations = async (user) => {
 // Get all inventory items (with franchise filtering)
 router.get('/', authenticate, authorize([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.MULTI_BRANCH_SUPERVISOR, ROLES.OFFICE_SUPERVISOR, ROLES.SELLER, ROLES.CASHIER]), applyInventoryFilter, async (req, res) => {
   try {
-    const { state, franchiseLocation, imei, page = 1, limit = 500 } = req.query;
+    const { state, franchiseLocation, imei, page = 1, limit = 25 } = req.query;
     const query = {};
     
     if (state) query.state = state;

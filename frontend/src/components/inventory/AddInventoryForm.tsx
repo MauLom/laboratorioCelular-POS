@@ -468,8 +468,8 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
         
         // Load franchise locations if user has permission
         if (canSelectMultipleLocations) {
-          const locations = await franchiseLocationsApi.getAll();
-          setFranchiseLocations(locations.locations || []);
+          const locations = await franchiseLocationsApi.getActive();
+          setFranchiseLocations(locations || []);
         }
         
         // Set default franchise location
