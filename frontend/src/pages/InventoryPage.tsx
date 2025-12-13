@@ -11,7 +11,7 @@ import Navigation from '../components/common/Navigation';
 import AddInventoryForm from '../components/inventory/AddInventoryForm';
 import InventoryForm from '../components/inventory/InventoryForm';
 import InventoryList from '../components/inventory/InventoryList';
-import { inventoryApi } from '../services/api';
+import { inventoryApi, franchiseLocationsApi } from '../services/api';
 import { useAuth } from "../contexts/AuthContext";
 import { InventoryItem, PaginatedResponse } from '../types';
 import { useAlert } from '../hooks/useAlert';
@@ -42,8 +42,10 @@ const InventoryPage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [filters, setFilters] = useState({
     state: '',
-    branch: '',
+    franchiseLocation: '',
+    imei: '',
   });
+  const [branches, setBranches] = useState<any[]>([]);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -61,6 +63,19 @@ const InventoryPage: React.FC = () => {
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  useEffect(() => {
+    const loadBranches = async () => {
+      try {
+        const res = await franchiseLocationsApi.getActive();
+        setBranches(res);
+      } catch (err) {
+        console.error("Error cargando sucursales", err);
+      }
+    };
+    
+    loadBranches();
+  }, []);  
 
   // Note: AddInventoryForm handles its own submission, this is just for refresh callback
   const handleAddItem = () => {
@@ -157,8 +172,8 @@ const InventoryPage: React.FC = () => {
 
              {!['Vendedor', 'Cajero'].includes(user?.role || '') && (
               <Select
-                value={filters.branch}
-                onChange={(e: any) => setFilters({ ...filters, branch: e.target.value })}
+                value={filters.franchiseLocation}
+                onChange={(e: any) => setFilters({ ...filters, franchiseLocation: e.target.value })}
                 maxW="200px"
                 p={2}
                 border="1px solid"
@@ -167,11 +182,28 @@ const InventoryPage: React.FC = () => {
                 bg="white"
               >
                 <option value="">Todas las Sucursales</option>
-                <option value="Main">Principal</option>
-                <option value="Branch 1">Sucursal 1</option>
-                <option value="Branch 2">Sucursal 2</option>
+                {branches.map((b) => (
+                  <option key={b._id} value={b._id}>
+                    {b.name}
+                  </option>
+                ))}  
               </Select>
-             )} 
+             )}
+
+             <input
+               type="text"
+               placeholder="Buscar por IMEI"
+               value={filters.imei}
+               onChange={(e) =>
+                setFilters({ ...filters, imei: e.target.value })
+               }
+               style={{
+                padding: "8px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                width: "200px",
+               }}
+              />  
             </HStack>
           </Box>
 

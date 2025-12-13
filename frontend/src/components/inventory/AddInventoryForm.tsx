@@ -424,6 +424,7 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [colorValues, setColorValues] = useState<Array<{ _id: string; value: string; displayName: string }>>([]);
+  const [storageValues, setStorageValues] = useState<Array<{ _id: string; value: string; displayName: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -521,6 +522,36 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
     };
     
     loadColorValues();
+  }, [productFormData.productType]);
+
+  useEffect(() => {
+    const loadStorageValues = async () => {
+      if (!productFormData.productType) {
+        setStorageValues([]);
+        return;
+      }
+
+      try {
+        const chars = await catalogsApi.getCharacteristics();
+        const storageChar = chars.find((c: any) => c.name.toLowerCase() === 'almacenamiento');
+
+        if (storageChar) {
+          const brandId = typeof productFormData.productType.company === 'string'
+            ? productFormData.productType.company
+            : productFormData.productType.company._id;
+
+          const vals = await catalogsApi.getCharacteristicValues(storageChar._id, brandId);
+          setStorageValues(vals || []);
+        } else {
+          setStorageValues([]);
+        }
+      } catch (err) {
+        console.error('Failed to load storage values', err);
+        setStorageValues([]);
+      }
+    };
+    
+    loadStorageValues();
   }, [productFormData.productType]);
   
   // Handle product form changes
@@ -878,13 +909,19 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                 
                 <FormGroup>
                   <Label htmlFor="storage">Memoria</Label>
-                  <Input
+                  <Select
                     id="storage"
-                    type="text"
-                    placeholder="Ej: 256GB"
-                    value={productFormData.storage}
+                    value={productFormData.storage || ''}
                     onChange={(e) => handleProductFormChange('storage', e.target.value)}
-                  />
+                    disabled={!productFormData.productType || storageValues.length === 0}
+                  >
+                    <option value="">Seleccione almacenamiento</option>
+                    {storageValues.map(s => (
+                      <option key={s._id} value={s.value}>
+                        {s.displayName}
+                      </option>
+                    ))}
+                  </Select>     
                 </FormGroup>
                 
                 <FormGroup>

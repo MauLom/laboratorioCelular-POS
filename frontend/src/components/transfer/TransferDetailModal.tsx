@@ -29,9 +29,11 @@ const modalStyle: React.CSSProperties = {
   background: "#fff",
   borderRadius: 12,
   padding: "28px 36px",
-  width: "640px",
+  width: "90%",
+  maxWidth: "640px",
   maxHeight: "90vh",
   overflowY: "auto",
+  overflowX: "hidden",
   boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
   position: "relative",
   fontFamily: "'Inter', system-ui, sans-serif",
@@ -100,6 +102,8 @@ const TransferDetailModal: React.FC<Props> = ({
   const [transfer, setTransfer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const [lockedCourier, setLockedCourier] = useState<Record<string, boolean>>({});
+  const [lockedStore, setLockedStore] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!isOpen || !transferId) return;
@@ -107,6 +111,8 @@ const TransferDetailModal: React.FC<Props> = ({
     getTransferById(transferId)
       .then((data) => {
         setTransfer(data);
+        setLockedCourier({});
+        setLockedStore({});
       })
       .finally(() => setLoading(false));
   }, [isOpen, transferId]);
@@ -118,6 +124,7 @@ const TransferDetailModal: React.FC<Props> = ({
   const isReparto = user?.role === "Reparto";
 
   const handleMarkOne = async (itemId: string, received: boolean) => {
+    setLockedCourier((prev) => ({ ...prev, [itemId]: true }));
     try {
       const body = received
         ? { receivedItemId: itemId }
@@ -128,6 +135,11 @@ const TransferDetailModal: React.FC<Props> = ({
       const updated = await getTransferById(transfer._id);
       setTransfer(updated);
     } catch (err: any) {
+      setLockedCourier((prev) => {
+        const copy = { ...prev };
+        delete copy[itemId];
+        return copy;
+      });  
       alert("Error al actualizar reparto: " + err.message);
     }
   };
@@ -137,6 +149,12 @@ const TransferDetailModal: React.FC<Props> = ({
       await markCourierReceived(transfer._id, {
         [received ? "allReceived" : "allNotReceived"]: true,
       });
+
+      const newLocked: Record<string, boolean> = {};
+      transfer.items.forEach((item: any) => {
+        newLocked[item._id] = true;
+      });
+      setLockedCourier(newLocked);
 
       if (onUpdated) onUpdated();
       const updated = await getTransferById(transfer._id);
@@ -167,6 +185,7 @@ const TransferDetailModal: React.FC<Props> = ({
   const canStoreConfirm = isSucursalUser && isDestino;
 
   const handleStoreOne = async (itemId: string, received: boolean) => {
+    setLockedStore((prev) => ({ ...prev, [itemId]: true }));
     try {
       await storeScan(transfer._id, [
         {
@@ -179,6 +198,11 @@ const TransferDetailModal: React.FC<Props> = ({
       const updated = await getTransferById(transfer._id);
       setTransfer(updated);
     } catch (err: any) {
+      setLockedStore((prev) => {
+        const copy = { ...prev };
+        delete copy[itemId];
+        return copy;
+      }); 
       alert("Error al actualizar sucursal: " + err.message);
     }
   };
@@ -193,6 +217,12 @@ const TransferDetailModal: React.FC<Props> = ({
         }))
       );
 
+      const newLocked: Record<string, boolean> = {};
+      transfer.items.forEach((item: any) => {
+        newLocked[item._id] = true;
+      });
+      setLockedStore(newLocked);
+
       if (onUpdated) onUpdated();
       const updated = await getTransferById(transfer._id);
       setTransfer(updated);
@@ -202,6 +232,14 @@ const TransferDetailModal: React.FC<Props> = ({
   };
 
   if (!isOpen) return null;
+
+  const anyCourierPending = transfer?.items?.some(
+    (item: any) => item.courier?.status === "pending"
+  );
+  
+  const anyStorePending = transfer?.items?.some(
+    (item: any) => item.store?.status === "pending"
+  );  
 
   const statusColor =
     transfer?.status?.includes("completed")
@@ -441,7 +479,7 @@ const TransferDetailModal: React.FC<Props> = ({
 
                       {isReparto && (
                         <td style={{ textAlign: "center", padding: 10 }}>
-                          {courierStatus === "received" ? (
+                          {lockedCourier[item._id] || courierStatus === "received" ? (
                             <span style={{ color: "green", fontWeight: 600 }}>
                               ✅ Recibido
                             </span>
@@ -454,6 +492,7 @@ const TransferDetailModal: React.FC<Props> = ({
                               <button
                                 onClick={() => handleMarkOne(item._id, true)}
                                 style={{ ...btnGreen, marginRight: 6 }}
+                                disabled={lockedCourier[item._id]}
                               >
                                 Recibido
                               </button>
@@ -461,6 +500,7 @@ const TransferDetailModal: React.FC<Props> = ({
                               <button
                                 onClick={() => handleMarkOne(item._id, false)}
                                 style={btnRed}
+                                disabled={lockedCourier[item._id]}
                               >
                                 No recibido
                               </button>
@@ -471,7 +511,7 @@ const TransferDetailModal: React.FC<Props> = ({
 
                       {canStoreConfirm && (
                         <td style={{ textAlign: "center", padding: 10 }}>
-                          {storeStatus === "received" ? (
+                          {lockedStore[item._id] || storeStatus === "received" ? (
                             <span style={{ color: "green", fontWeight: 600 }}>
                               🏪 Recibido
                             </span>
@@ -484,6 +524,7 @@ const TransferDetailModal: React.FC<Props> = ({
                               <button
                                 onClick={() => handleStoreOne(item._id, true)}
                                 style={{ ...btnGreen, marginRight: 6 }}
+                                disabled={lockedStore[item._id]}
                               >
                                 Recibido
                               </button>
@@ -491,6 +532,7 @@ const TransferDetailModal: React.FC<Props> = ({
                               <button
                                 onClick={() => handleStoreOne(item._id, false)}
                                 style={btnRed}
+                                disabled={lockedStore[item._id]}
                               >
                                 No recibido
                               </button>
@@ -504,7 +546,7 @@ const TransferDetailModal: React.FC<Props> = ({
               </tbody>
             </table>
 
-            {isReparto && (
+            {isReparto && anyCourierPending && (
               <div
                 style={{
                   textAlign: "right",
@@ -523,7 +565,7 @@ const TransferDetailModal: React.FC<Props> = ({
               </div>
             )}
 
-            {canStoreConfirm && (
+            {canStoreConfirm && anyStorePending && (
               <div
                 style={{
                   textAlign: "right",
