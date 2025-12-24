@@ -12,6 +12,23 @@ validateEnv();
 
 const app = express();
 
+mongoose.set('bufferCommands', false);
+mongoose.set('bufferTimeoutMS', 0);
+
+let isConnected = false;
+
+async function connectDB() {
+  if (isConnected) return;
+
+  const db = await mongoose.connect(process.env.MONGODB_URI, {
+    maxPoolSize: 5,
+    serverSelectionTimeoutMS: 5000,
+  });
+
+  isConnected = db.connections[0].readyState === 1;
+  console.log('MongoDB connected');
+}
+
 console.log('🌐 CORS Configuration:');
 console.log('- Environment:', process.env.NODE_ENV || 'development');
 console.log('- Allowed Frontend URL:', process.env.FRONTEND_URL || 'not set');
@@ -24,19 +41,19 @@ app.use(helmet());
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigin = process.env.FRONTEND_URL;
-    
+
     if (origin === allowedOrigin) {
       return callback(null, true);
     }
-    
+
     if (process.env.NODE_ENV === 'development') {
       if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('.vercel.app')) {
         return callback(null, true);
       }
     }
-    
+
     const msg = `CORS policy violation: Origin ${origin} not allowed. Expected: ${allowedOrigin}`;
     console.warn(msg);
     return callback(new Error(msg), false);
@@ -49,12 +66,21 @@ app.use(morgan('combined'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI;
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database not ready:', err);
+    return res.status(503).json({
+      error: 'Database not ready, please try again in a moment'
+    });
+  }
+});
 
-mongoose.connect(MONGODB_URI)
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -68,17 +94,12 @@ app.use('/api/characteristics', require('./routes/characteristics'));
 app.use('/api/product-types', require('./routes/productTypes'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash-session', require('./routes/cashSessions'));
-app.use("/api/transfers", require("./routes/transfers"));
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+app.use('/api/transfers', require('./routes/transfers'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // 404 handler
