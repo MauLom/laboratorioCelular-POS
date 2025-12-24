@@ -1,12 +1,31 @@
 const mongoose = require('mongoose');
+const moment = require('moment-timezone');
 
+/**
+ * Define el rango del día de caja para Monterrey
+ * El día de caja va desde las 21:00 (9pm) hasta las 21:00 (9pm) del día siguiente
+ * Esto permite que las cajas se cierren a las 9pm hora local
+ */
 function getMonterreyDayRange() {
-  const now = new Date();
-
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
-
-  return { start, end };
+  const timezone = 'America/Monterrey';
+  const now = moment().tz(timezone);
+  
+  // Determinar el inicio del día de caja (9pm)
+  const closingHour = 21; // 9pm en formato 24 horas
+  
+  let start;
+  if (now.hour() < closingHour) {
+    start = moment().tz(timezone).subtract(1, 'day').hour(closingHour).minute(0).second(0).millisecond(0);
+  } else {
+    start = moment().tz(timezone).hour(closingHour).minute(0).second(0).millisecond(0);
+  }
+  
+  const end = moment(start).add(1, 'day');
+  
+  return { 
+    start: start.toDate(), 
+    end: end.toDate() 
+  };
 }
 
 const cashSessionSchema = new mongoose.Schema({
