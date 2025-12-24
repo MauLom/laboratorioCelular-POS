@@ -44,7 +44,7 @@ exports.list = async (req, res) => {
       query.$or = [
         { reason: new RegExp(q, 'i') },
         { notes: new RegExp(q, 'i') },
-        { user: new RegExp(user, 'i') }
+        { user: new RegExp(q, 'i') }
       ];
     }
 
@@ -54,6 +54,7 @@ exports.list = async (req, res) => {
 
     const expenses = await Expense.find(query)
       .sort({ createdAt: -1 })
+      .limit(10)
       .populate('franchiseLocation', 'name code type')
       .populate('createdBy', 'firstName lastName username role');
 
