@@ -11,7 +11,7 @@ function getMonterreyDayRange() {
   const now = moment().tz(timezone);
   
   // Determinar el inicio del día de caja (9pm)
-  const closingHour = 21; // 9pm en formato 24 horas
+  const closingHour = 23; // 11pm en formato 24 horas
   
   let start;
   if (now.hour() < closingHour) {

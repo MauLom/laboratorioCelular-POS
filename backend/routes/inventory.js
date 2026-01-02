@@ -28,10 +28,44 @@ const getAccessibleLocations = async (user) => {
   return [];
 };
 
+router.put('/bulk-update', authenticate, async (req, res) => {
+  try {
+    const { imeis, newState } = req.body;
+
+    if (!Array.isArray(imeis) || imeis.length === 0) {
+      return res.status(400).json({ error: "IMEIs requeridos" });
+    }
+
+    if (!newState) {
+      return res.status(400).json({ error: "Nuevo estado requerido" });
+    }
+
+    const CHUNK_SIZE = 20;
+
+    for (let i = 0; i < imeis.length; i += CHUNK_SIZE) {
+      const chunk = imeis.slice(i, i + CHUNK_SIZE);
+
+      await InventoryItem.updateMany(
+        { imei: { $in: chunk } },
+        { state: newState },
+        { runValidators: true }
+      );
+    }
+
+    res.json({
+      message: `Estados actualizados (${imeis.length} equipos procesados en bloques de ${CHUNK_SIZE})`
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all inventory items (with franchise filtering)
 router.get('/', authenticate, authorize([ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.MULTI_BRANCH_SUPERVISOR, ROLES.OFFICE_SUPERVISOR, ROLES.SELLER, ROLES.CASHIER]), applyInventoryFilter, async (req, res) => {
   try {
-    const { state, franchiseLocation, imei, page = 1, limit = 25 } = req.query;
+    const { state, franchiseLocation, imei, page = 1, limit = 15 } = req.query;
     const query = {};
     
     if (state) query.state = state;
@@ -100,23 +134,60 @@ router.get('/search', authenticate, applyInventoryFilter, async (req, res) => {
   }
 });
 
-// Get single inventory item by IMEI (with franchise filtering)
-router.get('/:imei', authenticate, applyInventoryFilter, async (req, res) => {
+// Get inventory statistics (with franchise filtering)
+router.get('/stats/summary', authenticate, applyInventoryFilter, async (req, res) => {
   try {
-    const query = { imei: req.params.imei };
-    
-    // Apply franchise location filtering
+    let matchQuery = {};
+
+    const AVAILABLE_STATES = ['New', 'Clearance'];
+
     if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id);
-      query.franchiseLocation = { $in: locationIds };
+      matchQuery.franchiseLocation = { $in: locationIds };
     }
-    
-    const item = await InventoryItem.findOne(query).populate('franchiseLocation', 'name code type');
-    if (!item) {
-      return res.status(404).json({ error: 'Item not found or access denied' });
-    }
-    res.json(item);
+
+    const stats = await InventoryItem.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: '$state',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const branchStats = await InventoryItem.aggregate([
+      {
+        $match: {
+          ...matchQuery,
+          state: { $in: AVAILABLE_STATES }
+        }
+      },
+      {
+        $group: {
+          _id: '$franchiseLocation',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'franchiselocations',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'location'
+        }
+      },
+      {
+        $project: {
+          _id: { $arrayElemAt: ['$location.name', 0] },
+          count: 1
+        }
+      }
+    ]);
+
+    res.json({ stateStats: stats, branchStats });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -285,57 +356,75 @@ router.delete('/:imei', authenticate, async (req, res) => {
   }
 });
 
-// Get inventory statistics (with franchise filtering)
-router.get('/stats/summary', authenticate, applyInventoryFilter, async (req, res) => {
+// Get single inventory item by IMEI (with franchise filtering)
+router.get('/:imei', authenticate, applyInventoryFilter, async (req, res) => {
   try {
-    let matchQuery = {};
+    const query = { imei: req.params.imei };
     
     // Apply franchise location filtering
     if (req.user.role !== ROLES.MASTER_ADMIN) {
       const accessibleLocations = await getAccessibleLocations(req.user);
       const locationIds = accessibleLocations.map(loc => loc._id);
-      matchQuery.franchiseLocation = { $in: locationIds };
+      query.franchiseLocation = { $in: locationIds };
     }
     
-    const stats = await InventoryItem.aggregate([
-      { $match: matchQuery },
-      {
-        $group: {
-          _id: '$state',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-    
-    const locationStats = await InventoryItem.aggregate([
-      { $match: matchQuery },
-      {
-        $group: {
-          _id: '$franchiseLocation',
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $lookup: {
-          from: 'franchiselocations',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'location'
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          count: 1,
-          name: { $arrayElemAt: ['$location.name', 0] },
-          code: { $arrayElemAt: ['$location.code', 0] },
-          type: { $arrayElemAt: ['$location.type', 0] }
-        }
-      }
-    ]);
-    
-    res.json({ stateStats: stats, locationStats });
+    const item = await InventoryItem.findOne(query).populate('franchiseLocation', 'name code type');
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found or access denied' });
+    }
+    res.json(item);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/check-multi', authenticate, async (req, res) => {
+  try {
+    const { imeis } = req.body;
+
+    if (!Array.isArray(imeis) || imeis.length === 0) {
+      return res.status(400).json({ error: 'Lista de IMEIs requerida' });
+    }
+
+    if (imeis.length > 500) {
+      return res.status(400).json({
+        error: 'Máximo 500 IMEIs por búsqueda'
+      });
+    }
+
+    const CHUNK_SIZE = 30;
+
+    let foundItems = [];
+
+    for (let i = 0; i < imeis.length; i += CHUNK_SIZE) {
+      const chunk = imeis.slice(i, i + CHUNK_SIZE);
+
+      const items = await InventoryItem.find({
+        imei: { $in: chunk }
+      })
+        .select('imei model franchiseLocation state')
+        .populate('franchiseLocation', 'name')
+        .lean();
+
+      foundItems.push(...items);
+    }
+
+    const foundImeisSet = new Set(foundItems.map(i => i.imei));
+
+    const notFound = imeis.filter(imei => !foundImeisSet.has(imei));
+
+    res.json({
+      found: foundItems,
+      notFound,
+      summary: {
+        totalReceived: imeis.length,
+        totalFound: foundItems.length,
+        totalNotFound: notFound.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en /check-multi:', error);
     res.status(500).json({ error: error.message });
   }
 });

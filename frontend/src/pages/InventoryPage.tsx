@@ -16,6 +16,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { InventoryItem, PaginatedResponse } from '../types';
 import { useAlert } from '../hooks/useAlert';
 import styled from 'styled-components';
+import BulkImeisModal from '../components/inventory/BulkImeiModal';
+import BulkCheckModal from "../components/inventory/BulkCheckModal";
 
 // Use native HTML select with Chakra styling
 
@@ -46,6 +48,8 @@ const InventoryPage: React.FC = () => {
     imei: '',
   });
   const [branches, setBranches] = useState<any[]>([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showCheckModal, setShowCheckModal] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -140,6 +144,16 @@ const InventoryPage: React.FC = () => {
               <Heading size="lg" color="dark.400">
                 Artículos del Inventario
               </Heading>
+                {!['Vendedor', 'Cajero'].includes(user?.role || '') && (
+                  <HStack gap={3}>
+                <Button colorScheme="purple" onClick={() => setShowBulkModal(true)}>
+                  Procesar Multiples IMEIs
+                </Button>
+                <Button colorScheme="orange" onClick={() => setShowCheckModal(true)}>
+                  Buscar IMEIs en inventario
+                </Button>
+                </HStack>
+                )}
               {!['Vendedor', 'Cajero'].includes(user?.role || '') && (
               <Button colorScheme="blue" onClick={openAddForm}>
                 Agregar Nuevo Artículo
@@ -270,6 +284,17 @@ const InventoryPage: React.FC = () => {
           )}
         </VStack>
       </Container>
+
+      <BulkImeisModal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        onUpdated={fetchItems}
+      />
+
+      <BulkCheckModal
+        isOpen={showCheckModal}
+        onClose={() => setShowCheckModal(false)}
+      />  
     </Page>
 
 

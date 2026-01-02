@@ -79,6 +79,8 @@ const DashboardPage: React.FC = () => {
       .reduce((total, stat) => total + stat.count, 0);
   };
 
+  const [showAvailableModal, setShowAvailableModal] = useState(false);
+
   return (
     <Page>
       <Navigation />
@@ -86,7 +88,7 @@ const DashboardPage: React.FC = () => {
       <Container title="Panel de Control">
         <VStack gap={8} align="stretch">
           {/* Stats Grid */}
-          <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap={6}>
+          <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap={6}>
             {loading ? (
               <>
                 {[...Array(4)].map((_, index) => (
@@ -114,7 +116,16 @@ const DashboardPage: React.FC = () => {
                   <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
                     Artículos Disponibles
                   </Text>
-                </Box>
+                   
+                  <Button
+                    size="sm"
+                    mt={3}
+                    colorScheme="blue"
+                    onClick={() => setShowAvailableModal(true)}
+                  >
+                    Ver Detalles
+                  </Button>
+                </Box>      
 
                 <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
                   <Text fontSize="3xl" color="dark.400" fontWeight="bold" mb={2}>
@@ -122,15 +133,6 @@ const DashboardPage: React.FC = () => {
                   </Text>
                   <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
                     Total de Ventas
-                  </Text>
-                </Box>
-
-                <Box bg="white" p={8} rounded="lg" shadow="md" textAlign="center">
-                  <Text fontSize="3xl" color="dark.400" fontWeight="bold" mb={2}>
-                    ${getTotalSalesAmount().toFixed(2)}
-                  </Text>
-                  <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wider">
-                    Ingresos por Ventas
                   </Text>
                 </Box>
               </>
@@ -194,6 +196,68 @@ const DashboardPage: React.FC = () => {
               </VStack>
             </Box>
           )}
+
+          {showAvailableModal && (
+            <Box
+             position="fixed"
+             top="0"
+             left="0"
+             right="0"
+             bottom="0"
+             bg="rgba(0,0,0,0.5)"
+             display="flex"
+             alignItems="center"
+             justifyContent="center"
+             zIndex="1000"
+            >
+              <Box
+                bg="white"
+                p={8}
+                rounded="lg"
+                shadow="xl"
+                minW="400px"
+                maxH="80vh"
+                overflowY="auto"
+                position="relative"
+            >
+              <Button
+                position="absolute"
+                top={2}
+                right={2}
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowAvailableModal(false)}
+              >
+                ✕
+              </Button>
+
+              <Heading size="md" mb={4} color="dark.400">
+                Equipos disponibles por sucursal
+              </Heading>
+
+              {inventoryStats?.branchStats?.map((s) => (
+                <Flex
+                  key={s._id}
+                  justify="space-between"
+                  align="center"
+                  py={2}
+                  borderBottom="1px solid #eee"
+                >
+                  <Text fontWeight="semibold">{s._id}</Text>
+                  <Text color="blue.600" fontWeight="bold">
+                    {s.count}
+                  </Text>
+                </Flex>
+              ))}
+
+              <Text fontWeight="bold" mt={4} fontSize="md">
+                TOTAL DISPONIBLES: {getAvailableItems()}
+              </Text>
+            </Box>
+          </Box>
+        )}
+
+        
         </VStack>
       </Container>
     </Page>
