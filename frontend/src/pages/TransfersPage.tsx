@@ -5,6 +5,7 @@ import {
   Heading,
   Spinner,
   HStack,
+  chakra,
 } from "@chakra-ui/react";
 import Navigation from "../components/common/Navigation";
 import { useAuth } from "../contexts/AuthContext";
@@ -16,6 +17,8 @@ import {
   deleteTransfer,
 } from "../services/transfers";
 import TransferStatusTag from "../components/transfer/TransferStatusTag";
+import { franchiseLocationsApi } from "../services/api";
+const Select = chakra('select');
 
 const TransfersPage: React.FC = () => {
   const { user } = useAuth();
@@ -28,14 +31,42 @@ const TransfersPage: React.FC = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
+  const [imei, setImei] = useState("");
+  const [fromBranch, setFromBranch] = useState("");
+  const [toBranch, setToBranch] = useState("");
+  const [date, setDate] = useState("");
+  const [branches, setBranches] = useState<any[]>([]);
+
   const isAdmin = ["Master admin", "Administrador", "Supervisor"].includes(
     user?.role || ""
   );
 
+  useEffect(() => {
+    const loadBranches = async () => {
+      try {
+        const res = await franchiseLocationsApi.getActive();
+        setBranches(res || []);
+      } catch (err) {
+        console.error("Error cargando sucursales", err);
+      }
+    };
+
+    loadBranches();
+  }, []);  
+
   const fetchTransfers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getAllTransfers();
+      const data = await getAllTransfers(
+        isAdmin
+          ? {
+             imei: imei || undefined,
+             fromBranch: fromBranch || undefined,
+             toBranch: toBranch || undefined,
+             date: date || undefined,
+            }
+          : undefined
+        );   
       const list = Array.isArray(data) ? data : [];
       setTransfers(list);
 
@@ -72,7 +103,7 @@ const TransfersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isAdmin, imei, fromBranch, toBranch, date]);
 
   useEffect(() => {
     fetchTransfers();
@@ -126,6 +157,93 @@ const TransfersPage: React.FC = () => {
             )}
           </HStack>
         </Box>
+
+        {isAdmin && (
+          <Box bg="white" p={4} mt={4} rounded="lg" shadow="sm">
+            <HStack gap={4} flexWrap="wrap">
+              <input
+                placeholder="IMEI"
+                value={imei}
+                onChange={(e) => setImei(e.target.value)}
+                style={{
+                  padding: "8px",
+                  border: "1px solid #ccc",
+                  borderRadius: 6,
+                }}
+              />
+
+              <Select
+                value={fromBranch}
+                onChange={(e) => setFromBranch(e.target.value)}
+                maxW="200px"
+                p={2}
+                border="1px solid"
+                borderColor="gray.300"
+                rounded="md"
+                bg="white"
+              >
+                <option value="">Todas las sucursales (origen)</option>
+                {branches.map((b) => (
+                  <option key={b._id} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+
+              <Select
+                value={toBranch}
+                onChange={(e) => setToBranch(e.target.value)}
+                maxW="200px"
+                p={2}
+                border="1px solid"
+                borderColor="gray.300"
+                rounded="md"
+                bg="white"
+              >
+                <option value="">Todas las sucursales (destino)</option>
+                {branches.map((b) => (
+                  <option
+                    key={b._id}
+                    value={b.name}
+                    disabled={b.name === fromBranch}
+                  >
+                    {b.name}
+                  </option>
+                ))}
+              </Select>   
+
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                style={{
+                  padding: "8px",
+                  border: "1px solid #ccc",
+                  borderRadius: 6,
+                }}
+              />
+
+              <Button colorScheme="blue" onClick={fetchTransfers}>
+                Buscar
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImei("");
+                  setFromBranch("");
+                  setToBranch("");
+                  setDate("");
+                   setTimeout(() => {
+                    fetchTransfers();
+                  }, 0);  
+                }}
+              >
+                Limpiar
+              </Button>
+            </HStack>
+          </Box>
+        )}    
 
         {/* Tabla */}
         <Box bg="white" p={4} rounded="lg" shadow="sm" mt={6}>

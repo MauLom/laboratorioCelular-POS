@@ -121,6 +121,16 @@ export const inventoryApi = {
     const response = await api.post('/inventory/bulk', { items });
     return response.data;
   },
+
+  bulkUpdateState: async (imeis: string[], state: string) => {
+    const response = await api.put('/inventory/bulk-update', { imeis, newState: state });
+    return response.data;
+  },
+
+  checkMultiImeis: async (imeis: string[]) => {
+    const response = await api.post('/inventory/check-multi', { imeis });
+    return response.data;
+  },  
 };
 
 // Sales API

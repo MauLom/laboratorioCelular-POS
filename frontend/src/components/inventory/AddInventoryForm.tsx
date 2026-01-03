@@ -399,6 +399,18 @@ const AutocompleteOption = styled.div`
   }
 `;
 
+function parseImeis(text: string): string[] {
+  if (!text) return [];
+
+  // Encuentra cualquier secuencia de EXACTAMENTE 15 dígitos
+  const matches = text.match(/\d{15}/g);
+
+  if (!matches) return [];
+
+  // Elimina duplicados
+  return Array.from(new Set(matches));
+}
+
 const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }) => {
   const { user } = useAuth();
   const { success, error } = useAlert();
@@ -427,6 +439,9 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   const [storageValues, setStorageValues] = useState<Array<{ _id: string; value: string; displayName: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const [existingImeis, setExistingImeis] = useState<string[]>([]);
+  const [checkingImeis, setCheckingImeis] = useState(false);
   
   // State for validation errors
   const [validationErrors, setValidationErrors] = useState<{
@@ -457,6 +472,28 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
     }
     return '';
   };
+
+  const checkExistingImeis = async (imeis: string[]) => {
+    if (imeis.length === 0) return;
+
+    try {
+      setCheckingImeis(true);
+
+      const res = await inventoryApi.checkMultiImeis(imeis);
+
+      const foundImeis = res.found.map((i: any) => i.imei);
+      setExistingImeis(foundImeis);
+
+      if (foundImeis.length > 0) {
+        error(`⚠️ ${foundImeis.length} IMEI(s) ya existen en inventario`);
+      }
+    } catch (err) {
+      console.error(err);
+      error('Error al verificar IMEIs existentes');
+    } finally {
+      setCheckingImeis(false);
+    }
+  };    
   
   // Load initial data
   useEffect(() => {
@@ -579,36 +616,44 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   };
   
   // Handle bulk IMEI import
-  const handleProcessBulkImeis = () => {
+  const handleProcessBulkImeis = async () => {
     if (!bulkImeiText.trim()) {
       error('Debe ingresar al menos un IMEI');
       return;
     }
     
-    // Parse text: split by newlines, commas, spaces, or tabs
-    const imeis = bulkImeiText
-      .split(/[\n,\s\t]+/)
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-    
+    const imeis = parseImeis(bulkImeiText);
+
     if (imeis.length === 0) {
       error('No se encontraron IMEIs válidos');
       return;
     }
-    
+
+    await checkExistingImeis(imeis);
+
     const newEntries: IMEIEntry[] = imeis.map(imei => ({
       imei,
       id: `${Date.now()}-${Math.random()}`
     }));
-    
-    setImeiEntries([...imeiEntries, ...newEntries]);
+
+    setImeiEntries(prev => {
+      const existing = new Set(prev.map(e => e.imei));
+      const filtered = newEntries.filter(e => !existing.has(e.imei));
+      return [...prev, ...filtered];
+    });  
     setBulkImeiText('');
     success(`${newEntries.length} IMEI(s) añadido(s) a la lista`);
-  };
+  };  
   
   // Handle remove IMEI
   const handleRemoveImei = (id: string) => {
-    setImeiEntries(imeiEntries.filter(entry => entry.id !== id));
+    setImeiEntries(prev => {
+      const removed = prev.find(e => e.id === id);
+      if (removed) {
+        setExistingImeis(ex => ex.filter(i => i !== removed.imei));
+      }
+      return prev.filter(e => e.id !== id);
+    });
   };
   
   // Generate preview
@@ -1105,6 +1150,28 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                       </IMEIList>
                     </div>
                   )}
+
+                  {existingImeis.length > 0 && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <InlineError>
+                        ⚠️ {existingImeis.length} IMEI(s) ya existen en inventario
+                      </InlineError>
+
+                      <Button
+                        className="danger"
+                        style={{ marginTop: '0.5rem', width: '100%' }}
+                        onClick={() => {
+                          setImeiEntries(prev =>
+                            prev.filter(e => !existingImeis.includes(e.imei))
+                          );
+                          setExistingImeis([]);
+                          success('IMEIs existentes eliminados de la lista');
+                        }}
+                      >
+                        🧹 Quitar IMEIs existentes
+                      </Button>
+                    </div>
+                  )}   
                 </div>
                 
                 {/* Bulk Import */}

@@ -46,10 +46,30 @@ export async function createTransfer(payload: {
   return res.json();
 }
 
-export async function getAllTransfers() {
+export async function getAllTransfers(params?: {
+  imei?: string;
+  fromBranch?: string;
+  toBranch?: string;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
   try {
-    const res = await fetch(BASE, {
-      headers: getAuthHeaders()
+    const query = new URLSearchParams();
+
+    if (params) {
+      if (params.imei) query.append("imei", params.imei);
+      if (params.fromBranch) query.append("fromBranch", params.fromBranch);
+      if (params.toBranch) query.append("toBranch", params.toBranch);
+      if (params.date) query.append("date", params.date);
+      if (params.startDate) query.append("startDate", params.startDate);
+      if (params.endDate) query.append("endDate", params.endDate);
+    }
+
+    const url = query.toString() ? `${BASE}?${query.toString()}` : BASE;
+
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
     });
 
     if (!res.ok) {

@@ -278,12 +278,18 @@ router.post('/force-close/:sessionId', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'La sesión ya está cerrada' });
     }
 
-    const closeData = req.body || {};
-    const closed = await session.forceCloseSession(closeData);
+    session.status = 'closed';
+    session.closeDateTime = new Date();
+    session.forceClosed = true;
+    session.closedBy = req.user._id;
+    session.notes = session.notes || 'Cierre forzado por administrador';
+
+    await session.save();
+    await session.populate('franchiseLocation user');
 
     res.json({
       message: 'Sesión cerrada exitosamente (forzado por administrador)',
-      session: closed
+      session
     });
 
   } catch (error) {

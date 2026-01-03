@@ -330,6 +330,15 @@ exports.getAllTransfers = async (req, res) => {
     let query = {};
     const role = req.user.role;
 
+    const {
+      imei,
+      fromBranch,
+      toBranch,
+      date,
+      startDate,
+      endDate
+    } = req.query;  
+
     if (role === ROLES.DELIVERY) {
       query.assignedDeliveryUser = req.user.id;
     }
@@ -360,11 +369,53 @@ exports.getAllTransfers = async (req, res) => {
       };
     }
 
-    const transfers = await Transfer.find(query)
+    if (
+      [ROLES.MASTER_ADMIN, ROLES.ADMIN, ROLES.SUPERVISOR].includes(role)
+    ) {
+
+      if (imei) {
+        query["items.imei"] = imei.trim();
+      }
+
+      if (fromBranch) {
+        query.fromBranch = displayBranch(fromBranch);
+      }
+
+      if (toBranch) {
+        query.toBranch = displayBranch(toBranch);
+      }
+
+      if (date) {
+        const d = new Date(date);
+        const start = new Date(d);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(d);
+        end.setHours(23, 59, 59, 999);
+
+        query.createdAt = { $gte: start, $lte: end };
+      }
+
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) query.createdAt.$gte = new Date(startDate);
+        if (endDate) query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    const hasFilters =
+      imei || fromBranch || toBranch || date || startDate || endDate;
+
+    const q = Transfer.find(query)
       .populate("requestedBy", "firstName lastName role")
       .populate("assignedDeliveryUser", "firstName lastName role")
       .populate("items.equipment", "brand model imei franchiseLocation")
       .sort({ createdAt: -1 });
+
+      if (!hasFilters) {
+        q.limit(10);
+      }
+      
+    const transfers = await q;  
 
     res.json(transfers.map(t => ({
       _id: t._id,

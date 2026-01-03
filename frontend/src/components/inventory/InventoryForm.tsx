@@ -253,13 +253,11 @@ const InventoryForm: React.FC<InventoryFormProps> = ({
         <Label htmlFor="state">Estado *</Label>
         <Select id="state" {...register('state')} disabled={isLoading}>
           <option value="New">Nuevo</option>
-          <option value="Repair">En Reparación (Legacy)</option>
           <option value="OnRepair">En Reparación</option>
           <option value="Repaired">Reparado</option>
           <option value="Sold">Vendido</option>
           <option value="OnSale">En Venta</option>
           <option value="Lost">Perdido</option>
-          <option value="Clearance">Liquidación (Legacy)</option>
         </Select>
         {errors.state && <ErrorMessage>{errors.state.message}</ErrorMessage>}
       </FormGroup>

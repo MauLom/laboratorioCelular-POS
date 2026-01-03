@@ -80,9 +80,9 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
 
     const loadBranches = async () => {
       try {
-        const res = await fetch(`${API_URL}/franchise-locations`, {
-          headers: getAuthHeaders(),
-        });
+        const res = await fetch(`${API_URL}/franchise-locations?limit=5000&page=1`,
+          { headers: getAuthHeaders() }
+        );
 
         const data = await res.json();
         let locations =
