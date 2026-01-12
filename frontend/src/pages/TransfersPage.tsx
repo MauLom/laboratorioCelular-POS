@@ -18,6 +18,7 @@ import {
 } from "../services/transfers";
 import TransferStatusTag from "../components/transfer/TransferStatusTag";
 import { franchiseLocationsApi } from "../services/api";
+import { useBreakpointValue, VStack, Text } from "@chakra-ui/react";
 const Select = chakra('select');
 
 const TransfersPage: React.FC = () => {
@@ -36,6 +37,7 @@ const TransfersPage: React.FC = () => {
   const [toBranch, setToBranch] = useState("");
   const [date, setDate] = useState("");
   const [branches, setBranches] = useState<any[]>([]);
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   const isAdmin = ["Master admin", "Administrador", "Supervisor"].includes(
     user?.role || ""
@@ -160,7 +162,12 @@ const TransfersPage: React.FC = () => {
 
         {isAdmin && (
           <Box bg="white" p={4} mt={4} rounded="lg" shadow="sm">
-            <HStack gap={4} flexWrap="wrap">
+            <HStack
+              gap={4}
+              flexWrap="wrap"
+              flexDirection={isMobile ? "column" : "row"}
+              alignItems="stretch"
+            > 
               <input
                 placeholder="IMEI"
                 value={imei}
@@ -169,13 +176,15 @@ const TransfersPage: React.FC = () => {
                   padding: "8px",
                   border: "1px solid #ccc",
                   borderRadius: 6,
+                  width: "100%",
                 }}
               />
 
               <Select
                 value={fromBranch}
                 onChange={(e) => setFromBranch(e.target.value)}
-                maxW="200px"
+                w="100%"
+                maxW={isMobile ? "100%" : "200px"}
                 p={2}
                 border="1px solid"
                 borderColor="gray.300"
@@ -193,7 +202,8 @@ const TransfersPage: React.FC = () => {
               <Select
                 value={toBranch}
                 onChange={(e) => setToBranch(e.target.value)}
-                maxW="200px"
+                w="100%"
+                maxW={isMobile ? "100%" : "200px"}
                 p={2}
                 border="1px solid"
                 borderColor="gray.300"
@@ -220,6 +230,7 @@ const TransfersPage: React.FC = () => {
                   padding: "8px",
                   border: "1px solid #ccc",
                   borderRadius: 6,
+                  width: "100%",
                 }}
               />
 
@@ -249,7 +260,17 @@ const TransfersPage: React.FC = () => {
         <Box bg="white" p={4} rounded="lg" shadow="sm" mt={6}>
           {loading ? (
             <Spinner size="xl" />
-          ) : (
+          ) : isMobile ? (
+            <MobileTransfersList
+              transfers={visibleTransfers}
+              isAdmin={isAdmin}
+              onView={(id: string) => {
+                setDetailId(id);
+                setIsDetailOpen(true);
+              }}
+              onDelete={handleDelete}
+            />
+          ) : (  
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ backgroundColor: "#f5f5f5" }}>
                 <tr>
@@ -344,5 +365,63 @@ const TransfersPage: React.FC = () => {
     </Box>
   );
 };
+
+const MobileTransfersList = ({
+  transfers,
+  isAdmin,
+  onView,
+  onDelete,
+}: any) => (
+  <VStack gap={4}>
+    {transfers.map((t: any) => (
+      <Box
+        key={t._id}
+        bg="white"
+        p={4}
+        rounded="lg"
+        shadow="sm"
+        border="1px solid"
+        borderColor="gray.200"
+      >
+        <HStack justify="space-between" mb={2}>
+          <Text fontWeight="bold">{t.code}</Text>
+          <TransferStatusTag status={t.status} />
+        </HStack>
+
+        <Text fontSize="sm"><b>Origen:</b> {t.fromBranch}</Text>
+        <Text fontSize="sm"><b>Destino:</b> {t.toBranch}</Text>
+        <Text fontSize="sm"><b>Total:</b> {t.totalItems}</Text>
+        <Text fontSize="sm">
+          <b>Rec. Reparto:</b> {t.courierReceived ? "Sí" : "No"}
+        </Text>
+        <Text fontSize="sm">
+          <b>Rec. Sucursal:</b> {t.storeReceived ? "Sí" : "No"}
+        </Text>
+
+        <HStack mt={3} gap={2}>
+          <Button
+            size="sm"
+            variant="outline"
+            w="100%"
+            onClick={() => onView(t._id)}
+          >
+            Ver detalles
+          </Button>
+
+          {isAdmin && (
+            <Button
+              size="sm"
+              colorScheme="red"
+              w="100%"
+              onClick={() => onDelete(t._id)}
+            >
+              Eliminar
+            </Button>
+          )}
+        </HStack>
+      </Box>
+    ))}
+  </VStack>
+);
 
 export default TransfersPage;

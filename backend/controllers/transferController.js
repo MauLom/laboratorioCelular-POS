@@ -363,8 +363,8 @@ exports.getAllTransfers = async (req, res) => {
 
       query = {
         $or: [
-          { toBranch: deviceBranch },
-          { fromBranch: deviceBranch }
+          { fromBranch: deviceBranch },
+          { toBranch: deviceBranch, status: { $ne: "pending" } }
         ]
       };
     }

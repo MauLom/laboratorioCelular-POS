@@ -104,6 +104,13 @@ const TransferDetailModal: React.FC<Props> = ({
   const { user } = useAuth();
   const [lockedCourier, setLockedCourier] = useState<Record<string, boolean>>({});
   const [lockedStore, setLockedStore] = useState<Record<string, boolean>>({});
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);  
 
   useEffect(() => {
     if (!isOpen || !transferId) return;
@@ -409,14 +416,23 @@ const TransferDetailModal: React.FC<Props> = ({
               </div>
             )}
 
-            <table
+            <div
               style={{
                 width: "100%",
-                borderCollapse: "collapse",
-                marginTop: 10,
-                fontSize: 14,
+                overflowX: "auto",
+                WebkitOverflowScrolling: "touch",
               }}
             >
+              <table
+                style={{
+                  width: "100%",
+                  minWidth: isMobile ? "720px" : "100%",
+                  borderCollapse: "collapse",
+                  marginTop: 10,
+                  fontSize: isMobile ? 13 : 14,
+                }}
+              >
+
               <thead>
                 <tr style={{ background: "#f8f9fa" }}>
                   <th style={{ textAlign: "left", padding: "10px 8px" }}>
@@ -432,7 +448,7 @@ const TransferDetailModal: React.FC<Props> = ({
                     Sucursal
                   </th>
 
-                  {isReparto && (
+                  {isReparto && !isMobile && (
                     <th style={{ textAlign: "center", padding: "10px 8px" }}>
                       Acción
                     </th>
@@ -545,6 +561,7 @@ const TransferDetailModal: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
+          </div>  
 
             {isReparto && anyCourierPending && (
               <div

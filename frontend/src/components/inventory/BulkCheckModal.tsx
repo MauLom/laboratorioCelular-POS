@@ -17,6 +17,9 @@ const BulkCheckModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [foundPage, setFoundPage] = useState(1);
   const [missingPage, setMissingPage] = useState(1);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (!isOpen) {
       setRawInput("");
@@ -24,6 +27,8 @@ const BulkCheckModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setMissing([]);
       setFoundPage(1);
       setMissingPage(1);
+      setErrorMsg(null);
+      setLoading(false);
     }
   }, [isOpen]);
 
@@ -38,17 +43,35 @@ const BulkCheckModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const missingTotalPages = Math.ceil(missing.length / PAGE_SIZE);
 
   const handleProcess = async () => {
+    setErrorMsg(null);
     const extracted = rawInput.match(/\d{10,18}/g) || [];
     const imeis = Array.from(new Set(extracted));
 
-    if (imeis.length === 0) return;
+    if (imeis.length === 0) {
+      setErrorMsg("No se detectaron IMEIs válidos en el texto.");
+      return;
+    }
 
-    const result = await inventoryApi.checkMultiImeis(imeis);
+    setLoading(true);
+    try {
+      const result = await inventoryApi.checkMultiImeis(imeis);
 
-    setFound(result.found);
-    setMissing(result.notFound);
-    setFoundPage(1);
-    setMissingPage(1);
+      setFound(result.found);
+      setMissing(result.notFound);
+      setFoundPage(1);
+      setMissingPage(1);
+    } catch (err: any) {
+      const backendMsg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message;
+
+      setFound([]);
+      setMissing([]);
+      setErrorMsg(backendMsg || "Ocurrió un error al procesar los IMEIs.");
+    } finally {
+      setLoading(false);
+    }  
   };
 
   return (
@@ -101,9 +124,33 @@ const BulkCheckModal: React.FC<Props> = ({ isOpen, onClose }) => {
           }}
         />
 
-        <Button w="100%" colorScheme="blue" mt={3} onClick={handleProcess}>
+        <Button
+          w="100%"
+          colorScheme="blue"
+          mt={3}
+          onClick={handleProcess}
+          isLoading={loading}
+          loadingText="Procesando..."
+        >
           Procesar IMEIs
+
         </Button>
+
+        {errorMsg && (
+          <Box
+            mt={3}
+            p={3}
+            bg="red.50"
+            border="1px solid"
+            borderColor="red.200"
+            borderRadius="md"
+            color="red.700"
+            fontSize="sm"
+            fontWeight="semibold"
+          >
+            ⚠️ {errorMsg}
+            </Box>
+        )}  
 
         {/* ENCONTRADOS */}
         {found.length > 0 && (
