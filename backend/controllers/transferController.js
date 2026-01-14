@@ -336,8 +336,14 @@ exports.getAllTransfers = async (req, res) => {
       toBranch,
       date,
       startDate,
-      endDate
+      endDate,
+      page = 1,
+      limit = 10
     } = req.query;  
+
+    const pageNum = Math.max(parseInt(page) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit) || 10, 1), 50);
+    const skipNum = (pageNum - 1) * limitNum;
 
     if (role === ROLES.DELIVERY) {
       query.assignedDeliveryUser = req.user.id;
@@ -409,11 +415,9 @@ exports.getAllTransfers = async (req, res) => {
       .populate("requestedBy", "firstName lastName role")
       .populate("assignedDeliveryUser", "firstName lastName role")
       .populate("items.equipment", "brand model imei franchiseLocation")
-      .sort({ createdAt: -1 });
-
-      if (!hasFilters) {
-        q.limit(10);
-      }
+      .sort({ createdAt: -1 })
+      .skip(skipNum)
+      .limit(limitNum);
       
     const transfers = await q;  
 

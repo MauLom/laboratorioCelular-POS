@@ -39,6 +39,9 @@ const TransfersPage: React.FC = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const isMobile = useBreakpointValue({ base: true, md: false });
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const isAdmin = ["Master admin", "Administrador", "Supervisor"].includes(
     user?.role || ""
   );
@@ -66,8 +69,13 @@ const TransfersPage: React.FC = () => {
              fromBranch: fromBranch || undefined,
              toBranch: toBranch || undefined,
              date: date || undefined,
+             page,
+             limit: PAGE_SIZE,
             }
-          : undefined
+          : {
+              page,
+              limit: PAGE_SIZE,
+            }  
         );   
       const list = Array.isArray(data) ? data : [];
       setTransfers(list);
@@ -105,7 +113,7 @@ const TransfersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, isAdmin, imei, fromBranch, toBranch, date]);
+  }, [user, isAdmin, imei, fromBranch, toBranch, date, page]);
 
   useEffect(() => {
     fetchTransfers();
@@ -234,8 +242,13 @@ const TransfersPage: React.FC = () => {
                 }}
               />
 
-              <Button colorScheme="blue" onClick={fetchTransfers}>
-                Buscar
+              <Button
+                colorScheme="blue"
+                onClick={() => {
+                  setPage(1);
+                }}
+              >
+                Buscar    
               </Button>
 
               <Button
@@ -245,9 +258,8 @@ const TransfersPage: React.FC = () => {
                   setFromBranch("");
                   setToBranch("");
                   setDate("");
-                   setTimeout(() => {
-                    fetchTransfers();
-                  }, 0);  
+                  setPage(1);
+                  fetchTransfers();
                 }}
               >
                 Limpiar
@@ -344,6 +356,24 @@ const TransfersPage: React.FC = () => {
             </table>
           )}
         </Box>
+
+        <Box mt={4} display="flex" justifyContent="center" gap={3}>
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1 || loading}
+          >
+            Anterior
+          </Button>
+
+          <Text alignSelf="center">Página {page}</Text>
+          <Button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={loading || visibleTransfers.length < PAGE_SIZE}
+          >
+            Siguiente
+          </Button>
+        </Box>  
       </Box>
 
       {/* Modales */}

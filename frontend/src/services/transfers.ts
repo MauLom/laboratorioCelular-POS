@@ -53,6 +53,8 @@ export async function getAllTransfers(params?: {
   date?: string;
   startDate?: string;
   endDate?: string;
+  page?: number;
+  limit?: number;
 }) {
   try {
     const query = new URLSearchParams();
@@ -64,6 +66,8 @@ export async function getAllTransfers(params?: {
       if (params.date) query.append("date", params.date);
       if (params.startDate) query.append("startDate", params.startDate);
       if (params.endDate) query.append("endDate", params.endDate);
+      if (params.page) query.append("page", String(params.page));
+      if (params.limit) query.append("limit", String(params.limit));
     }
 
     const url = query.toString() ? `${BASE}?${query.toString()}` : BASE;
