@@ -24,7 +24,7 @@ const Select = chakra('select');
 const TransfersPage: React.FC = () => {
   const { user } = useAuth();
 
-  const [transfers, setTransfers] = useState<any[]>([]);
+  const [, setTransfers] = useState<any[]>([]);
   const [visibleTransfers, setVisibleTransfers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
