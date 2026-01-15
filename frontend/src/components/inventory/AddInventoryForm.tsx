@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { Spinner } from '@chakra-ui/react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import styled from 'styled-components';
 import { ProductType, FranchiseLocation, Brand } from '../../types';
 import { catalogsApi, franchiseLocationsApi, inventoryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -315,13 +314,6 @@ const PreviewTableHeaderCell = styled.th`
   font-size: 0.9rem;
 `;
 
-const ErrorMessage = styled.span`
-  color: #e74c3c;
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-  display: block;
-`;
-
 const InlineError = styled.div`
   color: #e74c3c;
   font-size: 0.875rem;
@@ -330,32 +322,6 @@ const InlineError = styled.div`
   background: #ffe6e6;
   border: 1px solid #ffcdd2;
   border-radius: 4px;
-`;
-
-const LoadingOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  border-radius: 8px;
-`;
-
-const LoadingSpinner = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  
-  span {
-    color: #3498db;
-    font-weight: 500;
-  }
 `;
 
 const ButtonGroup = styled.div`
@@ -437,11 +403,10 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
   const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [colorValues, setColorValues] = useState<Array<{ _id: string; value: string; displayName: string }>>([]);
   const [storageValues, setStorageValues] = useState<Array<{ _id: string; value: string; displayName: string }>>([]);
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [existingImeis, setExistingImeis] = useState<string[]>([]);
-  const [checkingImeis, setCheckingImeis] = useState(false);
+  const [, setCheckingImeis] = useState(false);
   
   // State for validation errors
   const [validationErrors, setValidationErrors] = useState<{
@@ -464,14 +429,14 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
                                    user?.role === 'Master admin';
   
   // Get default franchise location
-  const getDefaultFranchiseLocation = () => {
+  const getDefaultFranchiseLocation = useCallback(() => {
     if (user?.franchiseLocation) {
       return typeof user.franchiseLocation === 'string' 
         ? user.franchiseLocation 
         : user.franchiseLocation._id || '';
     }
     return '';
-  };
+  }, [user?.franchiseLocation]);
 
   const checkExistingImeis = async (imeis: string[]) => {
     if (imeis.length === 0) return;
@@ -521,15 +486,15 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
     };
     
     loadData();
-  }, [canSelectMultipleLocations]);
+  }, [canSelectMultipleLocations, getDefaultFranchiseLocation, error]);
   
   // Get product type display name (defined early for use in other hooks)
-  const getProductTypeDisplayName = (productType: ProductType) => {
-    if (typeof productType.company === 'string') {
+  const getProductTypeDisplayName = useCallback((productType: ProductType) => {
+    if (typeof productType.company === "string") {
       return productType.model;
     }
     return `${(productType.company as Brand).name} - ${productType.model}`;
-  };
+  }, []);  
   
   // Load color values when product type changes
   useEffect(() => {
@@ -856,14 +821,14 @@ const AddInventoryForm: React.FC<AddInventoryFormProps> = ({ onClose, onSubmit }
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [showProductTypeDropdown, productFormData.productType]);
+  }, [showProductTypeDropdown, productFormData.productType, getProductTypeDisplayName]);
   
   // Update search when product type changes externally
   useEffect(() => {
     if (productFormData.productType) {
       setProductTypeSearch(getProductTypeDisplayName(productFormData.productType));
     }
-  }, [productFormData.productType]);
+  }, [productFormData.productType, getProductTypeDisplayName]);
   
   return (
     <ModalOverlay onClick={(e) => e.target === e.currentTarget && onClose()}>

@@ -89,9 +89,6 @@ const CashClose: React.FC = () => {
 
       // Obtener ventas del día
       const allSales = await salesApi.getTodaysByFranchise(franchiseId);
-
-      // Filtrar ventas del día actual en el cliente como respaldo
-      const today = new Date();
       
       // Obtener rango del día en zona horaria de Monterrey
       const monterreyNow = new Date(
