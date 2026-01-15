@@ -36,7 +36,6 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
 
   const [bulkImeisText, setBulkImeisText] = useState("");
   const [missingImeis, setMissingImeis] = useState<string[]>([]);
-  const [foundImeis, setFoundImeis] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -108,7 +107,7 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
     };
     
     loadBranches();
-  }, [isOpen]);
+  }, [isOpen, ALLOW_OFFICES_AS_DESTINATION]);
 
   useEffect(() => {
     let list = inventory;
@@ -163,7 +162,6 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
     setImeiInput("");
     setBulkImeisText("");
     setMissingImeis([]);
-    setFoundImeis([]);
     onClose();
   };
 
@@ -216,7 +214,6 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
       setSelectedItems((prev) => [...prev, ...found]);
     }
     
-    setFoundImeis(foundImeisTmp);
     setMissingImeis(missingTmp);
     setBulkImeisText("");
 
