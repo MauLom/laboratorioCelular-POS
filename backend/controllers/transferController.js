@@ -217,6 +217,30 @@ exports.storeScan = async (req, res) => {
       return res.status(404).json({ message: "Transferencia no encontrada" });
     }
 
+    const role = req.user.role;
+
+    if ([ROLES.SELLER, ROLES.CASHIER].includes(role)) {
+      const branchId = req.headers["x-branch-id"];
+
+      if (!branchId) {
+        return res.status(400).json({ message: "Falta header x-branch-id" });
+      }
+
+      const location = await FranchiseLocation.findById(branchId);
+
+      if (!location) {
+        return res.status(400).json({ message: "Sucursal inválida (x-branch-id)" });
+      }
+
+      const userBranch = location.name;
+
+      if (userBranch !== transfer.toBranch) {
+        return res.status(403).json({
+          message: `Solo la sucursal destino (${transfer.toBranch}) puede confirmar recepción.`,
+        });
+      }
+    }      
+
     if (Array.isArray(actions) && actions.length > 0) {
       actions.forEach(a => {
         const item = transfer.items.find(i => i.imei === a.imei);

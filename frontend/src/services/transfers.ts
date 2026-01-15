@@ -1,6 +1,21 @@
 const API_URL = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
 const BASE = `${API_URL}/transfers`;
 
+async function readApiError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data?.message) return data.message;
+    if (data?.error) return data.error;
+    return "Error inesperado";
+  } catch {
+    try {
+      return await res.text();
+    } catch {
+      return "Error inesperado";
+    }
+  }
+}      
+
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
   const branchId = localStorage.getItem("branchId");
@@ -39,8 +54,8 @@ export async function createTransfer(payload: {
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   return res.json();
@@ -77,9 +92,9 @@ export async function getAllTransfers(params?: {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      console.warn("⚠️ Backend transfers error:", errorText);
-      throw new Error(errorText);
+      const msg = await readApiError(res);
+      console.warn("⚠️ Backend transfers error:", msg);
+      throw new Error(msg);
     }
 
     return res.json();
@@ -95,8 +110,8 @@ export async function getTransferById(id: string) {
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   return res.json();
@@ -110,8 +125,8 @@ export async function markCourierReceived(transferId: string, body: any) {
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(errText || "Error al actualizar estado de entrega");
+    const msg = await readApiError(res);
+    throw new Error(msg || "Error al actualizar estado de entrega");
   }
 
   return res.json();
@@ -132,8 +147,8 @@ export async function storeScan(
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   return res.json();
@@ -146,8 +161,8 @@ export async function deleteTransfer(id: string) {
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText);
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   return res.json();
