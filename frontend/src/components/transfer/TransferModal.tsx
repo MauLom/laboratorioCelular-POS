@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Button, Input, Spinner } from "@chakra-ui/react";
+import { Box, Button, Input, Spinner, Textarea } from "@chakra-ui/react";
 import { getAuthHeaders } from "../../services/transfers";
 
 interface Props {
@@ -33,6 +33,10 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
 
   const [branches, setBranches] = useState<any[]>([]);
   const ALLOW_OFFICES_AS_DESTINATION = false;
+
+  const [bulkImeisText, setBulkImeisText] = useState("");
+  const [missingImeis, setMissingImeis] = useState<string[]>([]);
+  const [foundImeis, setFoundImeis] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -157,7 +161,68 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
     setToBranch("");
     setAssignedDeliveryUser("");
     setImeiInput("");
+    setBulkImeisText("");
+    setMissingImeis([]);
+    setFoundImeis([]);
     onClose();
+  };
+
+  function parseImeis(text: string): string[] {
+    if (!text) return [];
+    const matches = text.match(/\d{15}/g);
+    if (!matches) return [];
+    return Array.from(new Set(matches));
+  }
+
+  const handleProcessBulkImeis = () => {
+    if (!bulkImeisText.trim()) {
+      alert("Pega al menos un IMEI.");
+      return;
+    }
+    
+    const imeis = parseImeis(bulkImeisText);
+
+    if (imeis.length === 0) {
+      alert("No se encontraron IMEIs válidos (15 dígitos).");
+      return;
+    }
+
+    const invByImei = new Map<string, any>();
+    inventory.forEach((item) => {
+      if (item?.imei) invByImei.set(String(item.imei).trim(), item);
+    });
+    
+    const selectedIds = new Set(selectedItems.map((x) => x._id));
+
+    const found: any[] = [];
+    const foundImeisTmp: string[] = [];
+    const missingTmp: string[] = [];
+
+    for (const imei of imeis) {
+      const item = invByImei.get(imei);
+
+      if (!item) {
+        missingTmp.push(imei);
+        continue;
+      }
+
+      if (selectedIds.has(item._id)) continue;
+
+      found.push(item);
+      foundImeisTmp.push(imei);
+    }
+
+    if (found.length > 0) {
+      setSelectedItems((prev) => [...prev, ...found]);
+    }
+    
+    setFoundImeis(foundImeisTmp);
+    setMissingImeis(missingTmp);
+    setBulkImeisText("");
+
+    alert(
+      `✅ Encontrados: ${foundImeisTmp.length}\n❌ No encontrados: ${missingTmp.length}`
+    );
   };
 
   if (!isOpen) return null;
@@ -244,6 +309,41 @@ const TransferModal: React.FC<Props> = ({ isOpen, onClose, onSubmit }) => {
             onChange={(e) => setImeiInput(e.target.value)}
           />
         </Box>
+
+        {/* BULK IMEIS */}
+        <Box mb={4}>
+          <strong>Pegar IMEIs (múltiples):</strong>
+
+          <Textarea
+            mt={2}
+            placeholder="Pega aquí muchos IMEIs (uno por línea o separados por espacios)"
+            value={bulkImeisText}
+            onChange={(e) => setBulkImeisText(e.target.value)}
+            rows={4}
+          />
+
+          <Button
+            mt={2}
+            width="100%"
+            colorScheme="green"
+            onClick={handleProcessBulkImeis}
+            disabled={loadingInventory || inventory.length === 0}
+          >
+            📋 Procesar IMEIs y seleccionar equipos
+          </Button>
+        </Box>
+
+        {missingImeis.length > 0 && (
+          <Box mb={4} p={3} bg="red.50" border="1px solid #fed7d7" borderRadius="md">
+            <strong>❌ IMEIs no encontrados ({missingImeis.length}):</strong>
+
+            <Box mt={2} fontSize="sm" maxH="120px" overflowY="auto">
+              {missingImeis.map((i) => (
+                <Box key={i}>{i}</Box>
+              ))}
+            </Box>
+          </Box>
+        )}        
 
         {/* LISTA PRINCIPAL */}
         {loadingInventory ? (
