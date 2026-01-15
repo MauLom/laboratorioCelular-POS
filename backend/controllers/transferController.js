@@ -217,6 +217,30 @@ exports.storeScan = async (req, res) => {
       return res.status(404).json({ message: "Transferencia no encontrada" });
     }
 
+    const role = req.user.role;
+
+    if ([ROLES.SELLER, ROLES.CASHIER].includes(role)) {
+      const branchId = req.headers["x-branch-id"];
+
+      if (!branchId) {
+        return res.status(400).json({ message: "Falta header x-branch-id" });
+      }
+
+      const location = await FranchiseLocation.findById(branchId);
+
+      if (!location) {
+        return res.status(400).json({ message: "Sucursal inválida (x-branch-id)" });
+      }
+
+      const userBranch = location.name;
+
+      if (userBranch !== transfer.toBranch) {
+        return res.status(403).json({
+          message: `Solo la sucursal destino (${transfer.toBranch}) puede confirmar recepción.`,
+        });
+      }
+    }      
+
     if (Array.isArray(actions) && actions.length > 0) {
       actions.forEach(a => {
         const item = transfer.items.find(i => i.imei === a.imei);
@@ -336,8 +360,14 @@ exports.getAllTransfers = async (req, res) => {
       toBranch,
       date,
       startDate,
-      endDate
+      endDate,
+      page = 1,
+      limit = 10
     } = req.query;  
+
+    const pageNum = Math.max(parseInt(page) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit) || 10, 1), 50);
+    const skipNum = (pageNum - 1) * limitNum;
 
     if (role === ROLES.DELIVERY) {
       query.assignedDeliveryUser = req.user.id;
@@ -409,11 +439,9 @@ exports.getAllTransfers = async (req, res) => {
       .populate("requestedBy", "firstName lastName role")
       .populate("assignedDeliveryUser", "firstName lastName role")
       .populate("items.equipment", "brand model imei franchiseLocation")
-      .sort({ createdAt: -1 });
-
-      if (!hasFilters) {
-        q.limit(10);
-      }
+      .sort({ createdAt: -1 })
+      .skip(skipNum)
+      .limit(limitNum);
       
     const transfers = await q;  
 

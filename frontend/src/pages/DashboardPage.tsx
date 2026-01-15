@@ -66,11 +66,6 @@ const DashboardPage: React.FC = () => {
     return inventoryStats.stateStats.reduce((total, stat) => total + stat.count, 0);
   };
 
-  const getTotalSalesAmount = () => {
-    if (!salesStats?.descriptionStats) return 0;
-    return salesStats.descriptionStats.reduce((total, stat) => total + stat.totalAmount, 0);
-  };
-
   const getAvailableItems = () => {
     if (!inventoryStats?.stateStats) return 0;
     const availableStates = ['New', 'Repaired'];

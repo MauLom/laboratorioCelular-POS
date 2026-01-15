@@ -168,7 +168,7 @@ const SetNewPasswordPage: React.FC = () => {
     if (!/[0-9]/.test(pwd)) {
       validationErrors.push('La contraseña debe contener al menos un número');
     }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pwd)) {
       validationErrors.push('La contraseña debe contener al menos un carácter especial');
     }
     
