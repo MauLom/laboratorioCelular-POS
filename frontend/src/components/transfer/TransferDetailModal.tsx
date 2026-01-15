@@ -93,17 +93,6 @@ const statusTranslation: Record<string, string> = {
   not_received: "No recibido",
 };
 
-const getErrorMessage = (err: any) => {
-  let msg = err?.message || "Ocurrió un error inesperado.";
-
-  try {
-    const parsed = JSON.parse(msg);
-    if (parsed?.message) msg = parsed.message;
-  } catch {}
-
-  return msg;
-};
-
 const TransferDetailModal: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -158,7 +147,7 @@ const TransferDetailModal: React.FC<Props> = ({
         delete copy[itemId];
         return copy;
       });  
-      alert(getErrorMessage(err));
+      alert("Error al actualizar reparto: " + err.message);
     }
   };
 
@@ -178,7 +167,7 @@ const TransferDetailModal: React.FC<Props> = ({
       const updated = await getTransferById(transfer._id);
       setTransfer(updated);
     } catch (err: any) {
-      alert(getErrorMessage(err));
+      alert("Error al actualizar reparto: " + err.message);
     }
   };
 
@@ -221,7 +210,7 @@ const TransferDetailModal: React.FC<Props> = ({
         delete copy[itemId];
         return copy;
       }); 
-      alert(getErrorMessage(err));
+      alert("Error al actualizar sucursal: " + err.message);
     }
   };
 
@@ -245,7 +234,7 @@ const TransferDetailModal: React.FC<Props> = ({
       const updated = await getTransferById(transfer._id);
       setTransfer(updated);
     } catch (err: any) {
-      alert(getErrorMessage(err));
+      alert("Error al actualizar sucursal: " + err.message);
     }
   };
 
