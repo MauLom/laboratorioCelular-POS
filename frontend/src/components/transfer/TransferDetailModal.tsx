@@ -13,8 +13,6 @@ interface Props {
   onUpdated?: () => void;
 }
 
-const API_URL = (process.env.REACT_APP_API_URL || "http://localhost:5000").replace(/\/$/, "");
-
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
