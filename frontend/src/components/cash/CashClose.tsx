@@ -125,50 +125,34 @@ const CashClose: React.FC = () => {
       let totalCash = 0;
       let totalAmount = 0;
 
-      todaysSales.forEach((sale, index) => {
-        
+      todaysSales.forEach((sale) => {
+        totalAmount += sale.amount || 0;
+
         if (sale.paymentMethods && Array.isArray(sale.paymentMethods)) {
-          sale.paymentMethods.forEach(payment => {
+          sale.paymentMethods.forEach((payment) => {
             const amount = payment.amount || 0;
-            
-            switch (payment.type?.toLowerCase()) {
-              case 'tarjeta':
-              case 'card':
-                totalCard += amount;
-                break;
-              case 'dolar':
-              case 'usd':
-              case 'dollar':
-                totalUSD += amount;
-                // Para el corte total, convertir dólares a pesos
-                totalAmount += amount * currentExchangeRate;
-                break;
-              case 'efectivo':
-              case 'cash':
-                totalCash += amount;
-                break;
-              default:
-                // Si no se especifica tipo, asumir que es efectivo
-                totalCash += amount;
-                break;
+            const type = (payment.type || "").toLowerCase();
+            if (type === "tarjeta" || type === "card") {
+              totalCard += amount;
+              return;
             }
+
+            if (type === "dolar" || type === "usd" || type === "dollar") {
+              totalUSD += amount;
+              return;
+            }
+
+            if (type === "efectivo" || type === "cash") {
+              totalCash += amount;
+              return;
+            }
+
+            totalCash += amount;
           });
         } else {
-          // Si no hay paymentMethods, usar el amount total como efectivo
-          const amount = sale.amount || 0;
-          totalCash += amount;
+          totalCash += sale.amount || 0;
         }
-        
-        // Sumar al total general (excepto USD que ya se convirtió arriba)
-        if (!sale.paymentMethods || !sale.paymentMethods.some(p => 
-          ['dolar', 'usd', 'dollar'].includes(p.type?.toLowerCase() || ''))) {
-          totalAmount += sale.amount || 0;
-        }
-      });
-
-      if (totalCard === 0 && totalUSD === 0) {
-        totalCash = totalAmount;
-      }  
+      });    
 
       // Obtener gastos del día primero para poder ajustar el efectivo
       try {
@@ -181,7 +165,8 @@ const CashClose: React.FC = () => {
         const expensesTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
         setTotalExpenses(expensesTotal);
         
-        const adjustedCash = totalCash - expensesTotal;
+        const efectivoBruto = totalCash;
+        const adjustedCash = efectivoBruto - expensesTotal;
         setCorte(totalAmount.toFixed(2));
         setFeria(adjustedCash.toFixed(2));
         setTarjeta(totalCard.toFixed(2));

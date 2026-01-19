@@ -4,7 +4,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import styled from 'styled-components';
 import { Sale, FranchiseLocation, InventoryItem, PaymentMethod } from '../../types';
-import { franchiseLocationsApi, inventoryApi } from '../../services/api';
+import { franchiseLocationsApi, inventoryApi, cashSessionApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfiguration } from '../../hooks/useConfigurations';
 import SalesArticles, { SalesArticle } from './SalesArticles';
@@ -205,6 +205,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
   const [locationLocked, setLocationLocked] = useState<boolean>(false);
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [exchangeRateUsdMxn, setExchangeRateUsdMxn] = useState<number>(0);
   // const [paymentType, setPaymentType] = useState<string>('');
   
   // Estados para múltiples métodos de pago
@@ -221,6 +222,21 @@ const SalesForm: React.FC<SalesFormProps> = ({
       addPaymentMethod();
     }
   }, [showPaymentModal, paymentMethods.length]);
+
+  useEffect(() => {
+    const getPaymentReceivedMXN = (pm: { type: string; amount: number }) => {
+      if (!pm?.amount) return 0;
+
+      if ((pm.type || "").toLowerCase() === "dolar") {
+        return pm.amount * exchangeRateUsdMxn;
+      }
+      
+      return pm.amount;
+    };
+
+    const total = paymentMethods.reduce((sum, pm) => sum + getPaymentReceivedMXN(pm), 0);
+    setPaymentAmount(total);
+  }, [exchangeRateUsdMxn, paymentMethods]);  
 
   // Load configurations for concepts and finance types
   const { getLabels: getConceptsLabels, loading: conceptsLoading } = useConfiguration('concepts_concepts');
@@ -415,7 +431,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
     setPaymentMethods(prev => {
       const updated = prev.filter(pm => pm.id !== id);
       // Recalcular total
-      const total = updated.reduce((sum, pm) => sum + pm.amount, 0);
+      const total = updated.reduce((sum, pm) => sum + getPaymentReceivedMXN(pm), 0);
       setPaymentAmount(total);
       return updated;
     });
@@ -431,7 +447,7 @@ const SalesForm: React.FC<SalesFormProps> = ({
       });
       
       // Recalcular total
-      const total = updated.reduce((sum, pm) => sum + pm.amount, 0);
+      const total = updated.reduce((sum, pm) => sum + getPaymentReceivedMXN(pm), 0);
       setPaymentAmount(total);
       
       return updated;
@@ -469,7 +485,15 @@ const SalesForm: React.FC<SalesFormProps> = ({
     }
   };
 
+  const getPaymentReceivedMXN = (pm: { type: string; amount: number }) => {
+    if (!pm?.amount) return 0;
 
+    if (pm.type === "dolar") {
+      return pm.amount * exchangeRateUsdMxn;
+    }
+    
+    return pm.amount;
+  };
 
   // Buscar coincidencias de IMEI
   useEffect(() => {
@@ -593,7 +617,19 @@ const SalesForm: React.FC<SalesFormProps> = ({
       return;
     }
 
-    // Mostrar modal para capturar el pago
+    try {
+      const franchiseId = selectedLocation?._id || userLocationId;
+      if (franchiseId) {
+        const openSession = await cashSessionApi.findAnyOpenSession(franchiseId);
+        const tc = openSession?.exchange_rate_usd_mxn;
+
+        if (typeof tc === "number" && tc > 0) {
+          setExchangeRateUsdMxn(tc);
+        }
+      }
+    } catch (err) {
+      console.warn("No se pudo obtener tipo de cambio desde caja abierta:", err);
+    }
     setShowPaymentModal(true);
   };
 
@@ -628,10 +664,20 @@ const SalesForm: React.FC<SalesFormProps> = ({
 
     // Construir notas con información detallada del pago
     let paymentNotes = `Venta con ${articles.length} artículo(s). Artículos: ${articles.map(a => a.description).join(', ')}`;
+
+    if (finalPaymentMethods.some(pm => pm.type === "dolar")) {
+      paymentNotes += ` | TC USD/MXN: ${exchangeRateUsdMxn}`;
+    }  
     
     if (finalPaymentMethods.length > 1) {
-      const paymentDetails = finalPaymentMethods.map(pm => `${pm.type}: $${pm.amount.toFixed(2)}`);
-      paymentNotes += ` | Pagos múltiples: ${paymentDetails.join(', ')}`;
+      const paymentDetails = finalPaymentMethods.map(pm => {
+        if (pm.type === "dolar") {
+          const mxn = pm.amount * exchangeRateUsdMxn;
+          return `dolar: $${pm.amount.toFixed(2)} USD (≈ $${mxn.toFixed(2)} MXN)`;
+        }
+        return `${pm.type}: $${pm.amount.toFixed(2)}`;
+      });
+      paymentNotes += ` | Pagos múltiples: ${paymentDetails.join(', ')}`; 
     }
 
     // Crear la venta final con todos los artículos
@@ -931,6 +977,24 @@ const SalesForm: React.FC<SalesFormProps> = ({
             <div style={{ marginBottom: '1rem' }}>
               <strong>Total a cobrar: ${articles.reduce((sum, article) => sum + (article.amount * article.quantity), 0).toFixed(2)}</strong>
             </div>
+
+            {/* Tipo de cambio (solo si hay pagos en dolar) */}
+            {paymentMethods.some(pm => pm.type === "dolar") && (
+              <div style={{ marginBottom: "1rem" }}>
+                <Label style={{ fontSize: "0.85rem" }}>Tipo de cambio USD → MXN</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={exchangeRateUsdMxn}
+                  readOnly
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    cursor: "not-allowed",
+                    fontWeight: 600
+                  }}  
+                />
+              </div>
+            )}
             
             {/* Métodos de Pago */}
             <div style={{ 
