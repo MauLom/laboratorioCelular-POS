@@ -126,9 +126,18 @@ const CashClose: React.FC = () => {
       let totalAmount = 0;
 
       todaysSales.forEach((sale) => {
-        totalAmount += sale.amount || 0;
+        const saleAmount = sale.amount || 0;
+        totalAmount += saleAmount || 0;
 
         if (sale.paymentMethods && Array.isArray(sale.paymentMethods)) {
+          const isSingleCashPayment =
+           sale.paymentMethods.length === 1 &&
+           ["efectivo", "cash"].includes((sale.paymentMethods[0]?.type || "").toLowerCase());
+          if (isSingleCashPayment) {
+            totalCash += saleAmount;
+            return;
+          }
+            
           sale.paymentMethods.forEach((payment) => {
             const amount = payment.amount || 0;
             const type = (payment.type || "").toLowerCase();
