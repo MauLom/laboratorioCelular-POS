@@ -127,7 +127,7 @@ const CashClose: React.FC = () => {
 
       todaysSales.forEach((sale) => {
         const saleAmount = sale.amount || 0;
-        totalAmount += sale.amount || 0;
+        totalAmount += saleAmount || 0;
 
         if (sale.paymentMethods && Array.isArray(sale.paymentMethods)) {
           const isSingleCashPayment =
