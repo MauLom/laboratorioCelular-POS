@@ -176,7 +176,7 @@ const applyInventoryFilter = async (req, res, next) => {
   }
 };
 
-const applyRoleDataFilter = (req, res, next) => {
+const applyRoleDataFilter = async (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
 
   const { role, _id } = req.user;
@@ -187,9 +187,29 @@ const applyRoleDataFilter = (req, res, next) => {
     return next();
   }
 
-  // Cajeros/Vendedores: solo sus propios registros (ademas del filtro por fecha y sucursal)
+  // Cajeros/Vendedores todas las ventas del dia de su sucursal fisica
   if ([ROLES.CASHIER, ROLES.SELLER].includes(role)) {
-    req.roleFilter = { createdBy: _id };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const deviceGuid = req.headers['x-device-guid'];
+    let franchiseId = null;
+
+    if (deviceGuid) {
+      const location = await FranchiseLocation.findOne({ guid: deviceGuid, isActive: true });
+      if (location) franchiseId = location._id;
+    }
+
+    if (!franchiseId) {
+      franchiseId = req.user.franchiseLocation?._id || req.user.franchiseLocation;
+    }
+
+    req.roleFilter = {
+      franchiseLocation: franchiseId,
+      createdAt: { $gte: today, $lte: endOfDay }
+    };
     return next();
   }
 
