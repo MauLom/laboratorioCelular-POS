@@ -123,36 +123,25 @@ const CashClose: React.FC = () => {
       let totalCard = 0;
       let totalUSD = 0;
       let totalCash = 0;
-      let totalAmount = 0;
+      let totalSales = 0;
 
       todaysSales.forEach((sale) => {
-        totalAmount += sale.amount || 0;
+        totalSales += sale.amount || 0;
 
-        if (sale.paymentMethods && Array.isArray(sale.paymentMethods)) {
-          sale.paymentMethods.forEach((payment) => {
-            const amount = payment.amount || 0;
-            const type = (payment.type || "").toLowerCase();
-            if (type === "tarjeta" || type === "card") {
-              totalCard += amount;
-              return;
-            }
+        if (!sale.paymentMethods || !Array.isArray(sale.paymentMethods)) return;
+        sale.paymentMethods.forEach((payment) => {
+          const amount = payment.amount || 0;
+          const type = (payment.type || "").toLowerCase();
 
-            if (type === "dolar" || type === "usd" || type === "dollar") {
-              totalUSD += amount;
-              return;
-            }
-
-            if (type === "efectivo" || type === "cash") {
-              totalCash += amount;
-              return;
-            }
-
+          if (type === "tarjeta" || type === "card") {
+            totalCard += amount;
+          } else if (type === "dolar" || type === "usd") {
+            totalUSD += amount;
+          } else if (type === "efectivo" || type === "cash") {
             totalCash += amount;
-          });
-        } else {
-          totalCash += sale.amount || 0;
-        }
-      });    
+          }
+        });
+      });
 
       // Obtener gastos del día primero para poder ajustar el efectivo
       try {
@@ -164,11 +153,10 @@ const CashClose: React.FC = () => {
         
         const expensesTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
         setTotalExpenses(expensesTotal);
-        
-        const efectivoBruto = totalCash;
-        const adjustedCash = efectivoBruto - expensesTotal;
-        setCorte(totalAmount.toFixed(2));
-        setFeria(adjustedCash.toFixed(2));
+        const efectivoFisicoMx = totalSales - totalCard - expensesTotal;
+
+        setCorte(totalSales.toFixed(2));
+        setFeria(efectivoFisicoMx.toFixed(2));
         setTarjeta(totalCard.toFixed(2));
         setDolar(totalUSD.toFixed(2));
         
@@ -177,7 +165,7 @@ const CashClose: React.FC = () => {
         setTotalExpenses(0);
         
         // Si no se pueden cargar gastos, usar valores sin ajustar
-        setCorte(totalAmount.toFixed(2));
+        setCorte(totalSales.toFixed(2));
         setFeria(totalCash.toFixed(2));
         setTarjeta(totalCard.toFixed(2));
         setDolar(totalUSD.toFixed(2));

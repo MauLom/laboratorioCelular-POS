@@ -110,6 +110,11 @@ const cashSessionSchema = new mongoose.Schema({
     enum: ['open', 'closed'],
     default: 'open'
   },
+
+  autoClosed: {
+    type: Boolean,
+    default: false
+  },  
   
   // Notas adicionales
   notes: {
@@ -148,6 +153,12 @@ cashSessionSchema.statics.findAnyOpenSession = function(franchiseLocationId) {
   }).sort({ openDateTime: -1 }).populate('franchiseLocation user');
 };
 
+cashSessionSchema.statics.findAllOpenSessions = function() {
+  return this.find({
+    status: 'open'
+  }).populate('franchiseLocation user');
+};      
+
 // Método de instancia para cerrar sesión
 cashSessionSchema.methods.closeSession = function(closeData) {
   this.closeDateTime = new Date();
@@ -176,6 +187,27 @@ cashSessionSchema.methods.forceCloseSession = function(closeData) {
     this.notes = closeData.notes ?? this.notes;
   }
 
+  return this.save();
+};
+
+// Cierre automatico a las 11:59 PM
+cashSessionSchema.methods.autoCloseSession = function(salesData = {}) {
+  this.status = 'closed';
+  this.closeDateTime = new Date();
+  this.autoClosed = true;
+  
+  // Si se proporcionan datos de ventas, usarlos
+  this.closing_cash_mxn = salesData.closing_cash_mxn ?? 0;
+  this.closing_cash_usd = salesData.closing_cash_usd ?? 0;
+  this.card_amount = salesData.card_amount ?? 0;
+  this.withdrawn_amount = salesData.withdrawn_amount ?? 0;
+  
+  // Nota automatica
+  const existingNotes = this.notes || '';
+  this.notes = existingNotes 
+    ? `${existingNotes} | Cierre automático a las 11:59 PM` 
+    : 'Cierre automático a las 11:59 PM';
+  
   return this.save();
 };
 

@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../hooks/useAlert';
 import styled from 'styled-components';
 import { translateDescription, translateFinance, translateConcept} from '../lib/translations';
+import deviceTrackerApi from '../services/deviceTrackerApi';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -190,6 +191,20 @@ const SalesPage: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const refreshGuid = async () => {
+      try {
+        const guid = await deviceTrackerApi.getSystemGuid();
+        if (guid) {
+          localStorage.setItem('deviceGuid', guid);
+        }
+      } catch (e) {
+        console.warn('No se pudo obtener GUID:', e);
+      }
+    };
+    refreshGuid();
+  }, []);        
+
   // Fetch available printers
   const fetchAvailablePrinters = async () => {
     setLoadingPrinters(true);
@@ -253,7 +268,17 @@ const SalesPage: React.FC = () => {
         Object.entries(dateFilters).filter(([_, value]) => value !== '')
       );
 
-      const blob = await salesApi.exportToExcel(cleanFilters);
+      const exportParams: any = { ...cleanFilters };
+
+      if (user?.franchiseLocation) {
+        const locationId = typeof user.franchiseLocation === 'object'
+          ? (user.franchiseLocation as any)._id?.toString()
+          : user.franchiseLocation;
+        console.log('locationId a enviar:', locationId);  
+        exportParams.franchiseLocation = locationId;
+      }    
+
+      const blob = await salesApi.exportToExcel(exportParams);
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -293,6 +318,11 @@ const SalesPage: React.FC = () => {
   const handleAddSale = async (saleData: Omit<Sale, '_id' | 'createdAt' | 'updatedAt'>) => {
     setFormLoading(true);
     try {
+      const guid = await deviceTrackerApi.getSystemGuid();
+      if (guid) {
+        localStorage.setItem('deviceGuid', guid);
+      }
+
       const newSale = await salesApi.create(saleData);
       setShowForm(false);
       setArticles([]); // Limpiar artículos después de crear la venta

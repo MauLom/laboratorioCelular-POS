@@ -45,6 +45,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const deviceGuid = localStorage.getItem('deviceGuid');
+    if (deviceGuid) {
+      config.headers['x-device-guid'] = deviceGuid;
+    }
+      
     return config;
   },
   (error) => {

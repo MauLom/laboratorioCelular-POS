@@ -4,6 +4,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cron = require('node-cron');
+const moment = require('moment-timezone');
 require('dotenv').config();
 
 // Validate environment variables
@@ -27,6 +29,8 @@ async function connectDB() {
 
   isConnected = db.connections[0].readyState === 1;
   console.log('MongoDB connected');
+  
+  startAutoCloseCashJob();
 }
 
 console.log('🌐 CORS Configuration:');
@@ -95,6 +99,47 @@ app.use('/api/product-types', require('./routes/productTypes'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash-session', require('./routes/cashSessions'));
 app.use('/api/transfers', require('./routes/transfers'));
+
+function startAutoCloseCashJob() {
+  const CashSession = require('./models/CashSession');
+  
+  // Ejecutar todos los dias a las 11:59 PM (hora de Monterrey)
+  cron.schedule('59 23 * * *', async () => {
+    const monterreyTime = moment().tz('America/Monterrey').format('YYYY-MM-DD HH:mm:ss');
+    console.log(`[AUTO-CLOSE] Iniciando cierre automático de cajas - ${monterreyTime}`);
+
+    try {
+      const openSessions = await CashSession.findAllOpenSessions();
+      
+      if (openSessions.length === 0) {
+        console.log('[AUTO-CLOSE] No hay cajas abiertas para cerrar');
+        return;
+      }
+
+      console.log(`[AUTO-CLOSE] Se encontraron ${openSessions.length} cajas abiertas`);
+
+      for (const session of openSessions) {
+        try {
+          await session.autoCloseSession();
+          const franchiseName = session.franchiseLocation?.name || 'Desconocida';
+          console.log(`[AUTO-CLOSE] ✓ Caja cerrada - Sucursal: ${franchiseName}`);
+        } catch (error) {
+          const franchiseName = session.franchiseLocation?.name || 'Desconocida';
+          console.error(`[AUTO-CLOSE] ✗ Error - Sucursal: ${franchiseName}`, error.message);
+        }
+      }
+
+      console.log('[AUTO-CLOSE] Proceso completado');
+      
+    } catch (error) {
+      console.error('[AUTO-CLOSE] Error general en cierre automático:', error);
+    }
+  }, {
+    timezone: 'America/Monterrey'
+  });
+
+  console.log('✓ Cron job de cierre automático iniciado (11:59 PM diario - Monterrey)');
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
