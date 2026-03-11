@@ -72,6 +72,12 @@ const SalesPage: React.FC = () => {
   const [exportLoading, setExportLoading] = useState(false);
   // const [franchiseLocations, setFranchiseLocations] = useState<FranchiseLocation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Pagination state
+  const PAGE_SIZE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   
   // Articles state
   const [articles, setArticles] = useState<SalesArticle[]>([]);
@@ -156,17 +162,23 @@ const SalesPage: React.FC = () => {
     }
   }, [user]);
 
-  const fetchSales = useCallback(async () => {
+  const fetchSales = useCallback(async (page: number = 1) => {
     setLoading(true);
     try {
-      // Only apply date filters on server-side for better performance
       const serverFilters = Object.fromEntries(
         Object.entries(dateFilters).filter(([_, value]) => value !== '')
       );
-      const response: PaginatedResponse<Sale> = await salesApi.getAll(serverFilters);
+      const response: PaginatedResponse<Sale> = await salesApi.getAll({
+        ...serverFilters,
+        page,
+        limit: PAGE_SIZE,
+      });
       const salesData = response.sales || [];
       setAllSales(salesData);
       setSales(salesData);
+      setCurrentPage(response.currentPage || page);
+      setTotalPages(response.totalPages || 1);
+      setTotalRecords(response.total || salesData.length);
     } catch (err) {
       console.error('Failed to fetch sales:', err);
       error('Error al cargar las ventas');
@@ -180,19 +192,7 @@ const SalesPage: React.FC = () => {
   }, [fetchFranchiseLocations]);
 
   useEffect(() => {
-    fetchSales();
-  }, [fetchSales]);
-
-  // Load default printer from localStorage
-  useEffect(() => {
-    const savedPrinter = localStorage.getItem('defaultPrinter');
-    if (savedPrinter) {
-      setDefaultPrinter(savedPrinter);
-    }
-  }, []);
-
-  useEffect(() => {
-    const refreshGuid = async () => {
+    const initAndFetch = async () => {
       try {
         const guid = await deviceTrackerApi.getSystemGuid();
         if (guid) {
@@ -200,10 +200,29 @@ const SalesPage: React.FC = () => {
         }
       } catch (e) {
         console.warn('No se pudo obtener GUID:', e);
+      } finally {
+        fetchSales();
       }
     };
-    refreshGuid();
-  }, []);        
+    initAndFetch();
+  }, []);
+
+  const isFirstRender = React.useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setCurrentPage(1);
+    fetchSales(1);
+  }, [fetchSales]);
+
+  useEffect(() => {
+    const savedPrinter = localStorage.getItem('defaultPrinter');
+    if (savedPrinter) {
+      setDefaultPrinter(savedPrinter);
+    }
+  }, []);
 
   // Fetch available printers
   const fetchAvailablePrinters = async () => {
@@ -709,7 +728,7 @@ const SalesPage: React.FC = () => {
                 )}
 
                 <Text fontSize="sm" color="gray.500">
-                  {sales.length} de {allSales.length} registros
+                  {totalRecords} registros
                 </Text>
               </HStack>
 
@@ -871,6 +890,75 @@ const SalesPage: React.FC = () => {
             </Tbody>
           </Table>
         </TableContainer>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <Box bg="white" p={4} rounded="lg" shadow="sm">
+            <HStack justify="space-between" align="center" wrap="wrap" gap={3}>
+              <Text fontSize="sm" color="gray.600">
+                Página {currentPage} de {totalPages} — {totalRecords} registros en total
+              </Text>
+              <HStack gap={2}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setCurrentPage(1); fetchSales(1); }}
+                  disabled={currentPage === 1}
+                >
+                  «
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { const p = currentPage - 1; setCurrentPage(p); fetchSales(p); }}
+                  disabled={currentPage === 1}
+                >
+                  ‹ Anterior
+                </Button>
+                {/* Page number buttons (show up to 5 around current) */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                  .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === '...'
+                      ? <Text key={`ellipsis-${idx}`} px={2} color="gray.400">…</Text>
+                      : (
+                        <Button
+                          key={item}
+                          size="sm"
+                          colorScheme={currentPage === item ? 'green' : 'gray'}
+                          variant={currentPage === item ? 'solid' : 'outline'}
+                          onClick={() => { setCurrentPage(item as number); fetchSales(item as number); }}
+                        >
+                          {item}
+                        </Button>
+                      )
+                  )
+                }
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { const p = currentPage + 1; setCurrentPage(p); fetchSales(p); }}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente ›
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setCurrentPage(totalPages); fetchSales(totalPages); }}
+                  disabled={currentPage === totalPages}
+                >
+                  »
+                </Button>
+              </HStack>
+            </HStack>
+          </Box>
+        )}
 
           {/* Simple Modal for Add Form */}
           {showForm && (
