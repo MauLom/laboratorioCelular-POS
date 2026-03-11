@@ -205,7 +205,7 @@ const SalesPage: React.FC = () => {
       }
     };
     initAndFetch();
-  }, []);
+  }, [fetchSales]);
 
   const isFirstRender = React.useRef(true);
   useEffect(() => {
