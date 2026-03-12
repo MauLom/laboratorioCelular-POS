@@ -3,6 +3,28 @@ const User = require('../models/User');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { ROLES } = require("../utils/roles");
 
+const getMexicoDayRange = () => {
+  const MEXICO_OFFSET_MS = -6 * 60 * 60 * 1000;
+  const now = new Date();
+  const mexicoNow = new Date(now.getTime() + MEXICO_OFFSET_MS);
+
+  const startOfDay = new Date(Date.UTC(
+    mexicoNow.getUTCFullYear(),
+    mexicoNow.getUTCMonth(),
+    mexicoNow.getUTCDate(),
+    0, 0, 0, 0
+  ));
+
+  const endOfDay = new Date(Date.UTC(
+    mexicoNow.getUTCFullYear(),
+    mexicoNow.getUTCMonth(),
+    mexicoNow.getUTCDate(),
+    23, 59, 59, 999
+  ));
+
+  return { startOfDay, endOfDay };
+};
+
 const authenticate = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -101,15 +123,7 @@ const applyFranchiseFilter = async (req, res, next) => {
         return res.status(403).json({ error: 'Sin sucursal asignada.' });
       }
 
-      const now = new Date();
-      const tzOffset = now.getTimezoneOffset() * 60000;
-      const localNow = new Date(now - tzOffset);
-
-      const startOfDay = new Date(localNow);
-      startOfDay.setUTCHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(localNow);
-      endOfDay.setUTCHours(23, 59, 59, 999);
+      const { startOfDay, endOfDay } = getMexicoDayRange();
 
       req.franchiseFilter = {
         franchiseLocation: req.user.franchiseLocation._id,
@@ -187,12 +201,8 @@ const applyRoleDataFilter = async (req, res, next) => {
     return next();
   }
 
-  // Cajeros/Vendedores todas las ventas del dia de su sucursal fisica
   if ([ROLES.CASHIER, ROLES.SELLER].includes(role)) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
+    const { startOfDay, endOfDay } = getMexicoDayRange();
 
     const deviceGuid = req.headers['x-device-guid'];
     let franchiseId = null;
@@ -208,7 +218,7 @@ const applyRoleDataFilter = async (req, res, next) => {
 
     req.roleFilter = {
       franchiseLocation: franchiseId,
-      createdAt: { $gte: today, $lte: endOfDay }
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
     };
     return next();
   }
