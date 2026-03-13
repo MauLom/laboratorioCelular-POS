@@ -2,27 +2,15 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { ROLES } = require("../utils/roles");
+const moment = require('moment-timezone');
 
 const getMexicoDayRange = () => {
-  const MEXICO_OFFSET_MS = -6 * 60 * 60 * 1000;
-  const now = new Date();
-  const mexicoNow = new Date(now.getTime() + MEXICO_OFFSET_MS);
+  const mexicoNow = moment().tz('America/Mexico_City');
 
-  const startOfDay = new Date(Date.UTC(
-    mexicoNow.getUTCFullYear(),
-    mexicoNow.getUTCMonth(),
-    mexicoNow.getUTCDate(),
-    0, 0, 0, 0
-  ));
-
-  const endOfDay = new Date(Date.UTC(
-    mexicoNow.getUTCFullYear(),
-    mexicoNow.getUTCMonth(),
-    mexicoNow.getUTCDate(),
-    23, 59, 59, 999
-  ));
-
-  return { startOfDay, endOfDay };
+  return {
+    startOfDay: mexicoNow.clone().startOf('day').utc().toDate(),
+    endOfDay: mexicoNow.clone().endOf('day').utc().toDate()
+  };
 };
 
 const authenticate = async (req, res, next) => {
