@@ -2,6 +2,16 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const FranchiseLocation = require('../models/FranchiseLocation');
 const { ROLES } = require("../utils/roles");
+const moment = require('moment-timezone');
+
+const getMexicoDayRange = () => {
+  const mexicoNow = moment().tz('America/Mexico_City');
+
+  return {
+    startOfDay: mexicoNow.clone().startOf('day').utc().toDate(),
+    endOfDay: mexicoNow.clone().endOf('day').utc().toDate()
+  };
+};
 
 const authenticate = async (req, res, next) => {
   try {
@@ -101,15 +111,7 @@ const applyFranchiseFilter = async (req, res, next) => {
         return res.status(403).json({ error: 'Sin sucursal asignada.' });
       }
 
-      const now = new Date();
-      const tzOffset = now.getTimezoneOffset() * 60000;
-      const localNow = new Date(now - tzOffset);
-
-      const startOfDay = new Date(localNow);
-      startOfDay.setUTCHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(localNow);
-      endOfDay.setUTCHours(23, 59, 59, 999);
+      const { startOfDay, endOfDay } = getMexicoDayRange();
 
       req.franchiseFilter = {
         franchiseLocation: req.user.franchiseLocation._id,
@@ -187,12 +189,8 @@ const applyRoleDataFilter = async (req, res, next) => {
     return next();
   }
 
-  // Cajeros/Vendedores todas las ventas del dia de su sucursal fisica
   if ([ROLES.CASHIER, ROLES.SELLER].includes(role)) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
+    const { startOfDay, endOfDay } = getMexicoDayRange();
 
     const deviceGuid = req.headers['x-device-guid'];
     let franchiseId = null;
@@ -208,7 +206,7 @@ const applyRoleDataFilter = async (req, res, next) => {
 
     req.roleFilter = {
       franchiseLocation: franchiseId,
-      createdAt: { $gte: today, $lte: endOfDay }
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
     };
     return next();
   }
