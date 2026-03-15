@@ -13,43 +13,45 @@ function getAuthHeaders(): Record<string, string> {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-    if (process.env.NODE_ENV === 'development') {
-    }
   } else {
     console.warn("No se encontró token en localStorage");
   }
 
   if (branchId) {
     headers['x-branch-id'] = branchId;
-    if (process.env.NODE_ENV === 'development') {
-    }
   }
 
   return headers;
 }
 
-export async function listExpenses(params?: { from?: string; to?: string; user?: string; q?: string; }): Promise<Expense[]> {
+export async function listExpenses(params?: {
+  from?: string;
+  to?: string;
+  user?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: Expense[]; total: number; totalAmount: number; page: number; totalPages: number }> {
   try {
     const url = new URL(BASE);
 
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
-        if (v) url.searchParams.set(k, v);
+        if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
       });
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Solicitando gastos desde:", url.toString());
-    }
-
-    const res = await fetch(url.toString(), {
-      headers: getAuthHeaders()
-    });
-
+    const res = await fetch(url.toString(), { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Error al cargar gastos');
 
     const data = await res.json();
-    return Array.isArray(data) ? data : data.data || [];
+
+    if (Array.isArray(data)) {
+      const sum = data.reduce((acc: number, e: Expense) => acc + (e.amount || 0), 0);
+      return { data, total: data.length, totalAmount: sum, page: 1, totalPages: 1 };
+    }
+
+    return data;
   } catch (err) {
     console.error("Error en listExpenses:", err);
     throw err;
@@ -58,7 +60,6 @@ export async function listExpenses(params?: { from?: string; to?: string; user?:
 
 export async function createExpense(payload: Expense): Promise<Expense> {
   const sanitized = { ...payload };
-
   delete (sanitized as any).branch;
 
   const res = await fetch(BASE, {
@@ -73,7 +74,6 @@ export async function createExpense(payload: Expense): Promise<Expense> {
 
 export async function updateExpense(id: string, payload: Expense): Promise<Expense> {
   const sanitized = { ...payload };
-
   delete (sanitized as any).branch;
   delete (sanitized as any).franchiseLocation;
 

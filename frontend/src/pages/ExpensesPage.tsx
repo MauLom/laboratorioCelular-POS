@@ -21,6 +21,8 @@ import { useAuth } from "../contexts/AuthContext";
 import axios from "axios";
 import deviceTrackerApi from '../services/deviceTrackerApi';
 
+const LIMIT = 10;
+
 export default function ExpensesPage() {
   const { user } = useAuth();
 
@@ -41,12 +43,12 @@ export default function ExpensesPage() {
 
         const res = await axios.get(
           `${process.env.REACT_APP_API_URL}/franchise-locations/by-guid/${guid}`,
-         {
-           headers: {
-             Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('auth_token')}`
             }
           }
-        );  
+        );
 
         if (res.data) {
           setTrackerBranchName(res.data.name);
@@ -104,12 +106,26 @@ export default function ExpensesPage() {
   const [to, setTo] = useState('');
   const [userFilter, setUserFilter] = useState('');
 
-  const load = useCallback(async (filters?: { q?: string; from?: string; to?: string; user?: string }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+
+  const load = useCallback(async (
+    filters?: { q?: string; from?: string; to?: string; user?: string },
+    page = 1
+  ) => {
     setLoading(true);
     try {
-      if (!isAdmin) filters = undefined;
-      const res = await listExpenses(filters);
-      setItems(Array.isArray(res) ? res : []);
+      const params = isAdmin
+        ? { ...filters, page, limit: LIMIT }
+        : { page, limit: LIMIT };
+
+      const res = await listExpenses(params);
+      console.log('res completo:', res);
+      setItems(res.data);
+      setCurrentPage(res.page);
+      setTotalPages(res.totalPages);
+      setTotalExpenses(res.totalAmount);
     } catch {
       toast.error('No se pudieron cargar los gastos.');
     } finally {
@@ -146,20 +162,18 @@ export default function ExpensesPage() {
         date: form.date,
         franchiseLocation: trackerBranchId,
         deviceGuid: guid ?? "SIN_GUID"
-      };  
-
-      console.log("Enviando gasto:", payload);
+      };
 
       if (editingId && isAdmin) {
         await updateExpense(editingId, payload);
       } else {
         await createExpense(payload);
       }
-      
+
       toast.success('Gasto registrado correctamente.');
       setForm(emptyExpense);
       setEditingId(null);
-      await load();
+      await load({ q, from, to, user: userFilter }, currentPage);
 
     } catch (error) {
       console.error("Error al guardar gasto:", error);
@@ -171,7 +185,6 @@ export default function ExpensesPage() {
 
   const handleEdit = (exp: Expense) => {
     if (!isAdmin) return;
-
     setForm({
       ...exp,
       date: exp.date.slice(0, 10),
@@ -189,7 +202,7 @@ export default function ExpensesPage() {
     try {
       await deleteExpense(id);
       toast.success('Gasto eliminado correctamente.');
-      await load();
+      await load({ q, from, to, user: userFilter }, currentPage);
     } catch {
       toast.error('No se pudo eliminar el gasto.');
     } finally {
@@ -197,17 +210,22 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleFilters = async () => await load({ q, from, to, user: userFilter });
+  const handleFilters = async () => {
+    setCurrentPage(1);
+    await load({ q, from, to, user: userFilter }, 1);
+  };
+
   const clearFilters = async () => {
     setQ('');
     setFrom('');
     setTo('');
     setUserFilter('');
-    await load();
+    setCurrentPage(1);
+    await load(undefined, 1);
   };
 
   const total = useMemo(
-    () => (Array.isArray(items) ? items.reduce((a, b) => a + (b.amount || 0), 0) : 0),
+    () => items.reduce((a, b) => a + (b.amount || 0), 0),
     [items]
   );
 
@@ -216,8 +234,19 @@ export default function ExpensesPage() {
     [items]
   );
 
+  const pageNumbers = useMemo(() => {
+    return Array.from({ length: totalPages }, (_, i) => i + 1)
+      .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+      .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+        acc.push(p);
+        return acc;
+      }, []);
+  }, [totalPages, currentPage]);
+
   return (
     <Layout>
+      {/* FORMULARIO */}
       <Box bg="white" p="20px" borderRadius="8px" boxShadow="md">
         <Heading as="h2" size="md" mb="4">
           Registro de Gastos
@@ -225,8 +254,6 @@ export default function ExpensesPage() {
 
         <form onSubmit={handleSubmit}>
           <Flex direction="column">
-
-            {/* Motivo y monto */}
             <Flex mb="10px">
               <Input
                 placeholder="Motivo"
@@ -244,7 +271,6 @@ export default function ExpensesPage() {
               />
             </Flex>
 
-            {/* Usuario + Sucursal */}
             <Flex mb="10px">
               <Input
                 placeholder="Usuario"
@@ -254,7 +280,6 @@ export default function ExpensesPage() {
                 cursor="not-allowed"
                 mr="10px"
               />
-
               <Input
                 placeholder="Sucursal"
                 value={trackerBranchName}
@@ -264,7 +289,6 @@ export default function ExpensesPage() {
               />
             </Flex>
 
-            {/* Fecha */}
             <Input
               type="date"
               value={form.date}
@@ -343,9 +367,7 @@ export default function ExpensesPage() {
             >
               <option value="">Todos los usuarios</option>
               {uniqueUsers.map(u => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
+                <option key={u} value={u}>{u}</option>
               ))}
             </select>
 
@@ -398,7 +420,6 @@ export default function ExpensesPage() {
                       </Box>
                       <Box as="td" p="8px">{e.user}</Box>
                       <Box as="td" p="8px">{e.notes || '-'}</Box>
-
                       <Box as="td" p="8px" textAlign="center">
                         <Flex justify="center">
                           {isAdmin ? (
@@ -436,9 +457,57 @@ export default function ExpensesPage() {
               </Box>
             </Box>
 
-            <Text fontWeight="bold" textAlign="right" mt="10px">
-              Total mostrado: ${total.toFixed(2)}
-            </Text>
+            {/* PAGINACIÓN */}
+            {totalPages > 1 && (
+              <Flex justify="center" align="center" mt="16px" gap="8px" flexWrap="wrap">
+                <Button
+                  size="sm"
+                  onClick={() => load({ q, from, to, user: userFilter }, currentPage - 1)}
+                  disabled={currentPage === 1 || loading}
+                >
+                  ← Anterior
+                </Button>
+
+                {pageNumbers.map((p, i) =>
+                  p === '...' ? (
+                    <Text key={`ellipsis-${i}`} px="2" lineHeight="32px">…</Text>
+                  ) : (
+                    <Button
+                      key={p}
+                      size="sm"
+                      colorScheme={p === currentPage ? 'green' : 'gray'}
+                      onClick={() => load({ q, from, to, user: userFilter }, p as number)}
+                      disabled={loading}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+
+                <Button
+                  size="sm"
+                  onClick={() => load({ q, from, to, user: userFilter }, currentPage + 1)}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Siguiente →
+                </Button>
+              </Flex>
+            )}
+
+            {/* TOTALES */}
+            <Flex justify="flex-end" align="baseline" mt="10px" gap="8px">
+              <Text fontWeight="bold">
+                Total página: ${total.toFixed(2)}
+              </Text>
+              <Text fontWeight="bold" color="green.600">
+                Total del día: ${totalExpenses.toFixed(2)}
+              </Text>
+              {isAdmin && (
+                <Text color="gray.500" fontSize="sm">
+                  (página {currentPage} de {totalPages} — {totalExpenses} gastos en total)
+                </Text>
+              )}
+            </Flex>
           </Box>
         )}
       </Box>

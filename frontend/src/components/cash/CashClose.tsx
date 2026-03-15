@@ -147,7 +147,8 @@ const CashClose: React.FC = () => {
       try {
         const today = new Date();
         const localDate = today.toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
-        const expenses = await listExpenses({ from: localDate, to: localDate });
+        const res = await listExpenses({ from: localDate, to: localDate, limit: 50 });
+        const expenses = res.data;
         
         setDailyExpenses(expenses);
         

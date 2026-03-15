@@ -1,5 +1,6 @@
 const Expense = require('../models/Expense');
 const FranchiseLocation = require('../models/FranchiseLocation');
+const mongoose = require('mongoose');
 const { ROLES } = require('../utils/roles');
 
 function getTodayString() {
@@ -10,7 +11,7 @@ function getTodayString() {
 
 exports.list = async (req, res) => {
   try {
-    const { q, from, to, user } = req.query;
+    const { q, from, to, user, page, limit } = req.query;
     const userRole = req.user.role;
 
     const isAdmin = [
@@ -25,40 +26,66 @@ exports.list = async (req, res) => {
 
     if (!isAdmin) {
       const branchDetected = req.headers['x-branch-id'];
-
       if (!branchDetected) {
-        return res.json([]);
+        return res.json({ data: [], total: 0, totalAmount: 0, page: 1, totalPages: 0 });
       }
-
       query.franchiseLocation = branchDetected;
-      query.date = getTodayString();
+
+      const todayStr = getTodayString();
+      const start = new Date(todayStr + 'T00:00:00.000Z');
+      const end   = new Date(todayStr + 'T23:59:59.999Z');
+      query.date = { $gte: start, $lte: end };
     }
 
     if (isAdmin && (from || to)) {
       query.date = {};
       if (from) query.date.$gte = new Date(from);
-      if (to) query.date.$lte = new Date(to);
+      if (to)   query.date.$lte = new Date(to);
     }
 
     if (q) {
       query.$or = [
         { reason: new RegExp(q, 'i') },
-        { notes: new RegExp(q, 'i') },
-        { user: new RegExp(q, 'i') }
+        { notes:  new RegExp(q, 'i') },
+        { user:   new RegExp(q, 'i') }
       ];
     }
 
-    if (user) {
-      query.user = new RegExp(user, 'i');
+    if (user) query.user = new RegExp(user, 'i');
+
+    const pageNum  = Math.max(1, parseInt(page)  || 1);
+    const limitNum = Math.min(100, parseInt(limit) || 10);
+    const skip     = (pageNum - 1) * limitNum;
+
+    const aggregateMatch = { ...query };
+    if (aggregateMatch.franchiseLocation) {
+      aggregateMatch.franchiseLocation = new mongoose.Types.ObjectId(aggregateMatch.franchiseLocation);
     }
 
-    const expenses = await Expense.find(query)
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .populate('franchiseLocation', 'name code type')
-      .populate('createdBy', 'firstName lastName username role');
+    const [expenses, total, aggregateResult] = await Promise.all([
+      Expense.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('franchiseLocation', 'name code type')
+        .populate('createdBy', 'firstName lastName username role'),
+      Expense.countDocuments(query),
+      Expense.aggregate([
+        { $match: aggregateMatch },
+        { $group: { _id: null, sum: { $sum: '$amount' } } }
+      ])
+    ]);
 
-    res.json(expenses);
+    const totalAmount = aggregateResult[0]?.sum || 0;
+
+    res.json({
+      data:        expenses,
+      total,
+      totalAmount,
+      page:        pageNum,
+      limit:       limitNum,
+      totalPages:  Math.ceil(total / limitNum)
+    });
 
   } catch (error) {
     console.error('Error al listar gastos:', error);
