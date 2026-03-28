@@ -18,6 +18,7 @@ mongoose.set('bufferCommands', false);
 mongoose.set('bufferTimeoutMS', 0);
 
 let isConnected = false;
+let cronRegistered = false;
 
 async function connectDB() {
   if (isConnected) return;
@@ -29,8 +30,6 @@ async function connectDB() {
 
   isConnected = db.connections[0].readyState === 1;
   console.log('MongoDB connected');
-  
-  startAutoCloseCashJob();
 }
 
 console.log('🌐 CORS Configuration:');
@@ -86,6 +85,30 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Endpoint de diagnostico para verificar que el cron esta registrado
+app.get('/api/debug/cron-status', async (req, res) => {
+  const CashSession = require('./models/CashSession');
+
+  try {
+    const openSessions = await CashSession.findAllOpenSessions();
+    const monterreyTime = moment().tz('America/Monterrey').format('YYYY-MM-DD HH:mm:ss');
+
+    res.json({
+      serverTime: new Date().toISOString(),
+      monterreyTime,
+      cronRegistered,
+      openCashSessions: openSessions.map(s => ({
+        id: s._id,
+        branch: s.franchiseLocation?.name || 'Desconocida',
+        openedAt: moment(s.openDateTime).tz('America/Monterrey').format('YYYY-MM-DD HH:mm:ss'),
+        status: s.status
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
@@ -100,9 +123,45 @@ app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/cash-session', require('./routes/cashSessions'));
 app.use('/api/transfers', require('./routes/transfers'));
 
+async function compensateMissedAutoClose(CashSession) {
+  try {
+    const now = moment().tz('America/Monterrey');
+    const openSessions = await CashSession.findAllOpenSessions();
+
+    const staleSessions = openSessions.filter(session => {
+      const openedAt = moment(session.openDateTime).tz('America/Monterrey');
+      return openedAt.isBefore(now, 'day');
+    });
+
+    if (staleSessions.length === 0) {
+      console.log('[COMPENSATE] No hay cajas pendientes de días anteriores');
+      return;
+    }
+
+    console.log(`[COMPENSATE] Se encontraron ${staleSessions.length} cajas sin cerrar de días anteriores`);
+
+    for (const session of staleSessions) {
+      try {
+        await session.autoCloseSession();
+        const franchiseName = session.franchiseLocation?.name || 'Desconocida';
+        console.log(`[COMPENSATE] ✓ Caja cerrada retroactivamente - Sucursal: ${franchiseName}`);
+      } catch (error) {
+        const franchiseName = session.franchiseLocation?.name || 'Desconocida';
+        console.error(`[COMPENSATE] ✗ Error - Sucursal: ${franchiseName}`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('[COMPENSATE] Error en cierre compensatorio:', error);
+  }
+}
+
 function startAutoCloseCashJob() {
   const CashSession = require('./models/CashSession');
-  
+  compensateMissedAutoClose(CashSession);
+
+  const now = moment().tz('America/Monterrey').format('YYYY-MM-DD HH:mm:ss');
+  console.log(`✓ Cron registrado a las ${now} hora Monterrey`);
+
   // Ejecutar todos los dias a las 11:59 PM (hora de Monterrey)
   cron.schedule('59 23 * * *', async () => {
     const monterreyTime = moment().tz('America/Monterrey').format('YYYY-MM-DD HH:mm:ss');
@@ -110,7 +169,7 @@ function startAutoCloseCashJob() {
 
     try {
       const openSessions = await CashSession.findAllOpenSessions();
-      
+
       if (openSessions.length === 0) {
         console.log('[AUTO-CLOSE] No hay cajas abiertas para cerrar');
         return;
@@ -130,7 +189,7 @@ function startAutoCloseCashJob() {
       }
 
       console.log('[AUTO-CLOSE] Proceso completado');
-      
+
     } catch (error) {
       console.error('[AUTO-CLOSE] Error general en cierre automático:', error);
     }
@@ -138,6 +197,7 @@ function startAutoCloseCashJob() {
     timezone: 'America/Monterrey'
   });
 
+  cronRegistered = true;
   console.log('✓ Cron job de cierre automático iniciado (11:59 PM diario - Monterrey)');
 }
 
@@ -154,8 +214,15 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+
+  try {
+    await connectDB();
+    startAutoCloseCashJob();
+  } catch (err) {
+    console.error('Error al inicializar:', err);
+  }
 });
 
 module.exports = app;
