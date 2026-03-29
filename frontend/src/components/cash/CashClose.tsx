@@ -242,11 +242,19 @@ const CashClose: React.FC = () => {
             openDate.getDate() === today.getDate();
 
           if (!isSameDay) {
-            results.push({
-              franchiseName: loc.name,
-              franchiseId: loc._id,
-              session,
-            });
+            try {
+              await cashSessionApi.forceClose(session._id!, {
+                closing_cash_mxn: 0,
+                closing_cash_usd: 0,
+                card_amount: 0,
+                withdrawn_amount: 0,
+                notes: "Cierre automático por sesión atrasada",
+              });
+              console.log(`[AUTO-CLOSE] Caja cerrada automáticamente: ${loc.name}`);
+            } catch (closeErr) {
+              console.error(`[AUTO-CLOSE] Error al cerrar caja de ${loc.name}:`, closeErr);
+              results.push({ franchiseName: loc.name, franchiseId: loc._id, session });
+            }  
           }
         }
       }
