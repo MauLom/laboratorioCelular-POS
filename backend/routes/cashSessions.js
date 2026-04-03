@@ -55,13 +55,16 @@ router.post('/open', authenticate, async (req, res) => {
         sessionDate.getDate() === today.getDate();
 
       if (!isSameDay) {
-        return res.status(400).json({
-          error:
-            "No puedes abrir caja porque hay una sesión pendiente de cierre del día anterior. Contacta al administrador.",
-          session: anyOpenSession
-        });
+        // Cerrar automáticamente la sesión atrasada
+        anyOpenSession.status = 'closed';
+        anyOpenSession.closeDateTime = new Date();
+        anyOpenSession.autoClosed = true;
+        anyOpenSession.notes = anyOpenSession.notes
+          ? `${anyOpenSession.notes} | Cierre automático por apertura de nueva caja`
+          : 'Cierre automático por apertura de nueva caja';
+        await anyOpenSession.save();
       }
-    }     
+    }
 
     // Verificar si ya existe una sesión abierta hoy
     const existingSession = await CashSession.findTodaySession(franchiseLocationId);
@@ -255,20 +258,7 @@ router.post('/force-close/:sessionId', authenticate, async (req, res) => {
   try {
     const { sessionId } = req.params;
 
-    const allowedRoles = [
-      ROLES.MASTER_ADMIN,
-      ROLES.ADMIN,
-      ROLES.OFFICE_SUPERVISOR,
-      ROLES.MULTI_BRANCH_SUPERVISOR
-    ];
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: 'No tienes permiso para cerrar sesiones antiguas'
-      });
-    }
-
-    const session = await CashSession.findById(sessionId);
+    const session = await CashSession.findById(sessionId).populate('franchiseLocation');
 
     if (!session) {
       return res.status(404).json({ error: 'Sesión no encontrada' });
@@ -278,17 +268,51 @@ router.post('/force-close/:sessionId', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'La sesión ya está cerrada' });
     }
 
+    const allowedRoles = [
+      ROLES.MASTER_ADMIN,
+      ROLES.ADMIN,
+      ROLES.OFFICE_SUPERVISOR,
+      ROLES.MULTI_BRANCH_SUPERVISOR
+    ];
+
+    const isAdmin = allowedRoles.includes(req.user.role);
+
+    const openDate = new Date(session.openDateTime);
+    const today = new Date();
+    const isSameDay =
+      openDate.getFullYear() === today.getFullYear() &&
+      openDate.getMonth() === today.getMonth() &&
+      openDate.getDate() === today.getDate();
+
+    if (!isAdmin) {
+      if (isSameDay) {
+        return res.status(403).json({
+          error: 'No tienes permiso para cerrar la sesión del día actual'
+        });
+      }
+
+      const userFranchise = req.user.franchiseLocation?.toString();
+      const sessionFranchise = session.franchiseLocation?._id?.toString();
+
+      if (userFranchise !== sessionFranchise) {
+        return res.status(403).json({
+          error: 'No tienes permiso para cerrar sesiones de otras sucursales'
+        });
+      }
+    }
+
     session.status = 'closed';
     session.closeDateTime = new Date();
-    session.forceClosed = true;
+    session.autoClosed = !isAdmin;
+    session.forceClosed = isAdmin;
     session.closedBy = req.user._id;
-    session.notes = session.notes || 'Cierre forzado por administrador';
+    session.notes = session.notes || (isAdmin ? 'Cierre forzado por administrador' : 'Cierre automático por apertura de nueva caja');
 
     await session.save();
     await session.populate('franchiseLocation user');
 
     res.json({
-      message: 'Sesión cerrada exitosamente (forzado por administrador)',
+      message: 'Sesión cerrada exitosamente',
       session
     });
 
