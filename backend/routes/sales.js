@@ -233,7 +233,8 @@ router.get(
         fechaStr = fecha.toLocaleDateString('es-MX', {
           day: '2-digit',
           month: '2-digit',
-          year: 'numeric'
+          year: 'numeric',
+          timeZone: 'America/Monterrey'
         });
       }
 
@@ -283,7 +284,8 @@ router.get(
           ? sale.createdAt.toLocaleDateString('es-MX', {
               day: '2-digit',
               month: '2-digit',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'America/Monterrey'
             })
           : '';
 
