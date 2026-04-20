@@ -63,34 +63,13 @@ const CashOpenModal: React.FC<CashOpenModalProps> = ({
     setLoading(true);
 
     try {
-      // Verificar si hay sesión atrasada y cerrarla antes de abrir
-      const anyOpen = await cashSessionApi.findAnyOpenSession(franchiseId);
-      if (anyOpen && anyOpen.status === 'open') {
-        const openDate = new Date(anyOpen.openDateTime);
-        const today = new Date();
-        const isSameDay =
-          openDate.getFullYear() === today.getFullYear() &&
-          openDate.getMonth() === today.getMonth() &&
-          openDate.getDate() === today.getDate();
-
-        if (!isSameDay) {
-          await cashSessionApi.forceClose(anyOpen._id!, {
-            closing_cash_mxn: 0,
-            closing_cash_usd: 0,
-            card_amount: 0,
-            withdrawn_amount: 0,
-            notes: 'Cierre automático por apertura de nueva caja',
-          });
-        }
-      }
-
       const requestData: CashSessionOpenRequest = {
         franchiseLocationId: franchiseId,
         opening_cash_mxn: parseFloat(opening_cash_mxn),
         opening_cash_usd: parseFloat(opening_cash_usd),
         exchange_rate_usd_mxn: parseFloat(exchange_rate_usd_mxn)
       };
-
+        
       await cashSessionApi.open(requestData);
       success('Caja abierta exitosamente');
       onSuccess();
