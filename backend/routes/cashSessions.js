@@ -284,21 +284,10 @@ router.post('/force-close/:sessionId', authenticate, async (req, res) => {
       openDate.getMonth() === today.getMonth() &&
       openDate.getDate() === today.getDate();
 
-    if (!isAdmin) {
-      if (isSameDay) {
-        return res.status(403).json({
-          error: 'No tienes permiso para cerrar la sesión del día actual'
-        });
-      }
-
-      const userFranchise = req.user.franchiseLocation?.toString();
-      const sessionFranchise = session.franchiseLocation?._id?.toString();
-
-      if (userFranchise !== sessionFranchise) {
-        return res.status(403).json({
-          error: 'No tienes permiso para cerrar sesiones de otras sucursales'
-        });
-      }
+    if (!isAdmin && isSameDay) {
+      return res.status(403).json({
+        error: 'No tienes permiso para cerrar la sesión del día actual'
+      });
     }
 
     session.status = 'closed';
