@@ -155,11 +155,25 @@ router.get(
             || req.user.franchiseLocation?.toString();
         }
         
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        startDate = today.toISOString();
-        const endOfDay = new Date(today);
-        endOfDay.setHours(23, 59, 59, 999);
+        const now = new Date();
+        const monterreyOffset = -6 * 60 * 60 * 1000;
+        const monterreyNow = new Date(now.getTime() + monterreyOffset);
+
+        const startOfDay = new Date(Date.UTC(
+          monterreyNow.getUTCFullYear(),
+          monterreyNow.getUTCMonth(),
+          monterreyNow.getUTCDate(),
+          6, 0, 0, 0
+        ));
+
+        const endOfDay = new Date(Date.UTC(
+          monterreyNow.getUTCFullYear(),
+          monterreyNow.getUTCMonth(),
+          monterreyNow.getUTCDate() + 1,
+          5, 59, 59, 999
+        ));
+
+        startDate = startOfDay.toISOString();
         endDate = endOfDay.toISOString();
 
       } else {
